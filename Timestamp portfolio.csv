@@ -1,0 +1,91 @@
+Platform,Asset Ticker,Total Quantity Owned,Market Price,Total Market Value,Asset Class,Strategy,Country,Mese,Anno
+BBVA,Cash,1,14000,14000,Cash,,Italy,8,2025
+Binance,BTCEUR,"0,0175688","100172,4414","1759,91",Crypto,Play,United States,8,2025
+Binance,ETHEUR,"0,17676048","3443,990641","608,76",Crypto,Play,United States,8,2025
+Crypto,BTCEUR,"0,000029","100172,4414","2,91",Crypto,Play,United States,8,2025
+Crypto,ADAEUR,8,"0,6786682901","5,43",Crypto,Play,United States,8,2025
+Crypto,ETHEUR,"0,004","3443,990641","13,78",Crypto,Play,United States,8,2025
+Crypto,SHIB-EUR,1000000,"0,0000118954495","11,9",Crypto,Play,United States,8,2025
+Fineco,Cash,1,"797,8222","797,82",Cash,,Italy,8,2025
+Fineco,BIT:ACWI,"1,13","489,37","552,99",ETF,Core,United States,8,2025
+Fineco,BIT:PHAU,2,"270,9","541,8",ETF,Core,United States,8,2025
+Fineco,BIT:A500,2,"108,06","216,12",ETF,Core,United States,8,2025
+Fineco,BIT:EMI,2,"166,98","333,96",ETF,Core,European Union,8,2025
+Fineco,BIT:LCCN,20,"18,61","372,2",ETF,Core,China,8,2025
+Fineco,BIT:VECA,3,"52,83","158,49",ETF,Core,European Union,8,2025
+Fineco,BIT:CSBGU7,1,"120,12","120,12",ETF,Core,United States,8,2025
+Fineco,BIT:CMOD,11,"20,71","227,81",ETF,Core,United States,8,2025
+Fineco,BIT:SWDA,26,"103,57","2692,82",ETF,Core,United States,8,2025
+Fineco,BIT:EMXC,16,"25,9","414,4",ETF,Core,Japan,8,2025
+Mercury,Cash,1,"2403,330328","2403,33",Cash,,United States,8,2025
+Paypal,Cash,1,700,700,Cash,,Italy,8,2025
+Revolut,Cash,1,11700,11700,Cash,,Italy,8,2025
+Wise,Cash,1,5800,5800,Cash,,United States,8,2025
+Youhodler,BTCEUR,"0,00127","100172,4414","127,22",Crypto,Play,United States,8,2025
+BBVA,Cash,1,14000,14000,Cash,,Italy,9,2025
+Binance,BTCEUR,"0,01801482","92144,46795","1659,97",Crypto,Play,United States,9,2025
+Binance,ETHEUR,"0,18847453","3756,014917","707,91",Crypto,Play,United States,9,2025
+Crypto,BTCEUR,"0,000029","92144,46795","2,67",Crypto,Play,United States,9,2025
+Crypto,ADAEUR,8,"0,687121","5,5",Crypto,Play,United States,9,2025
+Crypto,ETHEUR,"0,004","3756,014917","15,02",Crypto,Play,United States,9,2025
+Crypto,SHIB-EUR,1000000,"0,000010241272","10,24",Crypto,Play,United States,9,2025
+Fineco,Cash,1,"797,8222","797,82",Cash,,Italy,9,2025
+Fineco,BIT:ACWI,"1,13","493,45","557,6",ETF,Core,United States,9,2025
+Fineco,BIT:PHAU,2,"274,09","548,18",ETF,Core,United States,9,2025
+Fineco,BIT:A500,2,"109,2","218,4",ETF,Core,United States,9,2025
+Fineco,BIT:EMI,2,"166,68","333,36",ETF,Core,European Union,9,2025
+Fineco,BIT:LCCN,20,"19,52","390,4",ETF,Core,China,9,2025
+Fineco,BIT:VECA,3,"52,79","158,37",ETF,Core,European Union,9,2025
+Fineco,BIT:CSBGU7,1,"120,78","120,78",ETF,Core,United States,9,2025
+Fineco,BIT:CMOD,11,"20,97","230,67",ETF,Core,United States,9,2025
+Fineco,BIT:SWDA,26,"104,6","2719,6",ETF,Core,United States,9,2025
+Fineco,BIT:EMXC,16,"25,5",408,ETF,Core,Japan,9,2025
+Mercury,Cash,1,"2390,404234","2390,4",Cash,,United States,9,2025
+Paypal,Cash,1,700,700,Cash,,Italy,9,2025
+Revolut,Cash,1,11700,11700,Cash,,Italy,9,2025
+Wise,Cash,1,5800,5800,Cash,,United States,9,2025
+Youhodler,BTCEUR,"0,00127","92144,46795","117,02",Crypto,Play,United States,9,2025
+BBVA,Cash,1,14000,14000,Cash,,Italy,10,2025
+Binance,BTCEUR,"0,01817492","97472,67329","1771,56",Crypto,Play,United States,10,2025
+Binance,ETHEUR,"0,19237553","3532,038309","679,48",Crypto,Play,United States,10,2025
+Crypto,BTCEUR,"0,000029","97472,67329","2,83",Crypto,Play,United States,10,2025
+Crypto,ADAEUR,8,"0,684746","5,48",Crypto,Play,United States,10,2025
+Crypto,ETHEUR,"0,004","3532,038309","14,13",Crypto,Play,United States,10,2025
+Crypto,SHIB-EUR,1000000,"0,0000101332635","10,13",Crypto,Play,United States,10,2025
+Fineco,Cash,1,"172,0744","172,07",Cash,,Italy,10,2025
+Fineco,BIT:A500,2,"112,02","224,04",ETF,Core,United States,10,2025
+Fineco,BIT:EMI,2,"166,2","332,4",ETF,Core,European Union,10,2025
+Fineco,BIT:VECA,3,"52,96","158,88",ETF,Core,European Union,10,2025
+Fineco,BIT:CSBGU7,1,"120,88","120,88",ETF,Core,United States,10,2025
+Fineco,BIT:CMOD,11,"21,61","237,71",ETF,Core,United States,10,2025
+Fineco,BIT:SWDA,32,"107,08","3426,56",ETF,Core,United States,10,2025
+Mercury,Cash,1,"2381,316","2381,32",Cash,,United States,10,2025
+Paypal,Cash,1,700,700,Cash,,Italy,10,2025
+Revolut,Cash,1,11700,11700,Cash,,Italy,10,2025
+Wise,Cash,1,5800,5800,Cash,,United States,10,2025
+Youhodler,BTCEUR,"0,00127","97472,67329","123,79",Crypto,Play,United States,10,2025
+BBVA,Cash,1,14000,14000,Cash,,Italy,11,2025
+Binance,BTCEUR,"0,01874582","95124,9761","1783,2",Crypto,Play,United States,11,2025
+Binance,ETHEUR,"0,20383053","3344,265027","681,66",Crypto,Play,United States,11,2025
+Binance,SOLEUR,"0,03657","160,1554205","5,86",Crypto,Play,United States,11,2025
+Binance,BNBEUR,"0,007116","943,3666582","6,71",Crypto,Play,United States,11,2025
+Crypto,BTCEUR,"0,000029","95124,9761","2,76",Crypto,Play,United States,11,2025
+Crypto,ADAEUR,8,"0,5275631175","4,22",Crypto,Play,United States,11,2025
+Crypto,ETHEUR,"0,004","3344,265027","13,38",Crypto,Play,United States,11,2025
+Crypto,SHIB-EUR,1000000,"0,000008782","8,78",Crypto,Play,United States,11,2025
+Fineco,Cash,1,"153,03066","153,03",Cash,,Italy,11,2025
+Fineco,ACWIA.MI,3,"199,97","599,91",ETF,Core,United States,11,2025
+Fineco,PHAU.MI,2,"321,47","642,94",ETF,Core,United States,11,2025
+Fineco,BIT:A500,2,"117,55","235,1",ETF,Core,United States,11,2025
+Fineco,BIT:EMI,2,"168,11","336,22",ETF,Core,European Union,11,2025
+Fineco,LCCN.MI,20,"20,66","413,2",ETF,Core,China,11,2025
+Fineco,BIT:VECA,3,"53,38","160,14",ETF,Core,European Union,11,2025
+Fineco,BIT:CSBGU7,1,"123,31","123,31",ETF,Core,United States,11,2025
+Fineco,BIT:CMOD,11,"22,38","246,18",ETF,Core,United States,11,2025
+Fineco,BIT:SWDA,32,"111,82","3578,24",ETF,Core,United States,11,2025
+Fineco,EMXC.BE,16,"29,585","473,36",ETF,Core,Japan,11,2025
+Mercury,Cash,1,"2413,88","2413,88",Cash,,United States,11,2025
+Paypal,Cash,1,700,700,Cash,,Italy,11,2025
+Revolut,Cash,1,11700,11700,Cash,,Italy,11,2025
+Wise,Cash,1,5800,5800,Cash,,United States,11,2025
+Youhodler,BTCEUR,"0,00127","95124,9761","120,81",Crypto,Play,United States,11,2025

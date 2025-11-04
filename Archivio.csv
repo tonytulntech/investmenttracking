@@ -1,0 +1,91 @@
+Platform,Asset Ticker,Total Quantity Owned,Market Price,Total Market Value,Asset Class,Strategy,Country,Mese,Anno
+BBVA,Cash,"1,0000","14.000,00","14.000,00",Cash,,Italy,8,2025
+Binance,BTCEUR,"0,0176","100.172,44","1.759,91",Crypto,Play,United States,8,2025
+Binance,ETHEUR,"0,1768","3.443,99","608,76",Crypto,Play,United States,8,2025
+Crypto,BTCEUR,"0,0000","100.172,44","2,91",Crypto,Play,United States,8,2025
+Crypto,ADAEUR,"8,0000","0,68","5,43",Crypto,Play,United States,8,2025
+Crypto,ETHEUR,"0,0040","3.443,99","13,78",Crypto,Play,United States,8,2025
+Crypto,SHIB-EUR,"1.000.000,0000","0,00","11,90",Crypto,Play,United States,8,2025
+Fineco,Cash,"1,0000","797,82","797,82",Cash,,Italy,8,2025
+Fineco,BIT:ACWI,1,"489,37","552,99",ETF,Core,United States,8,2025
+Fineco,BIT:PHAU,"2,0000","270,90","541,80",ETF,Core,United States,8,2025
+Fineco,BIT:A500,"2,0000","108,06","216,12",ETF,Core,United States,8,2025
+Fineco,BIT:EMI,"2,0000","166,98","333,96",ETF,Core,European Union,8,2025
+Fineco,BIT:LCCN,"20,0000","18,61","372,20",ETF,Core,China,8,2025
+Fineco,BIT:VECA,"3,0000","52,83","158,49",ETF,Core,European Union,8,2025
+Fineco,BIT:CSBGU7,"1,0000","120,12","120,12",ETF,Core,United States,8,2025
+Fineco,BIT:CMOD,"11,0000","20,71","227,81",ETF,Core,United States,8,2025
+Fineco,BIT:SWDA,"26,0000","103,57","2.692,82",ETF,Core,United States,8,2025
+Fineco,BIT:EMXC,"16,0000","25,90","414,40",ETF,Core,Japan,8,2025
+Mercury,Cash,"1,0000","2.403,33","2.403,33",Cash,,United States,8,2025
+Paypal,Cash,"1,0000","700,00","700,00",Cash,,Italy,8,2025
+Revolut,Cash,"1,0000","11.700,00","11.700,00",Cash,,Italy,8,2025
+Wise,Cash,"1,0000","5.800,00","5.800,00",Cash,,United States,8,2025
+Youhodler,BTCEUR,"0,0013","100.172,44","127,22",Crypto,Play,United States,8,2025
+BBVA,Cash,"1,0000","14.000,00","14.000,00",Cash,,Italy,9,2025
+Binance,BTCEUR,"0,0180","92.144,47","1.659,97",Crypto,Play,United States,9,2025
+Binance,ETHEUR,"0,1885","3.756,01","707,91",Crypto,Play,United States,9,2025
+Crypto,BTCEUR,"0,0000","92.144,47","2,67",Crypto,Play,United States,9,2025
+Crypto,ADAEUR,"8,0000","0,69","5,50",Crypto,Play,United States,9,2025
+Crypto,ETHEUR,"0,0040","3.756,01","15,02",Crypto,Play,United States,9,2025
+Crypto,SHIB-EUR,"1.000.000,0000","0,00","10,24",Crypto,Play,United States,9,2025
+Fineco,Cash,"1,0000","797,82","797,82",Cash,,Italy,9,2025
+Fineco,BIT:ACWI,"1,1300","493,45","557,60",ETF,Core,United States,9,2025
+Fineco,BIT:PHAU,"2,0000","274,09","548,18",ETF,Core,United States,9,2025
+Fineco,BIT:A500,"2,0000","109,20","218,40",ETF,Core,United States,9,2025
+Fineco,BIT:EMI,"2,0000","166,68","333,36",ETF,Core,European Union,9,2025
+Fineco,BIT:LCCN,"20,0000","19,52","390,40",ETF,Core,China,9,2025
+Fineco,BIT:VECA,"3,0000","52,79","158,37",ETF,Core,European Union,9,2025
+Fineco,BIT:CSBGU7,"1,0000","120,78","120,78",ETF,Core,United States,9,2025
+Fineco,BIT:CMOD,"11,0000","20,97","230,67",ETF,Core,United States,9,2025
+Fineco,BIT:SWDA,26,"104,60","2.719,60",ETF,Core,United States,9,2025
+Fineco,BIT:EMXC,"16,0000","25,50","408,00",ETF,Core,Japan,9,2025
+Mercury,Cash,"1,0000","2.390,40","2.390,40",Cash,,United States,9,2025
+Paypal,Cash,"1,0000","700,00","700,00",Cash,,Italy,9,2025
+Revolut,Cash,"1,0000","11.700,00","11.700,00",Cash,,Italy,9,2025
+Wise,Cash,"1,0000","5.800,00","5.800,00",Cash,,United States,9,2025
+Youhodler,BTCEUR,"0,0013","92.144,47","117,02",Crypto,Play,United States,9,2025
+BBVA,Cash,"1,0000","14.000,00","14.000,00",Cash,,Italy,10,2025
+Binance,BTCEUR,"0,0182","97.472,67","1.771,56",Crypto,Play,United States,10,2025
+Binance,ETHEUR,"0,1924","3.532,04","679,48",Crypto,Play,United States,10,2025
+Crypto,BTCEUR,"0,000029","97.472,67","2,83",Crypto,Play,United States,10,2025
+Crypto,ADAEUR,"8,0000","0,68","5,48",Crypto,Play,United States,10,2025
+Crypto,ETHEUR,"0,0040","3.532,04","14,13",Crypto,Play,United States,10,2025
+Crypto,SHIB-EUR,"1.000.000,0000","0,00","10,13",Crypto,Play,United States,10,2025
+Fineco,Cash,"1,0000","172,07","172,07",Cash,,Italy,10,2025
+Fineco,BIT:A500,"2,0000","112,02","224,04",ETF,Core,United States,10,2025
+Fineco,BIT:EMI,"2,0000","166,20","332,40",ETF,Core,European Union,10,2025
+Fineco,BIT:VECA,"3,0000","52,96","158,88",ETF,Core,European Union,10,2025
+Fineco,BIT:CSBGU7,"1,0000","120,88","120,88",ETF,Core,United States,10,2025
+Fineco,BIT:CMOD,"11,0000","21,61","237,71",ETF,Core,United States,10,2025
+Fineco,BIT:SWDA,"32,0000","107,08","3.426,56",ETF,Core,United States,10,2025
+Mercury,Cash,"1,0000","2.381,32","2.381,32",Cash,,United States,10,2025
+Paypal,Cash,"1,0000","700,00","700,00",Cash,,Italy,10,2025
+Revolut,Cash,1,11700,11700,Cash,,Italy,10,2025
+Wise,Cash,1,5800,5800,Cash,,United States,10,2025
+Youhodler,BTCEUR,"0,00127","97472,67329","123,79",Crypto,Play,United States,10,2025
+BBVA,Cash,1,14000,14000,Cash,,Italy,11,2025
+Binance,BTCEUR,"0,01874582","95124,9761","1783,2",Crypto,Play,United States,11,2025
+Binance,ETHEUR,"0,20383053","3344,265027","681,66",Crypto,Play,United States,11,2025
+Binance,SOLEUR,"0,03657","160,1554205","5,86",Crypto,Play,United States,11,2025
+Binance,BNBEUR,"0,007116","943,3666582","6,71",Crypto,Play,United States,11,2025
+Crypto,BTCEUR,"0,000029","95124,9761","2,76",Crypto,Play,United States,11,2025
+Crypto,ADAEUR,8,"0,5275631175","4,22",Crypto,Play,United States,11,2025
+Crypto,ETHEUR,"0,004","3344,265027","13,38",Crypto,Play,United States,11,2025
+Crypto,SHIB-EUR,1000000,"0,000008782","8,78",Crypto,Play,United States,11,2025
+Fineco,Cash,1,"153,03066","153,03",Cash,,Italy,11,2025
+Fineco,ACWIA.MI,3,"199,97","599,91",ETF,Core,United States,11,2025
+Fineco,PHAU.MI,2,"321,47","642,94",ETF,Core,United States,11,2025
+Fineco,BIT:A500,2,"117,55","235,1",ETF,Core,United States,11,2025
+Fineco,BIT:EMI,2,"168,11","336,22",ETF,Core,European Union,11,2025
+Fineco,LCCN.MI,20,"20,66","413,2",ETF,Core,China,11,2025
+Fineco,BIT:VECA,3,"53,38","160,14",ETF,Core,European Union,11,2025
+Fineco,BIT:CSBGU7,1,"123,31","123,31",ETF,Core,United States,11,2025
+Fineco,BIT:CMOD,11,"22,38","246,18",ETF,Core,United States,11,2025
+Fineco,BIT:SWDA,32,"111,82","3578,24",ETF,Core,United States,11,2025
+Fineco,EMXC.BE,16,"29,585","473,36",ETF,Core,Japan,11,2025
+Mercury,Cash,1,"2413,88","2413,88",Cash,,United States,11,2025
+Paypal,Cash,1,700,700,Cash,,Italy,11,2025
+Revolut,Cash,1,11700,11700,Cash,,Italy,11,2025
+Wise,Cash,1,5800,5800,Cash,,United States,11,2025
+Youhodler,BTCEUR,"0,00127","95124,9761","120,81",Crypto,Play,United States,11,2025

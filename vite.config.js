@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  plugins: [react()],
   root: './',
   base: './',
   server: {
@@ -16,14 +18,21 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'chart': ['chart.js']
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+          'charts': ['recharts']
         }
       }
     }
   },
   resolve: {
     alias: {
-      '@': '/src'
+      '@': '/src',
+      '@components': '/src/components',
+      '@hooks': '/src/hooks',
+      '@context': '/src/context',
+      '@services': '/src/services',
+      '@utils': '/src/utils'
     }
   }
 });

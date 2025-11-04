@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investment Tracker - Portfolio Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <h1>📊 Investment Portfolio Tracker</h1>
+            <div class="header-stats">
+                <div class="stat-card">
+                    <span class="stat-label">Valore Totale</span>
+                    <span class="stat-value" id="totalValue">€0.00</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">ROI</span>
+                    <span class="stat-value positive" id="totalROI">0%</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">P/L Totale</span>
+                    <span class="stat-value" id="totalPL">€0.00</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Variazione Giornaliera</span>
+                    <span class="stat-value" id="dailyChange">0%</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+        <div class="container">
+            <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+            <button class="tab-btn" data-tab="portfolio">Portfolio</button>
+            <button class="tab-btn" data-tab="transactions">Transazioni</button>
+            <button class="tab-btn" data-tab="platforms">Piattaforme</button>
+            <button class="tab-btn" data-tab="assets">Asset Individuali</button>
+            <button class="tab-btn" data-tab="strategy">Strategia</button>
+            <button class="tab-btn" data-tab="rebalancing">Rebalancing</button>
+            <button class="tab-btn" data-tab="performance">Performance</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container">
+
+        <!-- Dashboard Tab -->
+        <section id="dashboard" class="tab-content active">
+            <div class="dashboard-grid">
+                <!-- Key Metrics -->
+                <div class="card metrics-card">
+                    <h2>Metriche Chiave</h2>
+                    <div class="metrics-grid">
+                        <div class="metric">
+                            <span class="metric-label">Portfolio Market Value</span>
+                            <span class="metric-value" id="portfolioValue">€8,888.53</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Portfolio Cost</span>
+                            <span class="metric-value" id="portfolioCost">€7,045.27</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Unrealised ROI</span>
+                            <span class="metric-value positive" id="unrealisedROI">26.16%</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Unrealised P/L</span>
+                            <span class="metric-value positive" id="unrealisedPL">€1,843.26</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Realised P/L</span>
+                            <span class="metric-value positive" id="realisedPL">€44.31</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Total P/L</span>
+                            <span class="metric-value positive" id="totalPLMetric">€1,887.57</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Cash Deposits</span>
+                            <span class="metric-value" id="cashDeposits">€40,578.64</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Number of Trades</span>
+                            <span class="metric-value" id="numTrades">68</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top/Worst Performers -->
+                <div class="card performers-card">
+                    <h2>Performance Giornaliera</h2>
+                    <div class="performers">
+                        <div class="performer">
+                            <span class="performer-label">Top Performer Today</span>
+                            <div class="performer-item positive">
+                                <span id="topPerformerToday">BIT:CMOD</span>
+                                <span id="topPerformerTodayValue">+0.94%</span>
+                            </div>
+                        </div>
+                        <div class="performer">
+                            <span class="performer-label">Worst Performer Today</span>
+                            <div class="performer-item negative">
+                                <span id="worstPerformerToday">BIT:VECA</span>
+                                <span id="worstPerformerTodayValue">-0.21%</span>
+                            </div>
+                        </div>
+                        <div class="performer">
+                            <span class="performer-label">Top Performer Overall</span>
+                            <div class="performer-item positive">
+                                <span id="topPerformerOverall">BIT:A500</span>
+                                <span id="topPerformerOverallValue">+90.94%</span>
+                            </div>
+                        </div>
+                        <div class="performer">
+                            <span class="performer-label">Worst Performer Overall</span>
+                            <div class="performer-item negative">
+                                <span id="worstPerformerOverall">ADAEUR</span>
+                                <span id="worstPerformerOverallValue">-66.67%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="card chart-card">
+                    <h2>Andamento Patrimonio nel Tempo</h2>
+                    <canvas id="portfolioChart"></canvas>
+                </div>
+
+                <div class="card chart-card">
+                    <h2>Asset Allocation</h2>
+                    <canvas id="allocationChart"></canvas>
+                </div>
+
+                <div class="card chart-card">
+                    <h2>Performance per Asset Class</h2>
+                    <canvas id="assetClassChart"></canvas>
+                </div>
+
+                <div class="card chart-card">
+                    <h2>Distribuzione Geografica</h2>
+                    <canvas id="geographyChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Portfolio Tab -->
+        <section id="portfolio" class="tab-content">
+            <div class="filters-bar">
+                <input type="text" id="portfolioSearch" placeholder="Cerca asset...">
+                <select id="assetClassFilter">
+                    <option value="">Tutte le Asset Class</option>
+                    <option value="ETF">ETF</option>
+                    <option value="Crypto">Crypto</option>
+                    <option value="Cash">Cash</option>
+                </select>
+                <select id="strategyFilter">
+                    <option value="">Tutte le Strategie</option>
+                    <option value="Core">Core</option>
+                    <option value="Play">Play</option>
+                </select>
+                <button id="refreshPricesBtn" class="btn-primary">🔄 Aggiorna Prezzi</button>
+            </div>
+
+            <div class="card">
+                <div class="table-container">
+                    <table id="portfolioTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th data-sort="ticker">Asset Ticker ↕</th>
+                                <th data-sort="quantity">Quantità ↕</th>
+                                <th data-sort="avgPrice">Prezzo Medio ↕</th>
+                                <th data-sort="currentPrice">Prezzo Corrente ↕</th>
+                                <th data-sort="dailyChange">Var. % Giornaliera ↕</th>
+                                <th data-sort="totalCost">Costo Totale ↕</th>
+                                <th data-sort="marketValue">Valore di Mercato ↕</th>
+                                <th data-sort="unrealisedROI">ROI % ↕</th>
+                                <th data-sort="unrealisedPL">P/L Non Realizzato ↕</th>
+                                <th data-sort="realisedPL">P/L Realizzato ↕</th>
+                                <th data-sort="totalPL">P/L Totale ↕</th>
+                                <th data-sort="assetClass">Asset Class ↕</th>
+                                <th data-sort="country">Paese ↕</th>
+                                <th data-sort="strategy">Strategia ↕</th>
+                            </tr>
+                        </thead>
+                        <tbody id="portfolioTableBody">
+                            <!-- Data populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Transactions Tab -->
+        <section id="transactions" class="tab-content">
+            <div class="filters-bar">
+                <input type="text" id="transactionSearch" placeholder="Cerca transazione...">
+                <select id="actionFilter">
+                    <option value="">Tutte le Azioni</option>
+                    <option value="Buy">Buy</option>
+                    <option value="Sell">Sell</option>
+                    <option value="Cash Deposit">Cash Deposit</option>
+                    <option value="Transfer Send">Transfer Send</option>
+                    <option value="Transfer Deposit">Transfer Deposit</option>
+                </select>
+                <select id="platformFilter">
+                    <option value="">Tutte le Piattaforme</option>
+                    <option value="Fineco">Fineco</option>
+                    <option value="Binance">Binance</option>
+                    <option value="Crypto">Crypto</option>
+                    <option value="Nexo">Nexo</option>
+                    <option value="Youhodler">Youhodler</option>
+                    <option value="BBVA">BBVA</option>
+                    <option value="Revolut">Revolut</option>
+                    <option value="Paypal">Paypal</option>
+                    <option value="Mercury">Mercury</option>
+                    <option value="Wise">Wise</option>
+                </select>
+                <input type="date" id="dateFromFilter" placeholder="Data da">
+                <input type="date" id="dateToFilter" placeholder="Data a">
+            </div>
+
+            <div class="card">
+                <div class="table-container">
+                    <table id="transactionsTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th data-sort="date">Data ↕</th>
+                                <th data-sort="action">Azione ↕</th>
+                                <th data-sort="asset">Asset ↕</th>
+                                <th data-sort="quantity">Quantità ↕</th>
+                                <th data-sort="price">Prezzo ↕</th>
+                                <th data-sort="total">Totale ↕</th>
+                                <th data-sort="fees">Commissioni ↕</th>
+                                <th data-sort="currency">Valuta ↕</th>
+                                <th data-sort="platform">Piattaforma ↕</th>
+                                <th data-sort="assetClass">Asset Class ↕</th>
+                                <th data-sort="strategy">Strategia ↕</th>
+                                <th data-sort="notes">Note ↕</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionsTableBody">
+                            <!-- Data populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Platforms Tab -->
+        <section id="platforms" class="tab-content">
+            <div class="card">
+                <h2>Portfolio per Piattaforma</h2>
+                <div class="table-container">
+                    <table id="platformsTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Piattaforma</th>
+                                <th>Depositi Cash</th>
+                                <th>Prelievi Cash</th>
+                                <th>Deposito Netto</th>
+                                <th>Valore Account</th>
+                                <th>Posizioni</th>
+                                <th>Cash</th>
+                                <th>Var. % Giornaliera</th>
+                                <th>Var. Giornaliera</th>
+                                <th>Holdings</th>
+                                <th>N. Transazioni</th>
+                                <th>Peso %</th>
+                            </tr>
+                        </thead>
+                        <tbody id="platformsTableBody">
+                            <!-- Data populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Distribuzione per Piattaforma</h2>
+                <canvas id="platformChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Individual Assets Tab -->
+        <section id="assets" class="tab-content">
+            <div class="filters-bar">
+                <input type="text" id="assetsSearch" placeholder="Cerca asset...">
+                <select id="assetsPlatformFilter">
+                    <option value="">Tutte le Piattaforme</option>
+                </select>
+            </div>
+
+            <div class="card">
+                <div class="table-container">
+                    <table id="assetsTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Piattaforma</th>
+                                <th>Asset</th>
+                                <th>Quantità</th>
+                                <th>Prezzo Medio</th>
+                                <th>Prezzo Corrente</th>
+                                <th>Var. % Giornaliera</th>
+                                <th>Costo Totale</th>
+                                <th>Valore di Mercato</th>
+                                <th>ROI %</th>
+                                <th>P/L Non Realizzato</th>
+                                <th>P/L Realizzato</th>
+                                <th>P/L Totale</th>
+                                <th>Asset Class</th>
+                                <th>Paese</th>
+                                <th>Strategia</th>
+                            </tr>
+                        </thead>
+                        <tbody id="assetsTableBody">
+                            <!-- Data populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Strategy Tab -->
+        <section id="strategy" class="tab-content">
+            <div class="card">
+                <h2>Allocazione Strategica</h2>
+                <div class="table-container">
+                    <table id="strategyTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Strategia</th>
+                                <th>Macro Asset</th>
+                                <th>Micro Asset</th>
+                                <th>Ticker</th>
+                                <th>Target %</th>
+                                <th>Peso Attuale %</th>
+                                <th>Differenza</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="strategyTableBody">
+                            <!-- Data populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Target vs Actual Allocation</h2>
+                <canvas id="strategyChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Rebalancing Tab -->
+        <section id="rebalancing" class="tab-content">
+            <div class="card">
+                <h2>Raccomandazioni Rebalancing</h2>
+                <div class="rebalancing-summary">
+                    <div class="rebalancing-stat">
+                        <span>Asset Underweight:</span>
+                        <span id="underweightCount" class="badge badge-warning">0</span>
+                    </div>
+                    <div class="rebalancing-stat">
+                        <span>Asset Overweight:</span>
+                        <span id="overweightCount" class="badge badge-info">0</span>
+                    </div>
+                    <div class="rebalancing-stat">
+                        <span>Asset Bilanciati:</span>
+                        <span id="balancedCount" class="badge badge-success">0</span>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table id="rebalancingTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Asset</th>
+                                <th>Target %</th>
+                                <th>Peso Attuale %</th>
+                                <th>Δ Target</th>
+                                <th>Status</th>
+                                <th>Valore Attuale</th>
+                                <th>Valore Target</th>
+                                <th>Quantità da Acquistare/Vendere</th>
+                                <th>Azione Consigliata</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rebalancingTableBody">
+                            <!-- Data populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Performance Tab -->
+        <section id="performance" class="tab-content">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <h2>Performance per Asset</h2>
+                    <canvas id="assetPerformanceChart"></canvas>
+                </div>
+
+                <div class="card">
+                    <h2>Performance per Categoria</h2>
+                    <canvas id="categoryPerformanceChart"></canvas>
+                </div>
+
+                <div class="card">
+                    <h2>Timeline Transazioni</h2>
+                    <canvas id="transactionTimelineChart"></canvas>
+                </div>
+
+                <div class="card">
+                    <h2>ROI nel Tempo</h2>
+                    <canvas id="roiTimelineChart"></canvas>
+                </div>
+
+                <div class="card stats-grid">
+                    <h2>Statistiche Performance</h2>
+                    <div class="stats">
+                        <div class="stat-item">
+                            <span class="stat-label">CAGR Since First Trade</span>
+                            <span class="stat-value" id="cagrValue">4.96%</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Best Month</span>
+                            <span class="stat-value" id="bestMonth">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Worst Month</span>
+                            <span class="stat-value" id="worstMonth">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Win Rate</span>
+                            <span class="stat-value" id="winRate">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Avg Gain per Trade</span>
+                            <span class="stat-value" id="avgGain">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Total Fees Paid</span>
+                            <span class="stat-value" id="totalFees">€2.60</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>Investment Portfolio Tracker © 2025 | Ultimo aggiornamento: <span id="lastUpdate">-</span></p>
+            <p class="disclaimer">⚠️ Disclaimer: Questo è uno strumento di tracking personale. Non costituisce consulenza finanziaria.</p>
+        </div>
+    </footer>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p>Caricamento dati in corso...</p>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

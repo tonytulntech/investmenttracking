@@ -2,6 +2,9 @@
 // Investment Portfolio Tracker - Main App
 // ==============================================
 
+// Import Chart.js from npm
+import Chart from 'chart.js/auto';
+
 // Global State
 const state = {
     transactions: [],
@@ -1314,5 +1317,5 @@ function init() {
     hideLoading();
 }
 
-// Start the app when DOM is ready
-document.addEventListener('DOMContentLoaded', init);
+// Export init function for use in main.js
+export { init };

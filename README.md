@@ -32,47 +32,152 @@ Una web app interattiva completa per tracciare e analizzare il tuo portafoglio d
 
 ## 🛠️ Tecnologie Utilizzate
 
+- **Vite 5**: Build tool moderno per sviluppo veloce con HMR
 - **HTML5**: Struttura semantica moderna
 - **CSS3**: Design professionale con gradiente, animazioni, responsive
-- **JavaScript (Vanilla)**: Logica completa senza dipendenze pesanti
-- **Chart.js**: Grafici interattivi e professionali
+- **JavaScript ES Modules**: Architettura modulare e manutenibile
+- **Chart.js 4**: Grafici interattivi e professionali
 - **Yahoo Finance API**: Prezzi in tempo reale con fallback automatico
 
 ## 📦 Installazione e Utilizzo
 
-### Metodo 1: Apertura Diretta (Consigliato per Test Locali)
+### ⚡ Setup con Vite + Node.js (RACCOMANDATO)
 
-1. Clona o scarica la repository
-2. Apri il file `index.html` nel tuo browser
+Questa è una web app moderna con **Vite** per hot-reload istantaneo e performance ottimali.
 
+#### 1. Prerequisiti
+
+- **Node.js** 18+ ([Scarica qui](https://nodejs.org/))
+- **npm** (incluso con Node.js)
+
+Verifica l'installazione:
 ```bash
-# Da terminale
-open index.html  # Mac
-start index.html  # Windows
-xdg-open index.html  # Linux
+node --version  # v18.0.0 o superiore
+npm --version   # 9.0.0 o superiore
 ```
 
-### Metodo 2: Server Locale (Consigliato per API)
-
-Per utilizzare l'integrazione con Yahoo Finance API senza problemi CORS:
+#### 2. Installazione Dipendenze
 
 ```bash
-# Con Python 3
-python -m http.server 8000
+# Clona la repository (se non l'hai già fatto)
+git clone <your-repo-url>
+cd investmenttracking
 
-# Con Node.js (installare http-server globalmente)
-npx http-server -p 8000
-
-# Poi apri nel browser
-http://localhost:8000
+# Installa le dipendenze
+npm install
 ```
 
-### Metodo 3: Deploy su GitHub Pages
+Questo installerà:
+- `vite` - Build tool e dev server
+- `chart.js` - Libreria per grafici
+- `eslint`, `prettier` - Tools per qualità del codice (opzionali)
 
-1. Vai su Settings > Pages nella tua repository
-2. Seleziona il branch `claude/investment-tracker-webapp-011CUmwaoGfNQxsQ2EpEPwC4`
-3. Salva e attendi il deploy
-4. La web app sarà disponibile all'URL fornito da GitHub Pages
+#### 3. Avvio in Sviluppo
+
+```bash
+# Avvia il development server con hot-reload
+npm run dev
+```
+
+Output atteso:
+```
+VITE v5.0.11  ready in 234 ms
+
+➜  Local:   http://localhost:3000/
+➜  Network: use --host to expose
+➜  press h to show help
+```
+
+L'app si aprirà automaticamente su **http://localhost:3000** 🚀
+
+**Hot Module Replacement (HMR)**: Ogni modifica a CSS/JS si riflette istantaneamente senza reload!
+
+#### 4. Build per Produzione
+
+```bash
+# Crea build ottimizzato nella cartella dist/
+npm run build
+```
+
+Questo genera:
+- File minificati e ottimizzati
+- Code splitting automatico
+- Source maps per debugging
+- Output nella cartella `dist/`
+
+Anteprima del build:
+```bash
+npm run preview
+# Apri http://localhost:4173
+```
+
+### 🚀 Deploy
+
+#### Opzione 1: Netlify (Più Semplice)
+
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start)
+
+1. Vai su [Netlify](https://netlify.com) e collega il tuo repo GitHub
+2. Imposta:
+   - **Build command**: `npm run build`
+   - **Publish directory**: `dist`
+3. Click "Deploy" - Deploy automatico ad ogni push! ✨
+
+#### Opzione 2: Vercel
+
+1. Installa Vercel CLI: `npm i -g vercel`
+2. Run: `vercel`
+3. Segui le istruzioni
+4. Deploy automatico configurato! 🎉
+
+#### Opzione 3: GitHub Pages
+
+```bash
+# 1. Build del progetto
+npm run build
+
+# 2. Deploy della cartella dist/
+npm install -g gh-pages
+gh-pages -d dist
+```
+
+Il sito sarà disponibile su: `https://<username>.github.io/<repo>/`
+
+## 🔧 Struttura del Progetto
+
+```
+investmenttracking/
+├── index.html          # HTML principale (root per Vite)
+├── package.json        # Dipendenze e scripts
+├── vite.config.js      # Configurazione Vite
+├── .gitignore          # File ignorati da Git
+├── README.md           # Questa documentazione
+├── src/                # Codice sorgente
+│   ├── main.js         # Entry point dell'app
+│   ├── app.js          # Logica principale con import/export
+│   └── styles/
+│       └── main.css    # Stili globali
+└── dist/               # Build di produzione (generato)
+```
+
+## 🎨 Scripts Disponibili
+
+```bash
+# Sviluppo con hot-reload
+npm run dev
+
+# Build per produzione
+npm run build
+
+# Anteprima build di produzione
+npm run preview
+
+# Lint del codice (opzionale)
+npm run lint
+
+# Format del codice (opzionale)
+npm run format
+```
 
 ## 🔧 Configurazione
 
@@ -82,7 +187,7 @@ La web app include **dati fittizi** basati sulla struttura dei tuoi CSV per dimo
 
 Per usare **dati reali**:
 
-1. Apri `app.js`
+1. Apri `src/app.js`
 2. Modifica le costanti `SAMPLE_TRANSACTIONS`, `SAMPLE_PORTFOLIO`, etc. con i tuoi dati reali
 3. Oppure implementa il caricamento dinamico dai CSV:
 
@@ -153,53 +258,57 @@ Il fallback simula variazioni del ±2% per dimostrare la funzionalità anche off
   - 🔵 Blu: Informazioni, badge
   - 🟠 Arancione: Warning, underweight
 
-## 🔐 Privacy e Sicurezza
-
-- **100% Client-Side**: Tutti i dati rimangono nel tuo browser
-- **Nessun Server**: Nessun invio dati a server esterni (tranne API Yahoo Finance per prezzi)
-- **Offline-Ready**: La maggior parte delle funzionalità funziona offline
-- **Open Source**: Puoi ispezionare tutto il codice
-
-## 📊 Struttura Dati
-
-La web app replica la struttura dei tuoi CSV:
-
-- **Transaction.csv**: Storico transazioni (buy/sell/deposit)
-- **Portfolio.csv**: Asset correnti con performance
-- **Platforms.csv**: Breakdown per piattaforma
-- **Strategy.csv**: Target allocazione strategica
-- **Rebalancing.csv**: Raccomandazioni automatiche
-
 ## 🐛 Troubleshooting
+
+### `npm install` fallisce
+
+```bash
+# Pulisci cache npm
+npm cache clean --force
+
+# Rimuovi node_modules e reinstalla
+rm -rf node_modules package-lock.json
+npm install
+```
 
 ### I prezzi non si aggiornano
 - Controlla la console del browser per errori API
 - Verifica la connessione internet
-- Usa un CORS proxy o server locale
+- Il fallback simulerà variazioni se l'API non risponde
 
 ### I grafici non si visualizzano
-- Controlla che Chart.js sia caricato correttamente
-- Apri la console del browser per errori JavaScript
-- Verifica che i dati siano presenti in `state.portfolio`
+- Controlla che Chart.js sia stato installato: `npm list chart.js`
+- Verifica la console per errori import
+- Prova a rifare il build: `npm run build`
 
-### Le tabelle sono vuote
-- Verifica che `app.js` sia caricato
-- Controlla i dati in `SAMPLE_TRANSACTIONS` e `SAMPLE_PORTFOLIO`
-- Apri la console per vedere eventuali errori
+### Hot reload non funziona
+- Riavvia il dev server: `Ctrl+C` poi `npm run dev`
+- Controlla che non ci siano errori sintax nel codice
+- Verifica `vite.config.js` sia corretto
+
+### Build fallisce
+```bash
+# Reinstalla dipendenze
+rm -rf node_modules package-lock.json dist
+npm install
+npm run build
+```
 
 ## 🚀 Miglioramenti Futuri
 
 Possibili estensioni:
 
-- [ ] Import CSV diretto dall'interfaccia
+- [ ] Import CSV diretto dall'interfaccia (drag & drop)
 - [ ] Export dati in Excel/PDF
 - [ ] Notifiche push per variazioni importanti
 - [ ] Backend con database per storico completo
 - [ ] Autenticazione utente multi-device
 - [ ] Integrazione con più API (Binance, CoinGecko, etc.)
 - [ ] Machine Learning per previsioni
-- [ ] Dark mode
-- [ ] Multi-valuta automatica
+- [ ] Dark mode con toggle
+- [ ] Multi-valuta automatica con conversioni live
+- [ ] PWA (Progressive Web App) per uso offline
+- [ ] WebSocket per aggiornamenti real-time
 
 ## 📝 Licenza
 
@@ -207,8 +316,16 @@ MIT License - Sentiti libero di usare, modificare e distribuire.
 
 ## 👨‍💻 Sviluppato con Claude
 
-Questa web app è stata sviluppata con l'assistenza di Claude AI, replicando completamente la struttura e logica del tuo Google Sheet in una moderna applicazione web interattiva.
+Questa web app è stata sviluppata con l'assistenza di Claude AI, replicando completamente la struttura e logica del tuo Google Sheet in una moderna applicazione web interattiva con **Vite + ES Modules**.
 
 ---
+
+## 🆘 Supporto
+
+Hai problemi?
+
+1. Controlla la sezione [Troubleshooting](#-troubleshooting)
+2. Apri una issue su GitHub
+3. Controlla che Node.js e npm siano aggiornati
 
 **Buon tracking dei tuoi investimenti! 🚀📈**

@@ -3,15 +3,14 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 // Firebase configuration
-// IMPORTANT: Replace these values with your actual Firebase project credentials
 // Get these from: Firebase Console > Project Settings > General > Your apps > Firebase SDK snippet
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyAP2dzVXHF0ykfB5gD94Z1e7G-Hsn6LFt8",
+  authDomain: "investmenttracking-67717.firebaseapp.com",
+  projectId: "investmenttracking-67717",
+  storageBucket: "investmenttracking-67717.firebasestorage.app",
+  messagingSenderId: "60235965263",
+  appId: "1:60235965263:web:45af9e837357218194db3a"
 };
 
 // Initialize Firebase

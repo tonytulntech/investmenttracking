@@ -1,16 +1,14 @@
 {
   "name": "investment-portfolio-tracker",
-  "version": "2.0.0",
-  "description": "Full-stack investment portfolio tracker with Firebase and real-time data",
+  "version": "3.0.0",
+  "description": "Modern investment portfolio tracker with real-time data and Apple-style design",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext .js,.jsx",
-    "format": "prettier --write \"src/**/*.{js,jsx,css}\"",
-    "firebase:init": "firebase init",
-    "firebase:deploy": "npm run build && firebase deploy"
+    "format": "prettier --write \"src/**/*.{js,jsx,css}\""
   },
   "keywords": [
     "investment",
@@ -19,8 +17,8 @@
     "finance",
     "stocks",
     "crypto",
-    "firebase",
-    "react"
+    "react",
+    "tailwindcss"
   ],
   "author": "Investment Tracker",
   "license": "MIT",
@@ -28,22 +26,25 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.1",
-    "firebase": "^10.7.2",
     "recharts": "^2.10.3",
     "papaparse": "^5.4.1",
     "date-fns": "^3.0.6",
     "axios": "^1.6.5",
-    "lucide-react": "^0.303.0"
+    "lucide-react": "^0.303.0",
+    "clsx": "^2.1.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.47",
     "@types/react-dom": "^18.2.18",
     "@vitejs/plugin-react": "^4.2.1",
     "vite": "^5.0.11",
+    "tailwindcss": "^3.4.1",
+    "postcss": "^8.4.33",
+    "autoprefixer": "^10.4.17",
     "eslint": "^8.56.0",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
     "prettier": "^3.2.4",
-    "firebase-tools": "^13.0.2"
+    "prettier-plugin-tailwindcss": "^0.5.11"
   }
 }

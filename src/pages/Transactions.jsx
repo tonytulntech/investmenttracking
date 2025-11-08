@@ -270,6 +270,7 @@ function Transactions() {
                   <th>Ticker</th>
                   <th>Nome</th>
                   <th>Categoria</th>
+                  <th>Sotto-Categoria</th>
                   <th className="text-right">Quantità</th>
                   <th className="text-right">Prezzo</th>
                   <th className="text-right">Totale</th>
@@ -289,6 +290,15 @@ function Transactions() {
                     <td className="text-gray-600 max-w-xs truncate">{tx.name || '-'}</td>
                     <td>
                       <span className="badge badge-primary">{tx.category}</span>
+                    </td>
+                    <td>
+                      {tx.subCategory ? (
+                        <span className="text-sm text-gray-700 bg-gray-100 px-2 py-1 rounded">
+                          {tx.subCategory}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400 italic">Non rilevata</span>
+                      )}
                     </td>
                     <td className="text-right">{tx.quantity}</td>
                     <td className="text-right">€{tx.price.toFixed(2)}</td>

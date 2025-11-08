@@ -234,6 +234,12 @@ function Portfolio() {
                         <ArrowUpDown className="w-3 h-3" />
                       </div>
                     </th>
+                    <th onClick={() => handleSort('subCategory')} className="cursor-pointer hover:bg-gray-100">
+                      <div className="flex items-center gap-1">
+                        Sotto-Categoria
+                        <ArrowUpDown className="w-3 h-3" />
+                      </div>
+                    </th>
                     <th onClick={() => handleSort('quantity')} className="text-right cursor-pointer hover:bg-gray-100">
                       <div className="flex items-center justify-end gap-1">
                         Quantità
@@ -279,6 +285,15 @@ function Portfolio() {
                       <td className="text-gray-600 max-w-xs truncate">{holding.name}</td>
                       <td>
                         <span className="badge badge-primary">{holding.category}</span>
+                      </td>
+                      <td>
+                        {holding.subCategory ? (
+                          <span className="text-sm text-gray-700 bg-gray-100 px-2 py-1 rounded">
+                            {holding.subCategory}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">Non rilevata</span>
+                        )}
                       </td>
                       <td className="text-right">{holding.quantity.toFixed(4)}</td>
                       <td className="text-right">

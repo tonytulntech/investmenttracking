@@ -261,12 +261,20 @@ export const calculatePortfolio = () => {
         name: tx.name || ticker,
         isin: tx.isin || '',
         category: tx.category || 'Other',
+        subCategory: tx.subCategory || null,
         currency: tx.currency || 'EUR',
         quantity: 0,
         totalCost: 0,
         avgPrice: 0,
-        transactions: []
+        transactions: [],
+        lastTransactionDate: date
       };
+    }
+
+    // Update subCategory from most recent transaction
+    if (tx.subCategory && new Date(date) >= new Date(holdings[ticker].lastTransactionDate)) {
+      holdings[ticker].subCategory = tx.subCategory;
+      holdings[ticker].lastTransactionDate = date;
     }
 
     if (type === 'buy') {

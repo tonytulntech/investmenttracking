@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getLocalETFData, hasLocalETFData } from './etfDatabase';
 
 /**
  * Allocation Service
@@ -9,17 +10,17 @@ import axios from 'axios';
  * - Market type (Developed, Emerging, Frontier)
  * - Currency
  *
- * APIs used:
- * - Financial Modeling Prep (FMP) for ETF data
- * - Yahoo Finance for stock data
- * - CoinGecko for crypto data
+ * Data sources (in priority order):
+ * 1. Local ETF Database (for popular ETFs - no API needed)
+ * 2. Yahoo Finance (for stocks - free, no API key)
+ * 3. CoinGecko (for crypto - free, no API key)
+ * 4. Financial Modeling Prep (for premium ETF data - requires paid plan)
  *
- * Note: You need a FREE API key from financialmodelingprep.com
- * Sign up at: https://site.financialmodelingprep.com/register
+ * Note: FMP free tier doesn't include ETF endpoints
  */
 
-// FMP API Key - Get yours free at https://site.financialmodelingprep.com/register
-const FMP_API_KEY = 'TPRCVwAvq3BRMvsxOf9ys227AHlVBufw'; // Your API key (free tier: 250 requests/day)
+// FMP API Key - Premium endpoints only (ETF data requires paid plan)
+const FMP_API_KEY = 'TPRCVwAvq3BRMvsxOf9ys227AHlVBufw';
 
 // CORS proxies for API requests
 const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
@@ -235,14 +236,55 @@ export async function fetchAllocationData(ticker, category) {
           },
           metadata: {
             name: cryptoInfo.name,
-            lastUpdated: new Date().toISOString()
+            lastUpdated: new Date().toISOString(),
+            source: 'CoinGecko'
           }
         };
       }
     }
 
-    // Handle ETFs
+    // Handle ETFs - Check local database first
     if (category === 'ETF') {
+      // 1. Try local ETF database first (instant, no API calls)
+      const localData = getLocalETFData(ticker);
+      if (localData) {
+        console.log(`✓ Found ${ticker} in local ETF database`);
+
+        // Calculate continent allocation from countries
+        const continents = {};
+        const marketTypes = {};
+
+        if (localData.countries) {
+          Object.entries(localData.countries).forEach(([country, percentage]) => {
+            const continent = getContinent(country);
+            const marketType = getMarketType(country);
+
+            continents[continent] = (continents[continent] || 0) + percentage;
+            marketTypes[marketType] = (marketTypes[marketType] || 0) + percentage;
+          });
+        }
+
+        return {
+          ticker,
+          category,
+          allocation: {
+            countries: localData.countries || {},
+            continents: Object.keys(continents).length > 0 ? continents : {},
+            sectors: localData.sectors || {},
+            marketTypes: Object.keys(marketTypes).length > 0 ? marketTypes : {},
+            currency: localData.currency || 'USD'
+          },
+          metadata: {
+            name: localData.name,
+            isin: localData.isin,
+            lastUpdated: new Date().toISOString(),
+            source: 'Local Database'
+          }
+        };
+      }
+
+      // 2. Try FMP API (only if premium plan)
+      console.log(`Trying FMP API for ${ticker}...`);
       const [sectorData, countryData] = await Promise.all([
         fetchETFSectorAllocation(ticker),
         fetchETFCountryAllocation(ticker)
@@ -271,10 +313,37 @@ export async function fetchAllocationData(ticker, category) {
             continents: Object.keys(continents).length > 0 ? continents : {},
             sectors: sectorData || {},
             marketTypes: Object.keys(marketTypes).length > 0 ? marketTypes : {},
-            currency: 'USD' // Most ETFs are USD-denominated
+            currency: 'USD'
           },
           metadata: {
-            lastUpdated: new Date().toISOString()
+            lastUpdated: new Date().toISOString(),
+            source: 'Financial Modeling Prep'
+          }
+        };
+      }
+
+      // 3. Fallback: Try Yahoo Finance for basic ETF info
+      console.log(`Trying Yahoo Finance fallback for ${ticker}...`);
+      const stockProfile = await fetchStockProfile(ticker);
+      if (stockProfile && stockProfile.country) {
+        const continent = getContinent(stockProfile.country);
+        const marketType = getMarketType(stockProfile.country);
+
+        return {
+          ticker,
+          category,
+          allocation: {
+            countries: { [stockProfile.country]: 100 },
+            continents: { [continent]: 100 },
+            sectors: stockProfile.sector ? { [stockProfile.sector]: 100 } : {},
+            marketTypes: { [marketType]: 100 },
+            currency: stockProfile.currency || 'USD'
+          },
+          metadata: {
+            industry: stockProfile.industry,
+            lastUpdated: new Date().toISOString(),
+            source: 'Yahoo Finance',
+            note: 'Limited data - ETF provider info only'
           }
         };
       }

@@ -5,7 +5,7 @@ import { getTransactions, calculatePortfolio } from '../services/localStorageSer
 import { fetchMultiplePrices } from '../services/priceService';
 import { calculateCashFlow } from '../services/cashFlowService';
 import { getPerformanceSummary } from '../services/performanceService';
-import { format } from 'date-fns';
+import { format, startOfYear, subMonths, isAfter, isBefore } from 'date-fns';
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
 
@@ -30,6 +30,7 @@ function Dashboard() {
   const [allocationComparison, setAllocationComparison] = useState([]);
   const [cashFlow, setCashFlow] = useState(null);
   const [performanceMetrics, setPerformanceMetrics] = useState(null);
+  const [availableYears, setAvailableYears] = useState([]);
 
   // Asset class filters (all enabled by default)
   const [filters, setFilters] = useState({
@@ -45,6 +46,9 @@ function Dashboard() {
     Cash: true
   });
 
+  // Date filter (default: all time)
+  const [dateFilter, setDateFilter] = useState('all');
+
   useEffect(() => {
     loadData();
   }, []);
@@ -54,7 +58,7 @@ function Dashboard() {
     if (fullPortfolio.length > 0) {
       applyFilters();
     }
-  }, [filters, fullPortfolio]);
+  }, [filters, dateFilter, fullPortfolio]);
 
   const loadData = async () => {
     try {
@@ -68,12 +72,71 @@ function Dashboard() {
       const cf = calculateCashFlow();
       setCashFlow(cf);
 
+      // Calculate available years from transactions
+      const transactions = getTransactions();
+      const years = new Set();
+      transactions.forEach(tx => {
+        const year = new Date(tx.date).getFullYear();
+        years.add(year);
+      });
+      setAvailableYears(Array.from(years).sort((a, b) => b - a)); // Descending order
+
       await updatePricesAndCalculate();
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Get date range based on filter selection
+  const getDateRange = (filter) => {
+    const now = new Date();
+    let startDate = null;
+
+    switch (filter) {
+      case 'ytd':
+        startDate = startOfYear(now);
+        break;
+      case '3m':
+        startDate = subMonths(now, 3);
+        break;
+      case '6m':
+        startDate = subMonths(now, 6);
+        break;
+      case '1y':
+        startDate = subMonths(now, 12);
+        break;
+      case 'all':
+        startDate = null; // No filter
+        break;
+      default:
+        // Specific year (e.g., '2023')
+        if (!isNaN(filter)) {
+          const year = parseInt(filter);
+          startDate = new Date(year, 0, 1); // Jan 1st
+          const endDate = new Date(year, 11, 31, 23, 59, 59); // Dec 31st
+          return { startDate, endDate };
+        }
+        break;
+    }
+
+    return { startDate, endDate: now };
+  };
+
+  // Filter transactions by date range
+  const filterTransactionsByDate = (transactions) => {
+    if (dateFilter === 'all') return transactions;
+
+    const { startDate, endDate } = getDateRange(dateFilter);
+    if (!startDate) return transactions;
+
+    return transactions.filter(tx => {
+      const txDate = new Date(tx.date);
+      const afterStart = !startDate || isAfter(txDate, startDate) || txDate.getTime() === startDate.getTime();
+      const beforeEnd = !endDate || isBefore(txDate, endDate) || txDate.getTime() === endDate.getTime();
+      return afterStart && beforeEnd;
+    });
   };
 
   const updatePricesAndCalculate = async () => {

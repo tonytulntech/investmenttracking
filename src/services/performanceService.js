@@ -108,14 +108,25 @@ export function calculateInvestmentMetrics(filteredPortfolio, allTransactions = 
   const totalReturn = currentValue - totalInvested;
   const totalReturnPercent = totalInvested > 0 ? (totalReturn / totalInvested) * 100 : 0;
 
-  // Calculate CAGR
-  const cagr = yearsInvesting > 0 ? calculateCAGR(totalInvested, currentValue, yearsInvesting) : 0;
+  // Calculate CAGR (only meaningful if >= 1 year)
+  let cagr = 0;
+  let cagrReliable = true;
+
+  if (yearsInvesting >= 1) {
+    cagr = calculateCAGR(totalInvested, currentValue, yearsInvesting);
+    cagrReliable = true;
+  } else if (yearsInvesting > 0) {
+    // Less than 1 year - CAGR can be misleading, but calculate anyway
+    cagr = calculateCAGR(totalInvested, currentValue, yearsInvesting);
+    cagrReliable = false;
+  }
 
   // Average annual return (simple average)
   const averageAnnualReturn = yearsInvesting > 0 ? totalReturnPercent / yearsInvesting : totalReturnPercent;
 
   return {
     cagr,
+    cagrReliable, // Flag to indicate if CAGR is meaningful
     totalReturn,
     totalReturnPercent,
     startDate: startDate.toISOString(),
@@ -287,11 +298,14 @@ export function getPerformanceSummary(filteredPortfolio, strategy = null) {
     const monthlyPAC = parseFloat(strategy.monthlyInvestment) || 0;
     const userAge = parseInt(strategy.currentAge) || null;
 
+    // Use total return % if CAGR not reliable (< 1 year), otherwise use CAGR
+    const returnToUse = metrics.cagrReliable ? metrics.cagr : metrics.totalReturnPercent;
+
     goalProjection = projectGoalAchievement(
       metrics.currentValue,
       parseFloat(strategy.targetAmount),
       monthlyPAC,
-      metrics.cagr,
+      returnToUse,
       userAge
     );
   }

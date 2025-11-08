@@ -157,6 +157,10 @@ function Dashboard() {
     // Filter portfolio based on selected asset classes
     const filteredPortfolio = fullPortfolio.filter(holding => {
       const macroCategory = holding.macroCategory || holding.category;
+      // Special handling for CASH virtual holding
+      if (holding.ticker === 'CASH') {
+        return filters['Cash'] !== false;
+      }
       return filters[macroCategory] !== false; // Include if filter is true or undefined
     });
 
@@ -557,14 +561,21 @@ function Dashboard() {
                     <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
                       <Zap className="w-4 h-4 text-purple-600" />
                     </div>
-                    <p className="text-sm font-medium text-gray-600">CAGR</p>
+                    <p className="text-sm font-medium text-gray-600">
+                      {performanceMetrics.cagrReliable ? 'CAGR' : 'Rendimento'}
+                    </p>
                   </div>
                   <p className={`text-3xl font-bold ${performanceMetrics.cagr >= 0 ? 'text-purple-600' : 'text-red-600'}`}>
-                    {performanceMetrics.cagr >= 0 ? '+' : ''}{performanceMetrics.cagr.toFixed(2)}%
+                    {performanceMetrics.cagr >= 0 ? '+' : ''}{performanceMetrics.cagrReliable ? performanceMetrics.cagr.toFixed(2) : performanceMetrics.totalReturnPercent.toFixed(2)}%
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Rendimento annuo composto
+                    {performanceMetrics.cagrReliable ? 'Rendimento annuo composto' : 'Rendimento totale'}
                   </p>
+                  {!performanceMetrics.cagrReliable && (
+                    <p className="text-xs text-orange-600 mt-1 font-medium">
+                      ⚠️ CAGR disponibile dopo 1 anno
+                    </p>
+                  )}
                 </div>
 
                 <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -613,6 +624,23 @@ function Dashboard() {
                 </div>
               </div>
 
+              {/* Warning for periods < 1 year */}
+              {!performanceMetrics.cagrReliable && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-orange-900 text-sm">⚠️ CAGR non ancora affidabile</p>
+                      <p className="text-xs text-orange-700 mt-1">
+                        Hai investito da meno di 1 anno ({performanceMetrics.daysInvesting} giorni).
+                        Il CAGR (rendimento annualizzato) sarà più accurato dopo aver completato almeno 1 anno di investimenti.
+                        Attualmente mostriamo il rendimento totale: <strong>{performanceMetrics.totalReturnPercent >= 0 ? '+' : ''}{performanceMetrics.totalReturnPercent.toFixed(2)}%</strong>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Goal Projection */}
               {performanceMetrics.goalProjection && (
                 <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -660,7 +688,7 @@ function Dashboard() {
                         </div>
                       </div>
                       <p className="text-xs text-gray-600 italic">
-                        ⚡ Proiezione basata sul CAGR attuale di {performanceMetrics.cagr.toFixed(2)}% e contributi mensili di €{strategy?.monthlyInvestment || 0}
+                        ⚡ Proiezione basata sul {performanceMetrics.cagrReliable ? `CAGR attuale di ${performanceMetrics.cagr.toFixed(2)}%` : `rendimento totale di ${performanceMetrics.totalReturnPercent.toFixed(2)}% (CAGR disponibile dopo 1 anno)`} e contributi mensili di €{strategy?.monthlyInvestment || 0}
                       </p>
                     </div>
                   ) : (

@@ -500,20 +500,47 @@ export async function detectSubCategory(ticker, category) {
     console.log(`Auto-detecting sub-category for ${ticker} (${category})...`);
 
     switch (category) {
-      case 'ETF':
-        return await detectETFSubCategory(ticker);
+      case 'Azioni':
+        // Try ETF detection first (could be equity ETF), then stock detection
+        const etfAzioni = await detectETFSubCategory(ticker);
+        if (etfAzioni && etfAzioni === 'Azionario') {
+          return 'Azionario (ETF)';
+        }
+        return await detectStockSubCategory(ticker) || 'Azioni';
+
+      case 'Obbligazioni':
+        // Try ETF detection first (could be bond ETF), then bond detection
+        const etfObbligazioni = await detectETFSubCategory(ticker);
+        if (etfObbligazioni && etfObbligazioni === 'Obbligazionario') {
+          return 'Obbligazionario (ETF)';
+        }
+        return await detectBondSubCategory(ticker) || 'Obbligazioni';
+
+      case 'Materie Prime':
+        // Try ETF detection (commodity ETFs)
+        const etfMateriePrime = await detectETFSubCategory(ticker);
+        if (etfMateriePrime && etfMateriePrime === 'Materie Prime') {
+          return 'Materie Prime (ETF)';
+        }
+        return 'Materie Prime';
 
       case 'Crypto':
         return await detectCryptoSubCategory(ticker);
 
+      case 'Liquidità':
+        return 'Conto Corrente';
+
+      case 'Altro':
+        return null;
+
+      // Backward compatibility with old categories
+      case 'ETF':
+        return await detectETFSubCategory(ticker);
       case 'Stock':
         return await detectStockSubCategory(ticker);
-
       case 'Bond':
         return await detectBondSubCategory(ticker);
-
       case 'Cash':
-        // Cash is usually manual
         return 'Conto Corrente';
 
       default:

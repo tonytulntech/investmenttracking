@@ -425,7 +425,7 @@ function Transactions() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Categoria *
+                    Categoria (Asset Class) *
                   </label>
                   <select
                     value={formData.category}
@@ -433,12 +433,12 @@ function Transactions() {
                     className="select"
                     required
                   >
-                    <option value="ETF">ETF</option>
-                    <option value="Stock">Stock</option>
+                    <option value="Azioni">Azioni</option>
+                    <option value="Obbligazioni">Obbligazioni</option>
+                    <option value="Materie Prime">Materie Prime</option>
                     <option value="Crypto">Crypto</option>
-                    <option value="Bond">Bond</option>
-                    <option value="Cash">Cash</option>
-                    <option value="Other">Other</option>
+                    <option value="Liquidità">Liquidità</option>
+                    <option value="Altro">Altro</option>
                   </select>
                 </div>
               </div>

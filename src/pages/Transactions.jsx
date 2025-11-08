@@ -300,10 +300,10 @@ function Transactions() {
                         <span className="text-xs text-gray-400 italic">Non rilevata</span>
                       )}
                     </td>
-                    <td className="text-right">{tx.quantity}</td>
-                    <td className="text-right">€{tx.price.toFixed(2)}</td>
+                    <td className="text-right">{tx.quantity.toLocaleString('it-IT', { maximumFractionDigits: 8 })}</td>
+                    <td className="text-right">€{tx.price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 8 })}</td>
                     <td className="text-right font-medium">
-                      €{(tx.quantity * tx.price).toFixed(2)}
+                      €{(tx.quantity * tx.price).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 8 })}
                     </td>
                     <td className="text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -468,7 +468,7 @@ function Transactions() {
                   </label>
                   <input
                     type="number"
-                    step="0.01"
+                    step="any"
                     min="0"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
@@ -484,7 +484,7 @@ function Transactions() {
                   </label>
                   <input
                     type="number"
-                    step="0.0001"
+                    step="any"
                     min="0"
                     value={formData.quantity}
                     onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}

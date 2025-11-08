@@ -26,6 +26,12 @@ export function calculateCashFlow() {
   const cashAccounts = {};   // Track individual cash accounts
   const movements = [];      // Detailed movement history
 
+  // Count cash transactions for debugging
+  const cashTransactions = transactions.filter(tx => tx.isCash || tx.macroCategory === 'Cash');
+  if (cashTransactions.length > 0) {
+    console.log(`💵 Found ${cashTransactions.length} Cash transactions out of ${transactions.length} total`);
+  }
+
   transactions.forEach(tx => {
     const isCash = tx.isCash || tx.macroCategory === 'Cash';
     const amount = tx.quantity * tx.price;

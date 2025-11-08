@@ -14,13 +14,70 @@ const STORAGE_KEYS = {
 // ============================================
 
 /**
+ * Fix Cash transactions to ensure correct structure
+ * This ensures all Cash transactions have proper fields set
+ */
+const fixCashTransactions = (transactions) => {
+  let fixed = false;
+
+  const fixedTransactions = transactions.map(tx => {
+    // Identify Cash transactions by multiple criteria
+    const isCashTransaction =
+      tx.ticker === 'CASH' ||
+      tx.macroCategory === 'Cash' ||
+      tx.category === 'Cash' ||
+      tx.isCash === true;
+
+    if (isCashTransaction) {
+      // Ensure Cash transaction has correct structure
+      const needsFix =
+        tx.macroCategory !== 'Cash' ||
+        tx.isCash !== true ||
+        tx.price !== 1 ||
+        tx.commission !== 0 ||
+        !tx.microCategory;
+
+      if (needsFix) {
+        console.log(`🔧 Fixing Cash transaction: ${tx.ticker} (${tx.date})`);
+        fixed = true;
+
+        return {
+          ...tx,
+          ticker: 'CASH',
+          macroCategory: 'Cash',
+          microCategory: tx.microCategory || 'Disponibile',
+          category: 'Cash', // Keep for backwards compatibility
+          isCash: true,
+          price: 1, // Cash price is always 1
+          commission: 0, // Cash has no commission
+          isin: '', // Cash has no ISIN
+          updatedAt: new Date().toISOString()
+        };
+      }
+    }
+
+    return tx;
+  });
+
+  if (fixed) {
+    console.log('✅ Cash transactions have been fixed and saved');
+    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(fixedTransactions));
+  }
+
+  return fixedTransactions;
+};
+
+/**
  * Get all transactions
  * @returns {Array} Array of transaction objects
  */
 export const getTransactions = () => {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
-    return data ? JSON.parse(data) : [];
+    const transactions = data ? JSON.parse(data) : [];
+
+    // Automatically fix Cash transactions on load
+    return fixCashTransactions(transactions);
   } catch (error) {
     console.error('Error loading transactions:', error);
     return [];
@@ -321,7 +378,7 @@ export const calculatePortfolio = () => {
     // Always add cash if there were any cash movements (deposits/withdrawals/purchases/sales)
     // This includes negative cash (overspent) and zero cash
     if (cashFlow.cashDeposits > 0 || cashFlow.assetPurchases > 0 || cashFlow.assetSales > 0 || cashFlow.cashWithdrawals > 0) {
-      portfolio.push({
+      const cashHolding = {
         ticker: 'CASH',
         name: cashFlow.availableCash >= 0 ? 'Liquidità Disponibile' : 'Liquidità (Negativa)',
         isin: '',
@@ -337,7 +394,12 @@ export const calculatePortfolio = () => {
         lastTransactionDate: new Date().toISOString(),
         isCash: true,
         isNegativeCash: cashFlow.availableCash < 0
-      });
+      };
+
+      console.log(`💰 Cash holding created: €${cashFlow.availableCash.toFixed(2)} (Deposits: €${cashFlow.cashDeposits}, Purchases: €${cashFlow.assetPurchases})`);
+      portfolio.push(cashHolding);
+    } else {
+      console.log('ℹ️ No cash movements detected - cash holding not created');
     }
   } catch (error) {
     console.error('Error calculating cash flow:', error);

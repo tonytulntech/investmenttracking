@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, FileText, X, Calendar, DollarSign, Hash, Tag, Building2, FileDown, FileUp, Loader } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, FileText, X, Calendar, DollarSign, Hash, Tag, FileDown, FileUp } from 'lucide-react';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction, exportTransactions, bulkImportTransactions } from '../services/localStorageService';
 import { searchSecurity } from '../services/priceService';
 import { detectSubCategory } from '../services/categoryDetectionService';
@@ -14,7 +14,6 @@ function Transactions() {
   const [showModal, setShowModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [formData, setFormData] = useState(getEmptyForm());
-  const [detectingSubCategory, setDetectingSubCategory] = useState(false);
 
   useEffect(() => {
     loadTransactions();
@@ -24,58 +23,12 @@ function Transactions() {
     applyFilters();
   }, [transactions, searchTerm, filterType]);
 
-  // Sub-category options based on main category
-  const getSubCategoryOptions = (category) => {
-    const options = {
-      'ETF': [
-        { value: 'Azionario', label: '📈 Azionario' },
-        { value: 'Obbligazionario', label: '📜 Obbligazionario' },
-        { value: 'Materie Prime', label: '🏭 Materie Prime' },
-        { value: 'Misto', label: '🔀 Misto (Bilanciato)' },
-        { value: 'Immobiliare', label: '🏢 Immobiliare (REIT)' },
-        { value: 'Monetario', label: '💵 Monetario' }
-      ],
-      'Crypto': [
-        { value: 'Bitcoin', label: '₿ Bitcoin' },
-        { value: 'Stablecoin', label: '💵 Stablecoin' },
-        { value: 'Meme Coin', label: '🐕 Meme Coin' },
-        { value: 'Alt Coin', label: '🔷 Alt Coin' },
-        { value: 'DeFi', label: '🏦 DeFi Token' },
-        { value: 'Layer 1', label: '⛓️ Layer 1' },
-        { value: 'Layer 2', label: '⚡ Layer 2' }
-      ],
-      'Stock': [
-        { value: 'Large Cap', label: '🏢 Large Cap' },
-        { value: 'Mid Cap', label: '🏪 Mid Cap' },
-        { value: 'Small Cap', label: '🏠 Small Cap' },
-        { value: 'Growth', label: '🚀 Growth' },
-        { value: 'Value', label: '💎 Value' }
-      ],
-      'Bond': [
-        { value: 'Governativi', label: '🏛️ Governativi' },
-        { value: 'Corporativi', label: '🏢 Corporativi' },
-        { value: 'High Yield', label: '⚠️ High Yield' },
-        { value: 'Municipali', label: '🏙️ Municipali' }
-      ],
-      'Cash': [
-        { value: 'Conto Corrente', label: '🏦 Conto Corrente' },
-        { value: 'Conto Deposito', label: '💰 Conto Deposito' },
-        { value: 'Money Market', label: '📊 Money Market' }
-      ],
-      'Other': [
-        { value: 'Altro', label: '📦 Altro' }
-      ]
-    };
-    return options[category] || [];
-  };
-
   function getEmptyForm() {
     return {
       name: '',
       ticker: '',
       isin: '',
       category: 'ETF',
-      subCategory: '',
       date: new Date().toISOString().split('T')[0],
       price: '',
       quantity: '',
@@ -124,7 +77,6 @@ function Transactions() {
       ticker: transaction.ticker || '',
       isin: transaction.isin || '',
       category: transaction.category || 'ETF',
-      subCategory: transaction.subCategory || '',
       date: transaction.date || new Date().toISOString().split('T')[0],
       price: transaction.price || '',
       quantity: transaction.quantity || '',
@@ -148,36 +100,6 @@ function Transactions() {
     }
   };
 
-  // Auto-detect sub-category when ticker or category changes
-  useEffect(() => {
-    const autoDetectSubCategory = async () => {
-      // Only auto-detect if we have ticker and category, and not editing existing transaction
-      if (formData.ticker && formData.category && formData.ticker.length >= 2 && !editingTransaction) {
-        // Don't auto-detect if user has already manually selected a sub-category
-        if (formData.subCategory) {
-          return;
-        }
-
-        setDetectingSubCategory(true);
-        try {
-          const detectedSubCat = await detectSubCategory(formData.ticker, formData.category);
-          if (detectedSubCat) {
-            console.log(`✓ Auto-detected sub-category: ${detectedSubCat}`);
-            setFormData(prev => ({ ...prev, subCategory: detectedSubCat }));
-          }
-        } catch (error) {
-          console.error('Error auto-detecting sub-category:', error);
-        } finally {
-          setDetectingSubCategory(false);
-        }
-      }
-    };
-
-    // Debounce to avoid too many API calls
-    const timeoutId = setTimeout(autoDetectSubCategory, 1000);
-    return () => clearTimeout(timeoutId);
-  }, [formData.ticker, formData.category]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -187,10 +109,23 @@ function Transactions() {
     }
 
     try {
+      // Auto-detect sub-category in background (silently)
+      let detectedSubCategory = null;
+      try {
+        detectedSubCategory = await detectSubCategory(formData.ticker, formData.category);
+        if (detectedSubCategory) {
+          console.log(`✓ Auto-detected sub-category for ${formData.ticker}: ${detectedSubCategory}`);
+        }
+      } catch (error) {
+        console.error('Error auto-detecting sub-category:', error);
+        // Continue anyway - sub-category is optional
+      }
+
       const transactionData = {
         ...formData,
         price: parseFloat(formData.price),
-        quantity: parseFloat(formData.quantity)
+        quantity: parseFloat(formData.quantity),
+        subCategory: detectedSubCategory || '' // Save detected sub-category silently
       };
 
       if (editingTransaction) {
@@ -497,44 +432,6 @@ function Transactions() {
                   </select>
                 </div>
               </div>
-
-              {/* Sub-Category */}
-              {getSubCategoryOptions(formData.category).length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <Building2 className="w-4 h-4 inline mr-1" />
-                    Sotto-Categoria
-                    {detectingSubCategory && (
-                      <span className="ml-2 text-xs text-primary-600">
-                        <Loader className="w-3 h-3 inline animate-spin mr-1" />
-                        Auto-rilevamento...
-                      </span>
-                    )}
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={formData.subCategory}
-                      onChange={(e) => setFormData({ ...formData, subCategory: e.target.value })}
-                      className="select"
-                      disabled={detectingSubCategory}
-                    >
-                      <option value="">
-                        {detectingSubCategory ? 'Rilevamento automatico...' : 'Seleziona...'}
-                      </option>
-                      {getSubCategoryOptions(formData.category).map(option => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    {formData.subCategory && !detectingSubCategory && (
-                      <div className="mt-1 text-xs text-success-600">
-                        ✓ Rilevato automaticamente
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {/* Date */}
               <div>

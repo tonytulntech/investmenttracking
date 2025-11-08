@@ -203,9 +203,16 @@ function Dashboard() {
     const transactions = getTransactions();
     const subCategoryTotals = {};
 
+    // Add cash to sub-category if present in filtered portfolio
+    const cashHolding = filteredPortfolio.find(p => p.ticker === 'CASH');
+    if (cashHolding && cashHolding.microCategory) {
+      subCategoryTotals[cashHolding.microCategory] = cashHolding.marketValue;
+    }
+
+    // Add other holdings from transactions
     transactions.forEach(tx => {
       if ((tx.microCategory || tx.subCategory) && tx.type === 'buy') {
-        const holding = filteredPortfolio.find(p => p.ticker === tx.ticker);
+        const holding = filteredPortfolio.find(p => p.ticker === tx.ticker && p.ticker !== 'CASH');
         if (holding) {
           const key = tx.microCategory || tx.subCategory;
           subCategoryTotals[key] = (subCategoryTotals[key] || 0) + holding.marketValue;

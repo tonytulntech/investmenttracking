@@ -84,7 +84,7 @@ function Rebalancing() {
 
       // Calculate MICRO deviation
       const transactions = getTransactions();
-      const microDeviations = calculateMicroDeviation(updatedPortfolio, transactions);
+      const microDeviations = calculateMicroDeviation(updatedPortfolio, transactions, strategyData);
       setMicroDeviation(microDeviations);
 
       // Calculate PAC calendar
@@ -140,7 +140,7 @@ function Rebalancing() {
     }).filter(d => d.target > 0); // Only show asset classes with target > 0
   };
 
-  const calculateMicroDeviation = (holdings, transactions) => {
+  const calculateMicroDeviation = (holdings, transactions, strategy) => {
     // Exclude cash from rebalancing calculations
     const investableHoldings = holdings.filter(h => !h.isCash);
     const totalValue = investableHoldings.reduce((sum, h) => sum + (h.marketValue || 0), 0);
@@ -152,20 +152,34 @@ function Rebalancing() {
       microTotals[micro] = (microTotals[micro] || 0) + (h.marketValue || 0);
     });
 
-    // Count target allocations from transactions to understand intent
-    const microTargets = {};
-    transactions.filter(tx => !tx.isCash && tx.microCategory).forEach(tx => {
-      const micro = tx.microCategory || tx.subCategory;
-      microTargets[micro] = (microTargets[micro] || 0) + 1;
-    });
+    // Get target allocations from Strategy (if defined)
+    const hasStrategyTargets = strategy && strategy.microAllocation && Object.keys(strategy.microAllocation).length > 0;
+    const microTargets = hasStrategyTargets ? strategy.microAllocation : {};
 
-    const totalTargetWeight = Object.values(microTargets).reduce((sum, w) => sum + w, 0);
+    // If no strategy targets, estimate from transaction history (fallback)
+    if (!hasStrategyTargets) {
+      const txTargets = {};
+      transactions.filter(tx => !tx.isCash && tx.microCategory).forEach(tx => {
+        const micro = tx.microCategory || tx.subCategory;
+        txTargets[micro] = (txTargets[micro] || 0) + 1;
+      });
 
-    return Object.entries(microTotals).map(([microCategory, value]) => {
+      const totalWeight = Object.values(txTargets).reduce((sum, w) => sum + w, 0);
+      Object.entries(txTargets).forEach(([micro, weight]) => {
+        microTargets[micro] = totalWeight > 0 ? (weight / totalWeight) * 100 : 0;
+      });
+    }
+
+    // Combine all MICRO categories (both current and target)
+    const allMicroCategories = new Set([
+      ...Object.keys(microTotals),
+      ...Object.keys(microTargets)
+    ]);
+
+    return Array.from(allMicroCategories).map(microCategory => {
+      const value = microTotals[microCategory] || 0;
       const currentPercentage = totalValue > 0 ? (value / totalValue) * 100 : 0;
-      // Estimate target based on transaction distribution
-      const targetWeight = microTargets[microCategory] || 1;
-      const targetPercentage = totalTargetWeight > 0 ? (targetWeight / totalTargetWeight) * 100 : 0;
+      const targetPercentage = microTargets[microCategory] || 0;
       const difference = currentPercentage - targetPercentage;
 
       return {
@@ -174,9 +188,12 @@ function Rebalancing() {
         target: parseFloat(targetPercentage.toFixed(2)),
         difference: parseFloat(difference.toFixed(2)),
         value,
-        status: Math.abs(difference) < 5 ? 'ok' : Math.abs(difference) < 10 ? 'warning' : 'alert'
+        status: Math.abs(difference) < 5 ? 'ok' : Math.abs(difference) < 10 ? 'warning' : 'alert',
+        hasTarget: microTargets[microCategory] > 0
       };
-    }).sort((a, b) => b.value - a.value);
+    })
+    .filter(d => d.current > 0 || d.target > 0) // Only show categories with current or target value
+    .sort((a, b) => b.value - a.value);
   };
 
   const calculateSmartPurchases = (portfolio, deviations, monthlyBudget, fractional) => {
@@ -763,8 +780,12 @@ function Rebalancing() {
 
           <div className="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-3">
             <p className="text-sm text-purple-700">
-              ℹ️ <strong>Nota:</strong> I target delle MICRO categorie sono stimati automaticamente
-              in base alla distribuzione storica dei tuoi investimenti.
+              {strategy && strategy.microAllocation && Object.keys(strategy.microAllocation).length > 0 ? (
+                <>ℹ️ <strong>Target dalla Strategia:</strong> I target MICRO provengono dalla tua strategia salvata. <a href="/strategy" className="underline font-semibold">Modifica Strategia</a></>
+              ) : (
+                <>ℹ️ <strong>Target Stimati:</strong> I target delle MICRO categorie sono stimati automaticamente
+                in base alla distribuzione storica dei tuoi investimenti. <a href="/strategy" className="underline font-semibold">Definisci una Strategia</a> per target precisi.</>
+              )}
             </p>
           </div>
         </div>

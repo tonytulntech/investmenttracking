@@ -524,65 +524,6 @@ function Dashboard() {
             </p>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Total Value */}
-            <div className="stat-card">
-              <div className="flex items-center justify-between mb-2">
-                <span className="stat-label">Valore Totale</span>
-                <DollarSign className="w-5 h-5 text-primary-600" />
-              </div>
-              <div className="stat-value">€{stats.totalValue.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {stats.assetsCount} asset{stats.assetsCount !== 1 ? 's' : ''}
-              </div>
-            </div>
-
-            {/* Total P/L */}
-            <div className="stat-card">
-              <div className="flex items-center justify-between mb-2">
-                <span className="stat-label">Profitto/Perdita</span>
-                {stats.totalPL >= 0 ? (
-                  <TrendingUp className="w-5 h-5 text-success-600" />
-                ) : (
-                  <TrendingDown className="w-5 h-5 text-danger-600" />
-                )}
-              </div>
-              <div className={`stat-value ${stats.totalPL >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
-                {stats.totalPL >= 0 ? '+' : ''}€{stats.totalPL.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-              <div className={`stat-change ${stats.totalPLPercent >= 0 ? 'positive' : 'negative'}`}>
-                {stats.totalPLPercent >= 0 ? '+' : ''}{stats.totalPLPercent.toFixed(2)}%
-              </div>
-            </div>
-
-            {/* Day Change */}
-            <div className="stat-card">
-              <div className="flex items-center justify-between mb-2">
-                <span className="stat-label">Variazione Oggi</span>
-                <BarChart3 className="w-5 h-5 text-primary-600" />
-              </div>
-              <div className={`stat-value ${stats.dayChange >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
-                {stats.dayChange >= 0 ? '+' : ''}€{stats.dayChange.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-              <div className={`stat-change ${stats.dayChangePercent >= 0 ? 'positive' : 'negative'}`}>
-                {stats.dayChangePercent >= 0 ? '+' : ''}{stats.dayChangePercent.toFixed(2)}%
-              </div>
-            </div>
-
-            {/* Total Invested */}
-            <div className="stat-card">
-              <div className="flex items-center justify-between mb-2">
-                <span className="stat-label">Totale Investito</span>
-                <Wallet className="w-5 h-5 text-primary-600" />
-              </div>
-              <div className="stat-value">€{stats.totalCost.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-              <div className="text-xs text-gray-500 mt-1">
-                Costo medio
-              </div>
-            </div>
-          </div>
-
           {/* Cash Flow Summary */}
           {cashFlow && (
             <div className="card bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200">
@@ -669,6 +610,68 @@ function Dashboard() {
               )}
             </div>
           )}
+
+          {/* Stats Cards - Investimenti */}
+          <div className="card">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Riepilogo Investimenti</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Total Value */}
+              <div className="stat-card">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="stat-label">Valore Totale</span>
+                  <DollarSign className="w-5 h-5 text-primary-600" />
+                </div>
+                <div className="stat-value">€{stats.totalValue.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {stats.assetsCount} asset{stats.assetsCount !== 1 ? 's' : ''}
+                </div>
+              </div>
+
+              {/* Total P/L */}
+              <div className="stat-card">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="stat-label">Profitto/Perdita</span>
+                  {stats.totalPL >= 0 ? (
+                    <TrendingUp className="w-5 h-5 text-success-600" />
+                  ) : (
+                    <TrendingDown className="w-5 h-5 text-danger-600" />
+                  )}
+                </div>
+                <div className={`stat-value ${stats.totalPL >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
+                  {stats.totalPL >= 0 ? '+' : ''}€{stats.totalPL.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div className={`stat-change ${stats.totalPLPercent >= 0 ? 'positive' : 'negative'}`}>
+                  {stats.totalPLPercent >= 0 ? '+' : ''}{stats.totalPLPercent.toFixed(2)}%
+                </div>
+              </div>
+
+              {/* Day Change */}
+              <div className="stat-card">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="stat-label">Variazione Oggi</span>
+                  <BarChart3 className="w-5 h-5 text-primary-600" />
+                </div>
+                <div className={`stat-value ${stats.dayChange >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
+                  {stats.dayChange >= 0 ? '+' : ''}€{stats.dayChange.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div className={`stat-change ${stats.dayChangePercent >= 0 ? 'positive' : 'negative'}`}>
+                  {stats.dayChangePercent >= 0 ? '+' : ''}{stats.dayChangePercent.toFixed(2)}%
+                </div>
+              </div>
+
+              {/* Total Invested */}
+              <div className="stat-card">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="stat-label">Totale Investito</span>
+                  <Wallet className="w-5 h-5 text-primary-600" />
+                </div>
+                <div className="stat-value">€{stats.totalCost.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Costo medio
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* CAGR & Performance Metrics */}
           {performanceMetrics && performanceMetrics.daysInvesting > 0 && (

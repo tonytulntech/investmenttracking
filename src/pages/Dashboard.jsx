@@ -218,6 +218,10 @@ function Dashboard() {
   };
 
   const applyFilters = () => {
+    // Get all transactions and apply date filter first
+    const allTransactions = getTransactions();
+    const dateFilteredTransactions = filterTransactionsByDate(allTransactions);
+
     // Filter portfolio based on selected asset classes
     const filteredPortfolio = fullPortfolio.filter(holding => {
       const macroCategory = holding.macroCategory || holding.category;
@@ -268,8 +272,7 @@ function Dashboard() {
 
     setAllocationData(allocation);
 
-    // Prepare sub-category allocation data from filtered portfolio
-    const transactions = getTransactions();
+    // Prepare sub-category allocation data from filtered portfolio (using date-filtered transactions)
     const subCategoryTotals = {};
 
     // Add cash to sub-category if present in filtered portfolio
@@ -279,8 +282,8 @@ function Dashboard() {
       subCategoryTotals[cashHolding.microCategory] = Math.abs(cashHolding.marketValue);
     }
 
-    // Add other holdings from transactions
-    transactions.forEach(tx => {
+    // Add other holdings from date-filtered transactions
+    dateFilteredTransactions.forEach(tx => {
       if ((tx.microCategory || tx.subCategory) && tx.type === 'buy') {
         const holding = filteredPortfolio.find(p => p.ticker === tx.ticker && p.ticker !== 'CASH');
         if (holding) {
@@ -302,8 +305,8 @@ function Dashboard() {
 
     setSubAllocationData(subAllocation);
 
-    // Prepare performance data (historical simulation) - using filtered portfolio
-    const monthlyData = calculateMonthlyPerformance(transactions, filteredPortfolio);
+    // Prepare performance data (historical simulation) - using date-filtered transactions
+    const monthlyData = calculateMonthlyPerformance(dateFilteredTransactions, filteredPortfolio);
     setPerformanceData(monthlyData);
 
     // Calculate allocation comparison if strategy exists
@@ -320,8 +323,9 @@ function Dashboard() {
       }
     }
 
-    // Calculate performance metrics (CAGR, etc.) based on filtered portfolio
-    const allTransactions = getTransactions();
+    // Calculate performance metrics (CAGR, etc.) based on filtered portfolio and date-filtered transactions
+    // Note: getPerformanceSummary doesn't accept transactions parameter - it recalculates internally
+    // This means CAGR will be calculated from full portfolio, but filtered by asset classes
     const perfMetrics = getPerformanceSummary(filteredPortfolio, strategy);
     setPerformanceMetrics(perfMetrics);
 
@@ -500,6 +504,12 @@ function Dashboard() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-600 mt-1">Panoramica del tuo portafoglio</p>
+          <div className="flex items-center gap-2 mt-2">
+            <Calendar className="w-4 h-4 text-primary-600" />
+            <p className="text-sm text-primary-600 font-medium">
+              Oggi: {format(new Date(), 'dd/MM/yyyy')}
+            </p>
+          </div>
         </div>
         {hasFullPortfolio && (
           <button
@@ -512,6 +522,94 @@ function Dashboard() {
           </button>
         )}
       </div>
+
+      {/* Date Filter Buttons */}
+      {hasFullPortfolio && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-primary-600" />
+              Filtra per Periodo
+            </h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {/* Predefined periods */}
+            <button
+              onClick={() => setDateFilter('all')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                dateFilter === 'all'
+                  ? 'bg-primary-600 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Tutto
+            </button>
+            <button
+              onClick={() => setDateFilter('ytd')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                dateFilter === 'ytd'
+                  ? 'bg-primary-600 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              YTD
+            </button>
+            <button
+              onClick={() => setDateFilter('3m')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                dateFilter === '3m'
+                  ? 'bg-primary-600 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              3 Mesi
+            </button>
+            <button
+              onClick={() => setDateFilter('6m')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                dateFilter === '6m'
+                  ? 'bg-primary-600 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              6 Mesi
+            </button>
+            <button
+              onClick={() => setDateFilter('1y')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                dateFilter === '1y'
+                  ? 'bg-primary-600 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              1 Anno
+            </button>
+
+            {/* Separator */}
+            {availableYears.length > 0 && (
+              <div className="w-px bg-gray-300 mx-2"></div>
+            )}
+
+            {/* Year buttons (only show if there are transactions in those years) */}
+            {availableYears.map(year => (
+              <button
+                key={year}
+                onClick={() => setDateFilter(year.toString())}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  dateFilter === year.toString()
+                    ? 'bg-primary-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {year}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500 mt-3">
+            Seleziona un periodo per filtrare tutte le statistiche e i grafici
+          </p>
+        </div>
+      )}
 
       {!hasFullPortfolio ? (
         <div className="card text-center py-12">

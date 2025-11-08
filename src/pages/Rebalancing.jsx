@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { RefreshCcw, AlertTriangle, TrendingUp, TrendingDown, Calendar, DollarSign, Target, Bell } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { calculatePortfolio } from '../services/localStorageService';
+import { fetchMultiplePrices } from '../services/priceService';
 import { format, addMonths } from 'date-fns';
 
 const COLORS_POSITIVE = '#10b981';
@@ -19,19 +20,53 @@ function Rebalancing() {
     loadData();
   }, []);
 
-  const loadData = () => {
+  const loadData = async () => {
     // Load strategy
     const saved = localStorage.getItem('investment_strategy');
     if (saved) {
       const strategyData = JSON.parse(saved);
       setStrategy(strategyData);
 
-      // Load portfolio
+      // Load portfolio with current prices
       const holdings = calculatePortfolio();
-      setPortfolio(holdings);
 
-      // Calculate deviation
-      const deviations = calculateDeviation(holdings, strategyData);
+      // Fetch current prices for non-cash holdings
+      const nonCashHoldings = holdings.filter(h => !h.isCash);
+      const tickers = nonCashHoldings.map(h => h.ticker);
+      const categoriesMap = nonCashHoldings.reduce((acc, h) => {
+        acc[h.ticker] = h.macroCategory || h.category;
+        return acc;
+      }, {});
+
+      const prices = tickers.length > 0 ? await fetchMultiplePrices(tickers, categoriesMap) : {};
+
+      // Update portfolio with current market values
+      const updatedPortfolio = holdings.map(holding => {
+        if (holding.isCash) {
+          // Cash: use totalCost as market value
+          return {
+            ...holding,
+            currentPrice: 1,
+            marketValue: holding.totalCost
+          };
+        }
+
+        // Other assets: use current price
+        const priceData = prices[holding.ticker];
+        const currentPrice = priceData?.price || holding.avgPrice;
+        const marketValue = currentPrice * holding.quantity;
+
+        return {
+          ...holding,
+          currentPrice,
+          marketValue
+        };
+      });
+
+      setPortfolio(updatedPortfolio);
+
+      // Calculate deviation (excluding cash from rebalancing)
+      const deviations = calculateDeviation(updatedPortfolio, strategyData);
       setDeviation(deviations);
 
       // Calculate PAC calendar
@@ -39,7 +74,7 @@ function Rebalancing() {
       setPacCalendar(calendar);
 
       // Calculate PIC suggestions
-      const picAmounts = calculatePICAmounts(deviations, holdings);
+      const picAmounts = calculatePICAmounts(deviations, updatedPortfolio);
       setPicSuggestions(picAmounts);
 
       // Check rebalancing alerts
@@ -49,12 +84,17 @@ function Rebalancing() {
   };
 
   const calculateDeviation = (holdings, strategyData) => {
-    const totalValue = holdings.reduce((sum, h) => sum + (h.quantity * h.avgPrice), 0);
+    // Exclude cash from rebalancing calculations
+    const investableHoldings = holdings.filter(h => !h.isCash);
 
-    // Group by category
+    // Calculate total value using market values
+    const totalValue = investableHoldings.reduce((sum, h) => sum + (h.marketValue || 0), 0);
+
+    // Group by macro category
     const categoryTotals = {};
-    holdings.forEach(h => {
-      categoryTotals[h.category] = (categoryTotals[h.category] || 0) + (h.quantity * h.avgPrice);
+    investableHoldings.forEach(h => {
+      const category = h.macroCategory || h.category;
+      categoryTotals[category] = (categoryTotals[category] || 0) + (h.marketValue || 0);
     });
 
     // Calculate deviation for each asset class
@@ -128,7 +168,9 @@ function Rebalancing() {
   };
 
   const calculatePICAmounts = (deviations, holdings) => {
-    const totalValue = holdings.reduce((sum, h) => sum + (h.quantity * h.avgPrice), 0);
+    // Exclude cash from rebalancing calculations
+    const investableHoldings = holdings.filter(h => !h.isCash);
+    const totalValue = investableHoldings.reduce((sum, h) => sum + (h.marketValue || 0), 0);
 
     return deviations
       .filter(d => d.difference < -1) // Only underweight assets
@@ -285,6 +327,12 @@ function Rebalancing() {
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           Analisi Scostamenti
         </h3>
+        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <p className="text-sm text-blue-700">
+            ℹ️ <strong>Nota:</strong> Il ribilanciamento esclude automaticamente la liquidità (Cash) dai calcoli.
+            Vengono considerati solo gli asset investiti per mantenere le proporzioni definite nella strategia.
+          </p>
+        </div>
 
         {/* Chart */}
         <ResponsiveContainer width="100%" height={300}>

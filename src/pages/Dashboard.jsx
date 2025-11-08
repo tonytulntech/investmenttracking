@@ -113,7 +113,8 @@ function Dashboard() {
     const updatedPortfolio = holdings.map(holding => {
       // For Cash: price is always 1, no price change, ROI = 0
       if (holding.isCash) {
-        const marketValue = holding.quantity * 1; // price = 1
+        // Use totalCost which contains the actual cash value (can be negative)
+        const marketValue = holding.totalCost;
         return {
           ...holding,
           currentPrice: 1,
@@ -187,15 +188,20 @@ function Dashboard() {
     // Prepare allocation data (by category) from filtered portfolio
     const categoryTotals = filteredPortfolio.reduce((acc, p) => {
       const cat = p.macroCategory || p.category;
-      acc[cat] = (acc[cat] || 0) + p.marketValue;
+      // Use absolute value for display in pie chart (pie charts can't handle negative values)
+      const value = p.isCash ? Math.abs(p.marketValue) : p.marketValue;
+      acc[cat] = (acc[cat] || 0) + value;
       return acc;
     }, {});
 
-    const allocation = Object.entries(categoryTotals).map(([name, value]) => ({
-      name,
-      value,
-      percentage: totalValue > 0 ? ((value / totalValue) * 100).toFixed(1) : 0
-    }));
+    // Filter out zero values for pie chart display
+    const allocation = Object.entries(categoryTotals)
+      .filter(([name, value]) => value > 0)
+      .map(([name, value]) => ({
+        name,
+        value,
+        percentage: totalValue > 0 ? ((value / totalValue) * 100).toFixed(1) : 0
+      }));
 
     setAllocationData(allocation);
 
@@ -206,7 +212,8 @@ function Dashboard() {
     // Add cash to sub-category if present in filtered portfolio
     const cashHolding = filteredPortfolio.find(p => p.ticker === 'CASH');
     if (cashHolding && cashHolding.microCategory) {
-      subCategoryTotals[cashHolding.microCategory] = cashHolding.marketValue;
+      // Use absolute value for pie chart display (pie charts can't handle negative values)
+      subCategoryTotals[cashHolding.microCategory] = Math.abs(cashHolding.marketValue);
     }
 
     // Add other holdings from transactions
@@ -220,11 +227,15 @@ function Dashboard() {
       }
     });
 
-    const subAllocation = Object.entries(subCategoryTotals).map(([name, value]) => ({
-      name,
-      value,
-      percentage: totalValue > 0 ? ((value / totalValue) * 100).toFixed(1) : 0
-    })).sort((a, b) => b.value - a.value);
+    // Filter out zero values and sort by value
+    const subAllocation = Object.entries(subCategoryTotals)
+      .filter(([name, value]) => value > 0)
+      .map(([name, value]) => ({
+        name,
+        value,
+        percentage: totalValue > 0 ? ((value / totalValue) * 100).toFixed(1) : 0
+      }))
+      .sort((a, b) => b.value - a.value);
 
     setSubAllocationData(subAllocation);
 
@@ -717,6 +728,13 @@ function Dashboard() {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Allocazione per Categoria
               </h3>
+              {cashFlow && cashFlow.availableCash <= 0 && filters['Cash'] && (
+                <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-2">
+                  <p className="text-xs text-blue-700">
+                    ℹ️ Cash {cashFlow.availableCash === 0 ? 'è zero e' : 'negativo è'} escluso dal grafico. Vedi sezione Cash Flow per dettagli.
+                  </p>
+                </div>
+              )}
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie

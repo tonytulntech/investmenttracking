@@ -20,15 +20,37 @@ function Dashboard() {
     assetsCount: 0
   });
   const [portfolio, setPortfolio] = useState([]);
+  const [fullPortfolio, setFullPortfolio] = useState([]); // Unfiltered portfolio
   const [allocationData, setAllocationData] = useState([]);
   const [subAllocationData, setSubAllocationData] = useState([]);
   const [performanceData, setPerformanceData] = useState([]);
   const [strategy, setStrategy] = useState(null);
   const [allocationComparison, setAllocationComparison] = useState([]);
 
+  // Asset class filters (all enabled by default)
+  const [filters, setFilters] = useState({
+    ETF: true,
+    ETC: true,
+    ETN: true,
+    Azioni: true,
+    Obbligazioni: true,
+    Crypto: true,
+    'Materie Prime': true,
+    Monetario: true,
+    Immobiliare: true,
+    Cash: true
+  });
+
   useEffect(() => {
     loadData();
   }, []);
+
+  // Recalculate stats when filters change
+  useEffect(() => {
+    if (fullPortfolio.length > 0) {
+      applyFilters();
+    }
+  }, [filters, fullPortfolio]);
 
   const loadData = async () => {
     try {
@@ -117,12 +139,27 @@ function Dashboard() {
       };
     });
 
-    // Calculate overall stats
-    const totalValue = updatedPortfolio.reduce((sum, p) => sum + p.marketValue, 0);
-    const totalCost = updatedPortfolio.reduce((sum, p) => sum + p.totalCost, 0);
+    // Save full portfolio (unfiltered)
+    setFullPortfolio(updatedPortfolio);
+
+    // Initial calculation with all filters enabled will be done by applyFilters()
+  };
+
+  const applyFilters = () => {
+    // Filter portfolio based on selected asset classes
+    const filteredPortfolio = fullPortfolio.filter(holding => {
+      const macroCategory = holding.macroCategory || holding.category;
+      return filters[macroCategory] !== false; // Include if filter is true or undefined
+    });
+
+    setPortfolio(filteredPortfolio);
+
+    // Calculate overall stats from filtered portfolio
+    const totalValue = filteredPortfolio.reduce((sum, p) => sum + p.marketValue, 0);
+    const totalCost = filteredPortfolio.reduce((sum, p) => sum + p.totalCost, 0);
     const totalPL = totalValue - totalCost;
     const totalPLPercent = totalCost > 0 ? (totalPL / totalCost) * 100 : 0;
-    const dayChange = updatedPortfolio.reduce((sum, p) => sum + (p.dayChange * p.quantity), 0);
+    const dayChange = filteredPortfolio.reduce((sum, p) => sum + (p.dayChange * p.quantity), 0);
     const dayChangePercent = totalValue > 0 ? (dayChange / (totalValue - dayChange)) * 100 : 0;
 
     setStats({
@@ -132,14 +169,13 @@ function Dashboard() {
       totalPLPercent,
       dayChange,
       dayChangePercent,
-      assetsCount: updatedPortfolio.length
+      assetsCount: filteredPortfolio.length
     });
 
-    setPortfolio(updatedPortfolio);
-
-    // Prepare allocation data (by category)
-    const categoryTotals = updatedPortfolio.reduce((acc, p) => {
-      acc[p.category] = (acc[p.category] || 0) + p.marketValue;
+    // Prepare allocation data (by category) from filtered portfolio
+    const categoryTotals = filteredPortfolio.reduce((acc, p) => {
+      const cat = p.macroCategory || p.category;
+      acc[cat] = (acc[cat] || 0) + p.marketValue;
       return acc;
     }, {});
 
@@ -151,15 +187,15 @@ function Dashboard() {
 
     setAllocationData(allocation);
 
-    // Prepare sub-category allocation data
+    // Prepare sub-category allocation data from filtered portfolio
     const transactions = getTransactions();
     const subCategoryTotals = {};
 
     transactions.forEach(tx => {
-      if (tx.subCategory && tx.type === 'buy') {
-        const holding = updatedPortfolio.find(p => p.ticker === tx.ticker);
+      if ((tx.microCategory || tx.subCategory) && tx.type === 'buy') {
+        const holding = filteredPortfolio.find(p => p.ticker === tx.ticker);
         if (holding) {
-          const key = `${tx.subCategory}`;
+          const key = tx.microCategory || tx.subCategory;
           subCategoryTotals[key] = (subCategoryTotals[key] || 0) + holding.marketValue;
         }
       }
@@ -168,13 +204,13 @@ function Dashboard() {
     const subAllocation = Object.entries(subCategoryTotals).map(([name, value]) => ({
       name,
       value,
-      percentage: ((value / totalValue) * 100).toFixed(1)
+      percentage: totalValue > 0 ? ((value / totalValue) * 100).toFixed(1) : 0
     })).sort((a, b) => b.value - a.value);
 
     setSubAllocationData(subAllocation);
 
-    // Prepare performance data (historical simulation)
-    const monthlyData = calculateMonthlyPerformance(transactions, updatedPortfolio);
+    // Prepare performance data (historical simulation) - using filtered portfolio
+    const monthlyData = calculateMonthlyPerformance(transactions, filteredPortfolio);
     setPerformanceData(monthlyData);
 
     // Calculate allocation comparison if strategy exists
@@ -184,8 +220,6 @@ function Dashboard() {
       const comparison = calculateAllocationComparison(categoryTotals, totalValue, strategyData.assetAllocation);
       setAllocationComparison(comparison);
     }
-
-    setRefreshing(false);
   };
 
   const calculateAllocationComparison = (categoryTotals, totalValue, targetAllocation) => {
@@ -287,6 +321,51 @@ function Dashboard() {
         </div>
       ) : (
         <>
+          {/* Asset Class Filters */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-gray-900">Filtra Asset Class</h3>
+              <button
+                onClick={() => {
+                  const allEnabled = Object.values(filters).every(v => v);
+                  const newFilters = {};
+                  Object.keys(filters).forEach(key => {
+                    newFilters[key] = !allEnabled;
+                  });
+                  setFilters(newFilters);
+                }}
+                className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+              >
+                {Object.values(filters).every(v => v) ? 'Deseleziona Tutti' : 'Seleziona Tutti'}
+              </button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+              {Object.keys(filters).map(assetClass => (
+                <label
+                  key={assetClass}
+                  className={`flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                    filters[assetClass]
+                      ? 'border-primary-600 bg-primary-50'
+                      : 'border-gray-200 bg-gray-50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={filters[assetClass]}
+                    onChange={(e) => setFilters({ ...filters, [assetClass]: e.target.checked })}
+                    className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                  />
+                  <span className={`text-sm font-medium ${filters[assetClass] ? 'text-primary-900' : 'text-gray-600'}`}>
+                    {assetClass}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-3">
+              Seleziona le asset class da includere nei calcoli e nelle statistiche
+            </p>
+          </div>
+
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Total Value */}

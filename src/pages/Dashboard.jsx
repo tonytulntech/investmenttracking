@@ -234,6 +234,7 @@ function Dashboard() {
     // Get all transactions and apply date filter first
     const allTransactions = getTransactions();
     console.log('📝 Total transactions:', allTransactions.length);
+    console.log('📋 All transactions:', allTransactions);
 
     const dateFilteredTransactions = filterTransactionsByDate(allTransactions);
     console.log('📅 Date filtered transactions:', dateFilteredTransactions.length);
@@ -319,11 +320,23 @@ function Dashboard() {
       return filters[macroCategory] !== false; // Include if filter is true or undefined
     });
 
+    console.log('💼 Working portfolio:', workingPortfolio);
+    console.log('🔍 Filtered portfolio:', filteredPortfolio);
+
     setPortfolio(filteredPortfolio);
 
     // Recalculate everything with filtered data
     const totalValue = filteredPortfolio.reduce((sum, p) => sum + p.marketValue, 0);
     const totalCost = filteredPortfolio.reduce((sum, p) => sum + p.totalCost, 0);
+
+    console.log('💰 Value breakdown:', filteredPortfolio.map(p => ({
+      ticker: p.ticker,
+      quantity: p.quantity,
+      currentPrice: p.currentPrice,
+      marketValue: p.marketValue,
+      totalCost: p.totalCost
+    })));
+    console.log('💵 Total Value:', totalValue, 'Total Cost:', totalCost);
     const totalPL = totalValue - totalCost;
     const totalPLPercent = totalCost > 0 ? (totalPL / totalCost) * 100 : 0;
     const dayChange = filteredPortfolio.reduce((sum, p) => sum + (p.dayChange * p.quantity), 0);

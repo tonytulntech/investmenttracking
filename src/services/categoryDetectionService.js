@@ -12,15 +12,88 @@ import axios from 'axios';
  * Uses free APIs: Yahoo Finance, CoinGecko
  */
 
-const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+// Try multiple CORS proxies for better reliability
+const CORS_PROXIES = [
+  'https://corsproxy.io/?',
+  'https://api.allorigins.win/raw?url=',
+  'https://cors-anywhere.herokuapp.com/'
+];
+
+let currentProxyIndex = 0;
+
+function getCorsProxy() {
+  return CORS_PROXIES[currentProxyIndex];
+}
+
+/**
+ * Smart fallback: detect category from ticker name patterns
+ */
+function detectFromTickerName(ticker) {
+  const t = ticker.toUpperCase();
+
+  // Common ETF patterns
+  const patterns = {
+    // Equity/Azionario
+    'VWCE': 'Azionario', 'SWDA': 'Azionario', 'IWDA': 'Azionario', 'IS3N': 'Azionario',
+    'SPY': 'Azionario', 'VOO': 'Azionario', 'VTI': 'Azionario', 'VUSA': 'Azionario',
+    'QQQ': 'Azionario', 'CSPX': 'Azionario', 'SXRV': 'Azionario', 'SPPW': 'Azionario',
+
+    // Bond/Obbligazionario
+    'AGG': 'Obbligazionario', 'BND': 'Obbligazionario', 'TLT': 'Obbligazionario',
+    'VGLT': 'Obbligazionario', 'IBTA': 'Obbligazionario',
+
+    // Commodities
+    'GLD': 'Materie Prime', 'SLV': 'Materie Prime', 'DBC': 'Materie Prime',
+
+    // Real Estate/Immobiliare
+    'VNQ': 'Immobiliare', 'VNQI': 'Immobiliare'
+  };
+
+  // Direct match
+  if (patterns[t]) {
+    console.log(`✓ Matched ticker ${ticker} to ${patterns[t]} via pattern`);
+    return patterns[t];
+  }
+
+  // Keyword matching
+  if (t.includes('WORLD') || t.includes('MSCI') || t.includes('S&P') || t.includes('STOXX')) {
+    return 'Azionario';
+  }
+  if (t.includes('BOND') || t.includes('TREASURY') || t.includes('GILT')) {
+    return 'Obbligazionario';
+  }
+  if (t.includes('GOLD') || t.includes('SILVER') || t.includes('COMMODITY')) {
+    return 'Materie Prime';
+  }
+  if (t.includes('REIT') || t.includes('REAL')) {
+    return 'Immobiliare';
+  }
+
+  return null;
+}
 
 /**
  * Detect ETF sub-category from Yahoo Finance data
  */
 async function detectETFSubCategory(ticker) {
+  // First try: Smart fallback based on ticker name
+  const fallbackResult = detectFromTickerName(ticker);
+  if (fallbackResult) {
+    return fallbackResult;
+  }
+
   try {
+    // Try direct call first (no CORS proxy)
     const yahooURL = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=fundProfile,assetProfile,price`;
-    const response = await axios.get(CORS_PROXY + encodeURIComponent(yahooURL), { timeout: 10000 });
+
+    let response;
+    try {
+      response = await axios.get(yahooURL, { timeout: 10000 });
+    } catch (error) {
+      // If direct call fails, try with CORS proxy
+      console.log('Direct call failed, trying with CORS proxy...');
+      response = await axios.get(getCorsProxy() + encodeURIComponent(yahooURL), { timeout: 10000 });
+    }
 
     if (response.data && response.data.quoteSummary && response.data.quoteSummary.result) {
       const result = response.data.quoteSummary.result[0];
@@ -124,6 +197,32 @@ async function detectETFSubCategory(ticker) {
  * Detect Crypto sub-category from CoinGecko
  */
 async function detectCryptoSubCategory(symbol) {
+  // Smart fallback for common cryptos
+  const s = symbol.toUpperCase();
+  const cryptoPatterns = {
+    'BTC': 'Bitcoin', 'BITCOIN': 'Bitcoin',
+    'ETH': 'Layer 1', 'ETHEREUM': 'Layer 1',
+    'SOL': 'Layer 1', 'SOLANA': 'Layer 1',
+    'ADA': 'Layer 1', 'CARDANO': 'Layer 1',
+    'AVAX': 'Layer 1', 'AVALANCHE': 'Layer 1',
+    'DOT': 'Layer 1', 'POLKADOT': 'Layer 1',
+    'MATIC': 'Layer 2', 'POLYGON': 'Layer 2',
+    'ARB': 'Layer 2', 'ARBITRUM': 'Layer 2',
+    'OP': 'Layer 2', 'OPTIMISM': 'Layer 2',
+    'USDT': 'Stablecoin', 'TETHER': 'Stablecoin',
+    'USDC': 'Stablecoin', 'DAI': 'Stablecoin',
+    'BUSD': 'Stablecoin', 'TUSD': 'Stablecoin',
+    'DOGE': 'Meme Coin', 'SHIB': 'Meme Coin', 'PEPE': 'Meme Coin',
+    'FLOKI': 'Meme Coin', 'BONK': 'Meme Coin',
+    'UNI': 'DeFi', 'AAVE': 'DeFi', 'COMP': 'DeFi', 'MKR': 'DeFi',
+    'SUSHI': 'DeFi', 'CRV': 'DeFi', 'SNX': 'DeFi'
+  };
+
+  if (cryptoPatterns[s]) {
+    console.log(`✓ Matched crypto ${symbol} to ${cryptoPatterns[s]} via pattern`);
+    return cryptoPatterns[s];
+  }
+
   try {
     // First search for the coin
     const searchUrl = `https://api.coingecko.com/api/v3/search?query=${symbol}`;

@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Target, TrendingUp, DollarSign, Calendar, AlertCircle, TrendingDown, Clock, Zap } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line, ComposedChart } from 'recharts';
+import { Target, TrendingUp, DollarSign, Calendar, AlertCircle, TrendingDown, Clock, Zap, Plus, X, Layers } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line, ComposedChart, PieChart, Pie, Cell } from 'recharts';
+import { ASSET_CLASSES } from '../config/assetClasses';
+
+const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
 
 function Strategy() {
   const [strategyData, setStrategyData] = useState({
@@ -11,17 +14,96 @@ function Strategy() {
     monthlyInvestment: '',
     targetAmount: '',
     riskLevel: 50,
-    assetAllocation: {
-      'Azioni': 0,
-      'Obbligazioni': 0,
-      'Materie Prime': 0,
-      'Crypto': 0,
-      'Liquidità': 0,
-      'Altro': 0
-    }
+    // MICRO allocation (new)
+    microAllocation: {},
+    // MACRO allocation (auto-calculated from MICRO)
+    assetAllocation: {}
   });
   const [projectionData, setProjectionData] = useState([]);
   const [goalAnalysis, setGoalAnalysis] = useState(null);
+  const [showAddMicro, setShowAddMicro] = useState(false);
+  const [selectedMacro, setSelectedMacro] = useState('');
+  const [selectedMicro, setSelectedMicro] = useState('');
+
+  // Get all available MICRO categories grouped by MACRO
+  const getAllMicroCategories = () => {
+    const result = {};
+    Object.entries(ASSET_CLASSES).forEach(([macro, data]) => {
+      result[macro] = Object.keys(data.microCategories);
+    });
+    return result;
+  };
+
+  const microCategoriesByMacro = getAllMicroCategories();
+
+  // Calculate MACRO allocation from MICRO
+  const calculateMacroFromMicro = (microAlloc) => {
+    const macroAlloc = {};
+
+    // Map each MICRO to its MACRO and sum up
+    Object.entries(microAlloc).forEach(([microCat, percentage]) => {
+      // Find which MACRO this MICRO belongs to
+      let foundMacro = null;
+      Object.entries(ASSET_CLASSES).forEach(([macro, data]) => {
+        if (Object.keys(data.microCategories).includes(microCat)) {
+          foundMacro = macro;
+        }
+      });
+
+      if (foundMacro) {
+        macroAlloc[foundMacro] = (macroAlloc[foundMacro] || 0) + percentage;
+      }
+    });
+
+    return macroAlloc;
+  };
+
+  const handleMicroAllocationChange = (microCat, value) => {
+    const newMicroAlloc = {
+      ...strategyData.microAllocation,
+      [microCat]: parseFloat(value) || 0
+    };
+
+    // Auto-calculate MACRO from MICRO
+    const newMacroAlloc = calculateMacroFromMicro(newMicroAlloc);
+
+    setStrategyData(prev => ({
+      ...prev,
+      microAllocation: newMicroAlloc,
+      assetAllocation: newMacroAlloc
+    }));
+  };
+
+  const handleAddMicroCategory = () => {
+    if (!selectedMicro) return;
+
+    setStrategyData(prev => ({
+      ...prev,
+      microAllocation: {
+        ...prev.microAllocation,
+        [selectedMicro]: 0
+      }
+    }));
+
+    setSelectedMicro('');
+    setSelectedMacro('');
+    setShowAddMicro(false);
+  };
+
+  const handleRemoveMicroCategory = (microCat) => {
+    const newMicroAlloc = { ...strategyData.microAllocation };
+    delete newMicroAlloc[microCat];
+
+    const newMacroAlloc = calculateMacroFromMicro(newMicroAlloc);
+
+    setStrategyData(prev => ({
+      ...prev,
+      microAllocation: newMicroAlloc,
+      assetAllocation: newMacroAlloc
+    }));
+  };
+
+  const totalMicroAllocation = Object.values(strategyData.microAllocation).reduce((sum, val) => sum + val, 0);
 
   const handleChange = (field, value) => {
     setStrategyData(prev => ({
@@ -41,7 +123,7 @@ function Strategy() {
   };
 
   const totalAllocation = Object.values(strategyData.assetAllocation).reduce((sum, val) => sum + val, 0);
-  const isAllocationValid = totalAllocation === 100;
+  const isAllocationValid = totalMicroAllocation === 100;
 
   // Calculate expected return based on risk level and allocation
   const calculateExpectedReturn = () => {
@@ -349,57 +431,180 @@ function Strategy() {
         </div>
       </div>
 
-      {/* Asset Allocation */}
+      {/* MICRO Asset Allocation */}
       <div className="card">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Asset Allocation Ideale</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <Layers className="w-5 h-5 text-purple-600" />
+              Asset Allocation (MICRO Categorie)
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Definisci la tua allocazione target per sotto-categorie specifiche
+            </p>
+          </div>
+          <button
+            onClick={() => setShowAddMicro(!showAddMicro)}
+            className="btn-primary flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Aggiungi Categoria
+          </button>
+        </div>
 
         <div className="space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-800">
-              <strong>💡 Nota:</strong> La somma delle percentuali deve essere esattamente 100%
+              <strong>💡 Nota:</strong> La somma delle percentuali MICRO deve essere esattamente 100%.
+              Le MACRO si calcolano automaticamente aggregando le MICRO.
             </p>
           </div>
 
-          {Object.entries(strategyData.assetAllocation).map(([assetClass, value]) => (
-            <div key={assetClass}>
-              <label className="block text-sm font-medium text-gray-700 mb-2 capitalize">
-                {assetClass} (%)
-              </label>
-              <div className="flex items-center gap-4">
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={value}
-                  onChange={(e) => handleAllocationChange(assetClass, e.target.value)}
-                  className="flex-1"
-                />
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  value={value}
-                  onChange={(e) => handleAllocationChange(assetClass, e.target.value)}
-                  className="input w-24 text-center"
-                />
+          {/* Add MICRO Category Modal */}
+          {showAddMicro && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <h3 className="font-semibold text-purple-900 mb-3">Seleziona Categoria MICRO</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    MACRO Categoria
+                  </label>
+                  <select
+                    value={selectedMacro}
+                    onChange={(e) => {
+                      setSelectedMacro(e.target.value);
+                      setSelectedMicro('');
+                    }}
+                    className="input"
+                  >
+                    <option value="">-- Seleziona MACRO --</option>
+                    {Object.keys(ASSET_CLASSES).map(macro => (
+                      <option key={macro} value={macro}>{macro}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    MICRO Categoria
+                  </label>
+                  <select
+                    value={selectedMicro}
+                    onChange={(e) => setSelectedMicro(e.target.value)}
+                    disabled={!selectedMacro}
+                    className="input"
+                  >
+                    <option value="">-- Seleziona MICRO --</option>
+                    {selectedMacro && microCategoriesByMacro[selectedMacro]?.map(micro => (
+                      <option key={micro} value={micro}>{micro}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={handleAddMicroCategory}
+                  disabled={!selectedMicro}
+                  className="btn-primary"
+                >
+                  Aggiungi
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddMicro(false);
+                    setSelectedMacro('');
+                    setSelectedMicro('');
+                  }}
+                  className="btn-secondary"
+                >
+                  Annulla
+                </button>
               </div>
             </div>
-          ))}
+          )}
 
+          {/* MICRO Categories List */}
+          {Object.entries(strategyData.microAllocation).length === 0 ? (
+            <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <Layers className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+              <p className="text-gray-600">Nessuna categoria aggiunta</p>
+              <p className="text-sm text-gray-500 mt-1">Clicca "Aggiungi Categoria" per iniziare</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {Object.entries(strategyData.microAllocation).map(([microCat, value]) => (
+                <div key={microCat} className="bg-white border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="font-medium text-gray-900">
+                      {microCat}
+                    </label>
+                    <button
+                      onClick={() => handleRemoveMicroCategory(microCat)}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="0.5"
+                      value={value}
+                      onChange={(e) => handleMicroAllocationChange(microCat, e.target.value)}
+                      className="flex-1"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={value}
+                      onChange={(e) => handleMicroAllocationChange(microCat, e.target.value)}
+                      className="input w-24 text-center"
+                    />
+                    <span className="text-sm font-medium text-gray-600">%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Total */}
           <div className={`p-4 rounded-lg border-2 ${isAllocationValid ? 'bg-success-50 border-success-200' : 'bg-danger-50 border-danger-200'}`}>
             <div className="flex items-center justify-between">
-              <span className="font-semibold">Totale Allocazione:</span>
+              <span className="font-semibold">Totale MICRO Allocazione:</span>
               <span className={`text-xl font-bold ${isAllocationValid ? 'text-success-700' : 'text-danger-700'}`}>
-                {totalAllocation.toFixed(1)}%
+                {totalMicroAllocation.toFixed(1)}%
               </span>
             </div>
             {!isAllocationValid && (
               <p className="text-sm text-danger-700 mt-2">
-                ⚠️ Mancano {(100 - totalAllocation).toFixed(1)}% per raggiungere il 100%
+                ⚠️ {totalMicroAllocation > 100
+                  ? `Hai superato di ${(totalMicroAllocation - 100).toFixed(1)}%`
+                  : `Mancano ${(100 - totalMicroAllocation).toFixed(1)}%`} per raggiungere il 100%
               </p>
             )}
           </div>
+
+          {/* MACRO Summary (auto-calculated) */}
+          {Object.keys(strategyData.assetAllocation).length > 0 && (
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
+              <h3 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                📊 Riepilogo MACRO (calcolato automaticamente)
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {Object.entries(strategyData.assetAllocation)
+                  .filter(([_, val]) => val > 0)
+                  .map(([macro, percentage]) => (
+                    <div key={macro} className="bg-white rounded-lg p-3 shadow-sm">
+                      <p className="text-xs text-gray-600">{macro}</p>
+                      <p className="text-lg font-bold text-purple-600">{percentage.toFixed(1)}%</p>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

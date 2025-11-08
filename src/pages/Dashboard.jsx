@@ -56,9 +56,13 @@ function Dashboard() {
   // Recalculate stats when filters change
   useEffect(() => {
     if (fullPortfolio.length > 0) {
+      console.log('🔄 Filters changed, recalculating...', {
+        dateFilter,
+        activeFilters: Object.entries(filters).filter(([k, v]) => v).map(([k]) => k)
+      });
       applyFilters();
     }
-  }, [filters, dateFilter, fullPortfolio]);
+  }, [filters, dateFilter]);
 
   const loadData = async () => {
     try {
@@ -214,13 +218,25 @@ function Dashboard() {
     // Save full portfolio (unfiltered)
     setFullPortfolio(updatedPortfolio);
 
-    // Initial calculation with all filters enabled will be done by applyFilters()
+    // Trigger filter application with a small delay to ensure state is updated
+    setTimeout(() => {
+      applyFilters();
+    }, 0);
   };
 
   const applyFilters = () => {
+    console.log('📊 Applying filters...', {
+      fullPortfolioLength: fullPortfolio.length,
+      dateFilter,
+      activeAssetFilters: Object.entries(filters).filter(([k, v]) => v).length
+    });
+
     // Get all transactions and apply date filter first
     const allTransactions = getTransactions();
+    console.log('📝 Total transactions:', allTransactions.length);
+
     const dateFilteredTransactions = filterTransactionsByDate(allTransactions);
+    console.log('📅 Date filtered transactions:', dateFilteredTransactions.length);
 
     // Filter portfolio based on selected asset classes
     const filteredPortfolio = fullPortfolio.filter(holding => {
@@ -331,6 +347,12 @@ function Dashboard() {
 
     // Stop refreshing spinner
     setRefreshing(false);
+
+    console.log('✅ Filters applied successfully!', {
+      filteredPortfolioLength: filteredPortfolio.length,
+      totalValue: totalValue.toFixed(2),
+      statsCalculated: Object.keys(stats).length > 0
+    });
   };
 
   const calculateMicroAllocationComparison = (portfolio, totalValue, microTargets) => {

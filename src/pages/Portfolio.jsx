@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Filter, RefreshCw, ArrowUpDown, Wallet } from 'lucide-react';
 import { calculatePortfolio } from '../services/localStorageService';
 import { fetchMultiplePrices } from '../services/priceService';
+import { getTER, calculateAnnualTERCost, getTERBadgeColor } from '../services/terDetectionService';
 
 function Portfolio() {
   const [loading, setLoading] = useState(true);
@@ -60,6 +61,10 @@ function Portfolio() {
       const unrealizedPL = marketValue - totalCost;
       const roi = totalCost > 0 ? (unrealizedPL / totalCost) * 100 : 0;
 
+      // Get TER information
+      const ter = getTER(holding.ticker);
+      const annualTERCost = ter ? calculateAnnualTERCost(marketValue, ter) : 0;
+
       return {
         ...holding,
         currentPrice,
@@ -68,7 +73,9 @@ function Portfolio() {
         unrealizedPL,
         roi,
         dayChange: priceData?.change || 0,
-        dayChangePercent: priceData?.changePercent || 0
+        dayChangePercent: priceData?.changePercent || 0,
+        ter,
+        annualTERCost
       };
     });
 
@@ -128,7 +135,8 @@ function Portfolio() {
   const summary = {
     totalValue: filteredPortfolio.reduce((sum, h) => sum + h.marketValue, 0),
     totalCost: filteredPortfolio.reduce((sum, h) => sum + h.totalCost, 0),
-    totalPL: filteredPortfolio.reduce((sum, h) => sum + h.unrealizedPL, 0)
+    totalPL: filteredPortfolio.reduce((sum, h) => sum + h.unrealizedPL, 0),
+    totalAnnualTERCost: filteredPortfolio.reduce((sum, h) => sum + (h.annualTERCost || 0), 0)
   };
 
   if (loading) {
@@ -276,6 +284,18 @@ function Portfolio() {
                         <ArrowUpDown className="w-3 h-3" />
                       </div>
                     </th>
+                    <th onClick={() => handleSort('ter')} className="text-right cursor-pointer hover:bg-gray-100">
+                      <div className="flex items-center justify-end gap-1">
+                        TER %
+                        <ArrowUpDown className="w-3 h-3" />
+                      </div>
+                    </th>
+                    <th onClick={() => handleSort('annualTERCost')} className="text-right cursor-pointer hover:bg-gray-100">
+                      <div className="flex items-center justify-end gap-1">
+                        Costo TER/anno
+                        <ArrowUpDown className="w-3 h-3" />
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -311,6 +331,22 @@ function Portfolio() {
                       <td className={`text-right font-medium ${holding.roi >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
                         {holding.roi >= 0 ? '+' : ''}{holding.roi.toFixed(2)}%
                       </td>
+                      <td className="text-right">
+                        {holding.ter ? (
+                          <span className={`badge ${getTERBadgeColor(holding.ter)}`}>
+                            {holding.ter.toFixed(2)}%
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">N/A</span>
+                        )}
+                      </td>
+                      <td className="text-right text-orange-700">
+                        {holding.annualTERCost > 0 ? (
+                          `€${holding.annualTERCost.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -326,7 +362,7 @@ function Portfolio() {
 
           {/* Summary */}
           <div className="card bg-gray-50">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Valore Totale</p>
                 <p className="text-2xl font-bold text-gray-900">
@@ -343,6 +379,15 @@ function Portfolio() {
                 <p className="text-sm text-gray-600 mb-1">P/L Totale</p>
                 <p className={`text-2xl font-bold ${summary.totalPL >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
                   {summary.totalPL >= 0 ? '+' : ''}€{summary.totalPL.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Costo TER Annuale</p>
+                <p className="text-2xl font-bold text-orange-700">
+                  €{summary.totalAnnualTERCost.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Commissioni di gestione ETF
                 </p>
               </div>
             </div>

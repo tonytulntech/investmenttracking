@@ -3,6 +3,8 @@
  * Manages all data persistence using browser's LocalStorage
  */
 
+import { calculateCashFlow } from './cashFlowService';
+
 const STORAGE_KEYS = {
   TRANSACTIONS: 'investment_tracker_transactions',
   SETTINGS: 'investment_tracker_settings',
@@ -44,8 +46,9 @@ const fixCashTransactions = (transactions) => {
         return {
           ...tx,
           ticker: 'CASH',
+          name: 'Cash', // Standard name
           macroCategory: 'Cash',
-          microCategory: tx.microCategory || 'Disponibile',
+          microCategory: 'Liquidità', // Use "Liquidità" as requested
           category: 'Cash', // Keep for backwards compatibility
           isCash: true,
           price: 1, // Cash price is always 1
@@ -372,7 +375,6 @@ export const calculatePortfolio = () => {
 
   // Add cash as a single virtual holding using cash flow
   try {
-    const { calculateCashFlow } = require('./cashFlowService');
     const cashFlow = calculateCashFlow();
 
     // Always add cash if there were any cash movements (deposits/withdrawals/purchases/sales)
@@ -380,12 +382,12 @@ export const calculatePortfolio = () => {
     if (cashFlow.cashDeposits > 0 || cashFlow.assetPurchases > 0 || cashFlow.assetSales > 0 || cashFlow.cashWithdrawals > 0) {
       const cashHolding = {
         ticker: 'CASH',
-        name: cashFlow.availableCash >= 0 ? 'Liquidità Disponibile' : 'Liquidità (Negativa)',
+        name: 'Cash', // Standard name as requested
         isin: '',
         category: 'Cash',
         macroCategory: 'Cash',
-        microCategory: 'Disponibile',
-        subCategory: 'Disponibile',
+        microCategory: 'Liquidità', // Changed to "Liquidità" as requested
+        subCategory: 'Liquidità',
         currency: 'EUR',
         quantity: Math.abs(cashFlow.availableCash), // Use absolute value for quantity
         totalCost: cashFlow.availableCash, // Keep actual value (can be negative)

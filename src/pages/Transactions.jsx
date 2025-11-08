@@ -48,9 +48,20 @@ function Transactions() {
     if (formData.macroCategory) {
       const microCats = getMicroCategories(formData.macroCategory);
       setAvailableMicroCategories(microCats);
-      // Reset micro category if not valid for new macro
-      if (formData.microCategory && !(formData.microCategory in microCats)) {
-        setFormData(prev => ({ ...prev, microCategory: '' }));
+
+      // Special handling for Cash: auto-fill microCategory and name
+      if (formData.macroCategory === 'Cash') {
+        setFormData(prev => ({
+          ...prev,
+          microCategory: 'Liquidità',
+          name: 'Cash',
+          ticker: prev.ticker || 'CASH'
+        }));
+      } else {
+        // Reset micro category if not valid for new macro
+        if (formData.microCategory && !(formData.microCategory in microCats)) {
+          setFormData(prev => ({ ...prev, microCategory: '' }));
+        }
       }
     }
   }, [formData.macroCategory]);

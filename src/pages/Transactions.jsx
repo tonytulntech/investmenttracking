@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, FileText, X, Calendar, DollarSign, Hash, Tag, Building2, FileDown, FileUp } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, FileText, X, Calendar, DollarSign, Hash, Tag, Building2, FileDown, FileUp, Loader, Globe, MapPin } from 'lucide-react';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction, exportTransactions, bulkImportTransactions } from '../services/localStorageService';
 import { searchSecurity } from '../services/priceService';
+import { fetchAllocationData } from '../services/allocationService';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 
@@ -13,6 +14,8 @@ function Transactions() {
   const [showModal, setShowModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [formData, setFormData] = useState(getEmptyForm());
+  const [allocationData, setAllocationData] = useState(null);
+  const [fetchingAllocation, setFetchingAllocation] = useState(false);
 
   useEffect(() => {
     loadTransactions();
@@ -66,6 +69,7 @@ function Transactions() {
   const handleAdd = () => {
     setEditingTransaction(null);
     setFormData(getEmptyForm());
+    setAllocationData(null);
     setShowModal(true);
   };
 
@@ -83,6 +87,12 @@ function Transactions() {
       notes: transaction.notes || '',
       type: transaction.type || 'buy'
     });
+    // Load existing allocation data if available
+    if (transaction.allocation) {
+      setAllocationData(transaction.allocation);
+    } else {
+      setAllocationData(null);
+    }
     setShowModal(true);
   };
 
@@ -99,6 +109,34 @@ function Transactions() {
     }
   };
 
+  // Auto-fetch allocation data when ticker or category changes
+  useEffect(() => {
+    const fetchAllocation = async () => {
+      // Only fetch if we have a ticker and category, and we're not editing (or if editing and no allocation data exists)
+      if (formData.ticker && formData.category && formData.ticker.length >= 2) {
+        // Don't re-fetch if we're editing and already have allocation data
+        if (editingTransaction && editingTransaction.allocation) {
+          return;
+        }
+
+        setFetchingAllocation(true);
+        try {
+          const data = await fetchAllocationData(formData.ticker, formData.category);
+          setAllocationData(data);
+        } catch (error) {
+          console.error('Error fetching allocation:', error);
+          setAllocationData(null);
+        } finally {
+          setFetchingAllocation(false);
+        }
+      }
+    };
+
+    // Debounce the fetch to avoid too many API calls
+    const timeoutId = setTimeout(fetchAllocation, 800);
+    return () => clearTimeout(timeoutId);
+  }, [formData.ticker, formData.category]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -111,7 +149,10 @@ function Transactions() {
       const transactionData = {
         ...formData,
         price: parseFloat(formData.price),
-        quantity: parseFloat(formData.quantity)
+        quantity: parseFloat(formData.quantity),
+        // Include allocation data if available
+        allocation: allocationData?.allocation || null,
+        allocationMetadata: allocationData?.metadata || null
       };
 
       if (editingTransaction) {
@@ -121,6 +162,7 @@ function Transactions() {
       }
 
       setShowModal(false);
+      setAllocationData(null);
       loadTransactions();
     } catch (error) {
       alert('Errore nel salvare la transazione');
@@ -510,6 +552,86 @@ function Transactions() {
                   className="input resize-none"
                 />
               </div>
+
+              {/* Allocation Data Display */}
+              {fetchingAllocation && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+                  <Loader className="w-5 h-5 text-blue-600 animate-spin" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-900">
+                      Recupero dati allocazione...
+                    </p>
+                    <p className="text-xs text-blue-700">
+                      Ottenendo informazioni su paesi, settori e mercati
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {!fetchingAllocation && allocationData && allocationData.allocation && (
+                <div className="bg-success-50 border border-success-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Globe className="w-5 h-5 text-success-700" />
+                    <h4 className="text-sm font-semibold text-success-900">
+                      Allocazione Automatica Rilevata
+                    </h4>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    {/* Countries */}
+                    {allocationData.allocation.countries && Object.keys(allocationData.allocation.countries).length > 0 && (
+                      <div>
+                        <p className="font-medium text-success-900 mb-1">Paesi:</p>
+                        <p className="text-success-700">
+                          {Object.keys(allocationData.allocation.countries).slice(0, 3).join(', ')}
+                          {Object.keys(allocationData.allocation.countries).length > 3 && '...'}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Sectors */}
+                    {allocationData.allocation.sectors && Object.keys(allocationData.allocation.sectors).length > 0 && (
+                      <div>
+                        <p className="font-medium text-success-900 mb-1">Settori:</p>
+                        <p className="text-success-700">
+                          {Object.keys(allocationData.allocation.sectors).slice(0, 3).join(', ')}
+                          {Object.keys(allocationData.allocation.sectors).length > 3 && '...'}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Continents */}
+                    {allocationData.allocation.continents && Object.keys(allocationData.allocation.continents).length > 0 && (
+                      <div>
+                        <p className="font-medium text-success-900 mb-1">Continenti:</p>
+                        <p className="text-success-700">
+                          {Object.keys(allocationData.allocation.continents).slice(0, 3).join(', ')}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Market Types */}
+                    {allocationData.allocation.marketTypes && Object.keys(allocationData.allocation.marketTypes).length > 0 && (
+                      <div>
+                        <p className="font-medium text-success-900 mb-1">Tipo Mercato:</p>
+                        <p className="text-success-700">
+                          {Object.keys(allocationData.allocation.marketTypes).join(', ')}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-success-600 mt-2 italic">
+                    ✓ Questi dati verranno salvati automaticamente con la transazione
+                  </p>
+                </div>
+              )}
+
+              {!fetchingAllocation && allocationData && allocationData.metadata?.note && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <p className="text-xs text-gray-600">
+                    ℹ️ {allocationData.metadata.note}
+                  </p>
+                </div>
+              )}
 
               {/* Actions */}
               <div className="flex gap-3">

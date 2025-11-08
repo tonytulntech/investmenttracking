@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Wallet, DollarSign, BarChart3, RefreshCw } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { TrendingUp, TrendingDown, Wallet, DollarSign, BarChart3, RefreshCw, Globe, Map, LineChart, Banknote, Building2 } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, Area, XAxis, YAxis, CartesianGrid, BarChart, Bar } from 'recharts';
 import { getTransactions, calculatePortfolio } from '../services/localStorageService';
 import { fetchMultiplePrices } from '../services/priceService';
+import { calculatePortfolioAllocation } from '../services/allocationService';
 import { format } from 'date-fns';
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
@@ -22,6 +23,8 @@ function Dashboard() {
   const [portfolio, setPortfolio] = useState([]);
   const [allocationData, setAllocationData] = useState([]);
   const [performanceData, setPerformanceData] = useState([]);
+  const [allocationView, setAllocationView] = useState('countries'); // countries, continents, marketTypes, currencies, sectors
+  const [portfolioAllocation, setPortfolioAllocation] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -130,6 +133,10 @@ function Dashboard() {
     const transactions = getTransactions();
     const monthlyData = calculateMonthlyPerformance(transactions, updatedPortfolio);
     setPerformanceData(monthlyData);
+
+    // Calculate portfolio-wide allocation
+    const aggregatedAllocation = calculatePortfolioAllocation(updatedPortfolio);
+    setPortfolioAllocation(aggregatedAllocation);
 
     setRefreshing(false);
   };
@@ -328,6 +335,123 @@ function Dashboard() {
               </ResponsiveContainer>
             </div>
           </div>
+
+          {/* Portfolio Allocation Breakdown */}
+          {portfolioAllocation && (
+            <div className="card">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Diversificazione Portfolio
+                </h3>
+              </div>
+
+              {/* Allocation View Selector */}
+              <div className="mb-6">
+                <p className="text-sm text-gray-600 mb-3">Visualizza per:</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setAllocationView('countries')}
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${
+                      allocationView === 'countries'
+                        ? 'bg-primary-600 text-white shadow-lg'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Globe className="w-4 h-4" />
+                    🌍 Paese
+                  </button>
+                  <button
+                    onClick={() => setAllocationView('continents')}
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${
+                      allocationView === 'continents'
+                        ? 'bg-primary-600 text-white shadow-lg'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Map className="w-4 h-4" />
+                    🌎 Continente
+                  </button>
+                  <button
+                    onClick={() => setAllocationView('marketTypes')}
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${
+                      allocationView === 'marketTypes'
+                        ? 'bg-primary-600 text-white shadow-lg'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <LineChart className="w-4 h-4" />
+                    📊 Tipo di Mercato
+                  </button>
+                  <button
+                    onClick={() => setAllocationView('currencies')}
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${
+                      allocationView === 'currencies'
+                        ? 'bg-primary-600 text-white shadow-lg'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Banknote className="w-4 h-4" />
+                    💰 Valuta
+                  </button>
+                  <button
+                    onClick={() => setAllocationView('sectors')}
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${
+                      allocationView === 'sectors'
+                        ? 'bg-primary-600 text-white shadow-lg'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Building2 className="w-4 h-4" />
+                    🏭 Settore
+                  </button>
+                </div>
+              </div>
+
+              {/* Allocation Bar Chart */}
+              {(() => {
+                const currentAllocation = portfolioAllocation[allocationView] || {};
+                const hasData = Object.keys(currentAllocation).length > 0;
+
+                if (!hasData) {
+                  return (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>Nessun dato di allocazione disponibile per questa vista</p>
+                      <p className="text-sm mt-2">
+                        I dati vengono recuperati automaticamente quando aggiungi nuove transazioni
+                      </p>
+                    </div>
+                  );
+                }
+
+                const chartData = Object.entries(currentAllocation)
+                  .map(([name, value]) => ({
+                    name,
+                    percentage: value
+                  }))
+                  .sort((a, b) => b.percentage - a.percentage)
+                  .slice(0, 10); // Top 10
+
+                return (
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart data={chartData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" domain={[0, 100]} />
+                      <YAxis type="category" dataKey="name" width={150} />
+                      <Tooltip
+                        formatter={(value) => `${value.toFixed(2)}%`}
+                        contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                      />
+                      <Bar dataKey="percentage" fill="#3b82f6" radius={[0, 8, 8, 0]}>
+                        {chartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                );
+              })()}
+            </div>
+          )}
 
           {/* Top Holdings */}
           <div className="card">

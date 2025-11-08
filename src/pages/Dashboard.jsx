@@ -331,6 +331,8 @@ function Dashboard() {
   }
 
   const hasData = portfolio.length > 0;
+  const hasFullPortfolio = fullPortfolio.length > 0;
+  const allFiltersDisabled = Object.values(filters).every(v => v === false);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -340,7 +342,7 @@ function Dashboard() {
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-600 mt-1">Panoramica del tuo portafoglio</p>
         </div>
-        {hasData && (
+        {hasFullPortfolio && (
           <button
             onClick={() => updatePricesAndCalculate()}
             disabled={refreshing}
@@ -352,7 +354,7 @@ function Dashboard() {
         )}
       </div>
 
-      {!hasData ? (
+      {!hasFullPortfolio ? (
         <div className="card text-center py-12">
           <Wallet className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-gray-900 mb-2">
@@ -365,6 +367,19 @@ function Dashboard() {
             <TrendingUp className="w-5 h-5" />
             Aggiungi Transazione
           </a>
+        </div>
+      ) : allFiltersDisabled ? (
+        <div className="card text-center py-12 bg-orange-50 border-2 border-orange-200">
+          <AlertCircle className="w-16 h-16 text-orange-500 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-orange-900 mb-2">
+            Nessun Filtro Selezionato
+          </h3>
+          <p className="text-orange-700 mb-6">
+            Seleziona almeno una Asset Class dai filtri sopra per visualizzare la dashboard
+          </p>
+          <p className="text-sm text-orange-600">
+            💡 Suggerimento: Usa il pulsante "Seleziona Tutti" per abilitare tutti i filtri rapidamente
+          </p>
         </div>
       ) : (
         <>

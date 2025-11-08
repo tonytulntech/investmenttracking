@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Wallet, DollarSign, BarChart3, RefreshCw } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { TrendingUp, TrendingDown, Wallet, DollarSign, BarChart3, RefreshCw, Target, AlertCircle } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, Area, XAxis, YAxis, CartesianGrid, BarChart, Bar } from 'recharts';
 import { getTransactions, calculatePortfolio } from '../services/localStorageService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { format } from 'date-fns';
@@ -23,6 +23,8 @@ function Dashboard() {
   const [allocationData, setAllocationData] = useState([]);
   const [subAllocationData, setSubAllocationData] = useState([]);
   const [performanceData, setPerformanceData] = useState([]);
+  const [strategy, setStrategy] = useState(null);
+  const [allocationComparison, setAllocationComparison] = useState([]);
 
   useEffect(() => {
     loadData();
@@ -31,6 +33,11 @@ function Dashboard() {
   const loadData = async () => {
     try {
       setLoading(true);
+      // Load strategy
+      const savedStrategy = localStorage.getItem('investment_strategy');
+      if (savedStrategy) {
+        setStrategy(JSON.parse(savedStrategy));
+      }
       await updatePricesAndCalculate();
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -153,7 +160,35 @@ function Dashboard() {
     const monthlyData = calculateMonthlyPerformance(transactions, updatedPortfolio);
     setPerformanceData(monthlyData);
 
+    // Calculate allocation comparison if strategy exists
+    const savedStrategy = localStorage.getItem('investment_strategy');
+    if (savedStrategy) {
+      const strategyData = JSON.parse(savedStrategy);
+      const comparison = calculateAllocationComparison(categoryTotals, totalValue, strategyData.assetAllocation);
+      setAllocationComparison(comparison);
+    }
+
     setRefreshing(false);
+  };
+
+  const calculateAllocationComparison = (categoryTotals, totalValue, targetAllocation) => {
+    // Create comparison array with all asset classes
+    const assetClasses = Object.keys(targetAllocation);
+
+    return assetClasses.map(assetClass => {
+      const currentValue = categoryTotals[assetClass] || 0;
+      const currentPercentage = totalValue > 0 ? (currentValue / totalValue) * 100 : 0;
+      const targetPercentage = targetAllocation[assetClass];
+      const difference = currentPercentage - targetPercentage;
+
+      return {
+        assetClass,
+        current: parseFloat(currentPercentage.toFixed(2)),
+        target: parseFloat(targetPercentage),
+        difference: parseFloat(difference.toFixed(2)),
+        status: Math.abs(difference) < 2 ? 'ok' : Math.abs(difference) < 5 ? 'warning' : 'alert'
+      };
+    });
   };
 
   const calculateMonthlyPerformance = (transactions, currentPortfolio) => {
@@ -394,6 +429,102 @@ function Dashboard() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Allocation Comparison with Target */}
+          {strategy && allocationComparison.length > 0 && (
+            <div className="card">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Target className="w-5 h-5 text-primary-600" />
+                    Confronto Allocazione: Attuale vs Obiettivo
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Obiettivo: {strategy.goalName || 'Non definito'}
+                  </p>
+                </div>
+                <a href="/strategy" className="btn-secondary text-sm">
+                  Modifica Strategia
+                </a>
+              </div>
+
+              {/* Bar Chart Comparison */}
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={allocationComparison}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="assetClass" />
+                  <YAxis label={{ value: '%', angle: 0, position: 'top' }} />
+                  <Tooltip formatter={(value) => `${value}%`} />
+                  <Legend />
+                  <Bar dataKey="current" fill="#3b82f6" name="Attuale %" />
+                  <Bar dataKey="target" fill="#10b981" name="Obiettivo %" />
+                </BarChart>
+              </ResponsiveContainer>
+
+              {/* Detailed Table */}
+              <div className="mt-6 overflow-x-auto">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Asset Class</th>
+                      <th className="text-right">Attuale %</th>
+                      <th className="text-right">Obiettivo %</th>
+                      <th className="text-right">Scostamento</th>
+                      <th className="text-center">Stato</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allocationComparison.map((item, index) => (
+                      <tr key={index}>
+                        <td className="font-semibold">{item.assetClass}</td>
+                        <td className="text-right">{item.current}%</td>
+                        <td className="text-right">{item.target}%</td>
+                        <td className={`text-right font-medium ${
+                          item.difference > 0 ? 'text-primary-600' : item.difference < 0 ? 'text-orange-600' : 'text-gray-600'
+                        }`}>
+                          {item.difference > 0 ? '+' : ''}{item.difference}%
+                        </td>
+                        <td className="text-center">
+                          {item.status === 'ok' && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-success-100 text-success-700">
+                              ✓ OK
+                            </span>
+                          )}
+                          {item.status === 'warning' && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                              ⚠ Attenzione
+                            </span>
+                          )}
+                          {item.status === 'alert' && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-danger-100 text-danger-700">
+                              🔴 Ribilancia
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Alert if rebalancing needed */}
+              {allocationComparison.some(item => item.status === 'alert') && (
+                <div className="mt-4 bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-orange-900">Ribilanciamento Consigliato</p>
+                      <p className="text-sm text-orange-700 mt-1">
+                        Alcune asset class si sono discostate significativamente dall'obiettivo.
+                        Visita la pagina <a href="/rebalancing" className="underline font-medium">Ribilanciamento</a> per
+                        vedere i suggerimenti di acquisto/vendita.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

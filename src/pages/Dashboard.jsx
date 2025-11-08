@@ -238,8 +238,79 @@ function Dashboard() {
     const dateFilteredTransactions = filterTransactionsByDate(allTransactions);
     console.log('📅 Date filtered transactions:', dateFilteredTransactions.length);
 
+    // CRITICAL FIX: If date filter is active, recalculate portfolio from filtered transactions
+    // This ensures statistics reflect only the selected time period
+    let workingPortfolio;
+
+    if (dateFilter !== 'all') {
+      console.log('🔄 Recalculating portfolio from date-filtered transactions...');
+      // Rebuild portfolio from scratch using only date-filtered transactions
+      const holdings = {};
+
+      dateFilteredTransactions.forEach(tx => {
+        const { ticker, type, quantity, price, date } = tx;
+        const isCash = tx.isCash || (tx.macroCategory === 'Cash');
+
+        // Skip cash - handled separately
+        if (isCash) return;
+
+        if (!holdings[ticker]) {
+          holdings[ticker] = {
+            ticker,
+            name: tx.name || ticker,
+            macroCategory: tx.macroCategory || tx.category || 'Other',
+            microCategory: tx.microCategory || tx.subCategory || null,
+            quantity: 0,
+            totalCost: 0
+          };
+        }
+
+        if (type === 'buy') {
+          holdings[ticker].quantity += quantity;
+          holdings[ticker].totalCost += quantity * price;
+        } else if (type === 'sell') {
+          holdings[ticker].quantity -= quantity;
+          holdings[ticker].totalCost -= quantity * price;
+        }
+      });
+
+      // Convert to array and match with current prices from fullPortfolio
+      workingPortfolio = Object.values(holdings)
+        .filter(h => h.quantity > 0)
+        .map(h => {
+          // Find current price from fullPortfolio
+          const fullHolding = fullPortfolio.find(fh => fh.ticker === h.ticker);
+          const currentPrice = fullHolding?.currentPrice || (h.totalCost / h.quantity);
+          const marketValue = currentPrice * h.quantity;
+          const unrealizedPL = marketValue - h.totalCost;
+          const roi = h.totalCost > 0 ? (unrealizedPL / h.totalCost) * 100 : 0;
+
+          return {
+            ...h,
+            currentPrice,
+            marketValue,
+            unrealizedPL,
+            roi,
+            avgPrice: h.totalCost / h.quantity,
+            dayChange: fullHolding?.dayChange || 0,
+            dayChangePercent: fullHolding?.dayChangePercent || 0
+          };
+        });
+
+      // Add cash from fullPortfolio if it exists
+      const cashHolding = fullPortfolio.find(h => h.ticker === 'CASH');
+      if (cashHolding) {
+        workingPortfolio.push(cashHolding);
+      }
+
+      console.log('✅ Portfolio recalculated from filtered transactions:', workingPortfolio.length, 'holdings');
+    } else {
+      // No date filter - use full portfolio
+      workingPortfolio = fullPortfolio;
+    }
+
     // Filter portfolio based on selected asset classes
-    const filteredPortfolio = fullPortfolio.filter(holding => {
+    const filteredPortfolio = workingPortfolio.filter(holding => {
       const macroCategory = holding.macroCategory || holding.category;
       // Special handling for CASH virtual holding
       if (holding.ticker === 'CASH') {
@@ -288,25 +359,15 @@ function Dashboard() {
 
     setAllocationData(allocation);
 
-    // Prepare sub-category allocation data from filtered portfolio (using date-filtered transactions)
+    // Prepare sub-category allocation data from filtered portfolio
+    // FIXED: Calculate directly from portfolio, not from transactions (was causing duplicates)
     const subCategoryTotals = {};
 
-    // Add cash to sub-category if present in filtered portfolio
-    const cashHolding = filteredPortfolio.find(p => p.ticker === 'CASH');
-    if (cashHolding && cashHolding.microCategory) {
-      // Use absolute value for pie chart display (pie charts can't handle negative values)
-      subCategoryTotals[cashHolding.microCategory] = Math.abs(cashHolding.marketValue);
-    }
-
-    // Add other holdings from date-filtered transactions
-    dateFilteredTransactions.forEach(tx => {
-      if ((tx.microCategory || tx.subCategory) && tx.type === 'buy') {
-        const holding = filteredPortfolio.find(p => p.ticker === tx.ticker && p.ticker !== 'CASH');
-        if (holding) {
-          const key = tx.microCategory || tx.subCategory;
-          subCategoryTotals[key] = (subCategoryTotals[key] || 0) + holding.marketValue;
-        }
-      }
+    filteredPortfolio.forEach(holding => {
+      const subCat = holding.microCategory || holding.subCategory || 'Non categorizzato';
+      // Use absolute value for cash in pie chart display
+      const value = holding.isCash ? Math.abs(holding.marketValue) : holding.marketValue;
+      subCategoryTotals[subCat] = (subCategoryTotals[subCat] || 0) + value;
     });
 
     // Filter out zero values and sort by value

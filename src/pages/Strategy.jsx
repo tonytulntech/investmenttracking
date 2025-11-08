@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 function Strategy() {
   const [strategyData, setStrategyData] = useState({
     goalName: '',
+    currentAge: '',
     yearsAvailable: '',
     initialInvestment: '',
     monthlyInvestment: '',
@@ -70,10 +71,11 @@ function Strategy() {
   };
 
   const calculateProjection = () => {
-    const { initialInvestment, monthlyInvestment, yearsAvailable } = strategyData;
+    const { initialInvestment, monthlyInvestment, yearsAvailable, currentAge } = strategyData;
     const initial = parseFloat(initialInvestment) || 0;
     const monthly = parseFloat(monthlyInvestment) || 0;
     const years = parseInt(yearsAvailable) || 0;
+    const age = parseInt(currentAge) || null;
 
     if (years === 0) return [];
 
@@ -82,6 +84,7 @@ function Strategy() {
     const projection = [];
 
     let currentValue = initial;
+    const currentYear = new Date().getFullYear();
 
     for (let year = 1; year <= years; year++) {
       // Apply monthly contributions and compound interest for 12 months
@@ -89,9 +92,14 @@ function Strategy() {
         currentValue = currentValue * (1 + monthlyReturn) + monthly;
       }
 
+      const calendarYear = currentYear + year;
+      const ageAtYear = age ? age + year : null;
+
       projection.push({
-        year: `Anno ${year}`,
+        year: age ? `Anno ${year}\n(${ageAtYear} anni)` : `Anno ${year}`,
         yearNumber: year,
+        calendarYear,
+        age: ageAtYear,
         value: Math.round(currentValue),
         invested: Math.round(initial + (monthly * 12 * year))
       });
@@ -113,12 +121,31 @@ function Strategy() {
     const difference = finalValue - target;
     const diffPercentage = (difference / target) * 100;
 
+    // Find when goal is reached
+    let goalReachedYear = null;
+    let goalReachedAge = null;
+    let goalReachedCalendarYear = null;
+
+    if (achieved) {
+      for (const dataPoint of projection) {
+        if (dataPoint.value >= target) {
+          goalReachedYear = dataPoint.yearNumber;
+          goalReachedAge = dataPoint.age;
+          goalReachedCalendarYear = dataPoint.calendarYear;
+          break;
+        }
+      }
+    }
+
     return {
       achieved,
       finalValue,
       targetAmount: target,
       difference,
       diffPercentage,
+      goalReachedYear,
+      goalReachedAge,
+      goalReachedCalendarYear,
       suggestions: !achieved ? generateSuggestions() : []
     };
   };
@@ -238,7 +265,24 @@ function Strategy() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Età Attuale
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="120"
+                value={strategyData.currentAge}
+                onChange={(e) => handleChange('currentAge', e.target.value)}
+                placeholder="es. 30"
+                className="input"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Per mostrare età nel grafico
+              </p>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <Calendar className="w-4 h-4 inline mr-1" />
@@ -369,12 +413,55 @@ function Strategy() {
             Rendimento atteso annuo: <strong>{calculateExpectedReturn().toFixed(2)}%</strong> (basato sulla tua allocazione e livello di rischio)
           </p>
 
+          {goalAnalysis && goalAnalysis.achieved && goalAnalysis.goalReachedCalendarYear && (
+            <div className="bg-success-50 border border-success-200 rounded-lg p-4 mb-4 flex items-center gap-3">
+              <div className="w-10 h-10 bg-success-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <Target className="w-5 h-5 text-success-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-success-900">
+                  🎯 Obiettivo raggiunto nell'anno {goalAnalysis.goalReachedYear}
+                </p>
+                <p className="text-sm text-success-700">
+                  Nel <strong>{goalAnalysis.goalReachedCalendarYear}</strong>
+                  {goalAnalysis.goalReachedAge && <span> quando avrai <strong>{goalAnalysis.goalReachedAge} anni</strong></span>}
+                </p>
+              </div>
+            </div>
+          )}
+
           <ResponsiveContainer width="100%" height={400}>
             <ComposedChart data={projectionData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="year" angle={-45} textAnchor="end" height={80} />
+              <XAxis dataKey="year" angle={-45} textAnchor="end" height={80} fontSize={11} />
               <YAxis tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(value) => `€${value.toLocaleString('it-IT')}`} />
+              <Tooltip
+                formatter={(value) => `€${value.toLocaleString('it-IT')}`}
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload[0].payload;
+                    return (
+                      <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-lg">
+                        <p className="font-semibold text-gray-900 mb-2">Anno {data.yearNumber}</p>
+                        {data.calendarYear && (
+                          <p className="text-sm text-gray-600 mb-1">📅 {data.calendarYear}</p>
+                        )}
+                        {data.age && (
+                          <p className="text-sm text-gray-600 mb-2">👤 Età: {data.age} anni</p>
+                        )}
+                        <div className="space-y-1 border-t border-gray-200 pt-2">
+                          {payload.map((entry, index) => (
+                            <p key={index} className="text-sm" style={{ color: entry.color }}>
+                              {entry.name}: <strong>€{entry.value.toLocaleString('it-IT')}</strong>
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
               <Legend />
               <Bar dataKey="invested" fill="#10b981" name="Totale Investito €" />
               <Bar dataKey="value" fill="#3b82f6" name="Valore Stimato €" />
@@ -411,11 +498,25 @@ function Strategy() {
                   <h4 className="text-lg font-bold text-success-900 mb-2">
                     🎉 Obiettivo Raggiungibile!
                   </h4>
+                  <p className="text-success-700 mb-2">
+                    Con questa strategia, dovresti raggiungere il tuo obiettivo di{' '}
+                    <strong>€{goalAnalysis.targetAmount.toLocaleString('it-IT')}</strong>{' '}
+                    {goalAnalysis.goalReachedYear && (
+                      <>
+                        nell'<strong>anno {goalAnalysis.goalReachedYear}</strong>
+                        {goalAnalysis.goalReachedCalendarYear && (
+                          <span> (nel <strong>{goalAnalysis.goalReachedCalendarYear}</strong>)</span>
+                        )}
+                        {goalAnalysis.goalReachedAge && (
+                          <span> quando avrai <strong>{goalAnalysis.goalReachedAge} anni</strong></span>
+                        )}
+                      </>
+                    )}.
+                  </p>
                   <p className="text-success-700 mb-4">
-                    Con questa strategia, in <strong>{strategyData.yearsAvailable} anni</strong> dovresti raggiungere{' '}
-                    <strong>€{goalAnalysis.finalValue.toLocaleString('it-IT')}</strong>, superando il tuo obiettivo
-                    di <strong>€{goalAnalysis.targetAmount.toLocaleString('it-IT')}</strong> di{' '}
-                    <strong>€{goalAnalysis.difference.toLocaleString('it-IT')}</strong> (+{goalAnalysis.diffPercentage.toFixed(1)}%).
+                    Alla fine del periodo ({strategyData.yearsAvailable} anni) raggiungerai{' '}
+                    <strong>€{goalAnalysis.finalValue.toLocaleString('it-IT')}</strong>, superando l'obiettivo
+                    di <strong>€{goalAnalysis.difference.toLocaleString('it-IT')}</strong> (+{goalAnalysis.diffPercentage.toFixed(1)}%).
                   </p>
                   <p className="text-sm text-success-600">
                     ✓ Mantieni questa strategia e monitora regolarmente i progressi!

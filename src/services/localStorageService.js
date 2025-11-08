@@ -302,6 +302,68 @@ export const calculatePortfolio = () => {
     }));
 };
 
+/**
+ * Update all existing transactions with detected sub-categories
+ * @returns {Object} Results with updated count and errors
+ */
+export const updateAllSubCategories = async () => {
+  try {
+    const { detectSubCategory } = await import('./categoryDetectionService');
+    const transactions = getTransactions();
+    let updatedCount = 0;
+    let errorCount = 0;
+    const errors = [];
+
+    console.log(`🔄 Starting sub-category update for ${transactions.length} transactions...`);
+
+    for (let i = 0; i < transactions.length; i++) {
+      const tx = transactions[i];
+
+      try {
+        // Skip if already has subCategory
+        if (tx.subCategory) {
+          console.log(`⏭️  Transaction ${i + 1}/${transactions.length}: ${tx.ticker} already has subCategory: ${tx.subCategory}`);
+          continue;
+        }
+
+        // Detect sub-category
+        const detectedSubCategory = await detectSubCategory(tx.ticker, tx.category);
+
+        if (detectedSubCategory) {
+          tx.subCategory = detectedSubCategory;
+          tx.updatedAt = new Date().toISOString();
+          updatedCount++;
+          console.log(`✅ Transaction ${i + 1}/${transactions.length}: ${tx.ticker} → ${detectedSubCategory}`);
+        } else {
+          console.log(`⚠️  Transaction ${i + 1}/${transactions.length}: ${tx.ticker} - no sub-category detected`);
+        }
+      } catch (error) {
+        errorCount++;
+        errors.push({ ticker: tx.ticker, error: error.message });
+        console.error(`❌ Error processing transaction ${tx.ticker}:`, error);
+      }
+    }
+
+    // Save updated transactions
+    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
+    updateLastSync();
+
+    console.log(`✅ Sub-category update complete: ${updatedCount} updated, ${errorCount} errors`);
+
+    return {
+      success: true,
+      total: transactions.length,
+      updated: updatedCount,
+      skipped: transactions.length - updatedCount - errorCount,
+      errors: errorCount,
+      errorDetails: errors
+    };
+  } catch (error) {
+    console.error('Error updating sub-categories:', error);
+    throw error;
+  }
+};
+
 export default {
   getTransactions,
   addTransaction,
@@ -315,5 +377,6 @@ export default {
   updateSettings,
   getStorageInfo,
   updateLastSync,
-  calculatePortfolio
+  calculatePortfolio,
+  updateAllSubCategories
 };

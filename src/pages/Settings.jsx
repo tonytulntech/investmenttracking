@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Trash2, Database, Download, AlertCircle } from 'lucide-react';
-import { getSettings, updateSettings, getStorageInfo, clearAllTransactions, exportTransactions } from '../services/localStorageService';
+import { Settings as SettingsIcon, Trash2, Database, Download, AlertCircle, RefreshCw } from 'lucide-react';
+import { getSettings, updateSettings, getStorageInfo, clearAllTransactions, exportTransactions, updateAllSubCategories } from '../services/localStorageService';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 
@@ -8,6 +8,7 @@ function Settings() {
   const [settings, setSettings] = useState(getSettings());
   const [storageInfo, setStorageInfo] = useState(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [updatingSubCategories, setUpdatingSubCategories] = useState(false);
 
   useEffect(() => {
     loadStorageInfo();
@@ -45,6 +46,30 @@ function Settings() {
     a.download = `backup_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
+  };
+
+  const handleUpdateSubCategories = async () => {
+    try {
+      setUpdatingSubCategories(true);
+      const result = await updateAllSubCategories();
+
+      if (result.success) {
+        alert(
+          `✅ Aggiornamento completato!\n\n` +
+          `• Totale transazioni: ${result.total}\n` +
+          `• Aggiornate: ${result.updated}\n` +
+          `• Saltate (già presenti): ${result.skipped}\n` +
+          `• Errori: ${result.errors}\n\n` +
+          `Ricarica la pagina per vedere le modifiche.`
+        );
+        loadStorageInfo();
+      }
+    } catch (error) {
+      console.error('Error updating sub-categories:', error);
+      alert('❌ Errore durante l\'aggiornamento delle sotto-categorie');
+    } finally {
+      setUpdatingSubCategories(false);
+    }
   };
 
   return (
@@ -152,7 +177,7 @@ function Settings() {
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <button
                 onClick={handleExportBackup}
                 className="btn-secondary flex items-center gap-2"
@@ -160,6 +185,22 @@ function Settings() {
                 <Download className="w-4 h-4" />
                 Esporta Backup
               </button>
+              <button
+                onClick={handleUpdateSubCategories}
+                disabled={updatingSubCategories}
+                className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`w-4 h-4 ${updatingSubCategories ? 'animate-spin' : ''}`} />
+                {updatingSubCategories ? 'Aggiornamento...' : 'Aggiorna Sotto-Categorie'}
+              </button>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+              <p className="text-sm text-blue-800">
+                <strong>💡 Nota:</strong> Usa "Aggiorna Sotto-Categorie" per rilevare automaticamente
+                le sotto-categorie di tutte le transazioni esistenti (ETF: Azionario, Obbligazionario, etc.;
+                Crypto: Bitcoin, Stablecoin, etc.).
+              </p>
             </div>
           </div>
         )}

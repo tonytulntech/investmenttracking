@@ -19,7 +19,7 @@ import axios from 'axios';
  */
 
 // FMP API Key - Get yours free at https://site.financialmodelingprep.com/register
-const FMP_API_KEY = 'demo'; // Replace with your API key (free tier: 250 requests/day)
+const FMP_API_KEY = 'TPRCVwAvq3BRMvsxOf9ys227AHlVBufw'; // Your API key (free tier: 250 requests/day)
 
 // CORS proxies for API requests
 const CORS_PROXY = 'https://api.allorigins.win/raw?url=';

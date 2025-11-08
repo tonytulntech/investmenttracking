@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, FileText, X, Calendar, DollarSign, Hash, Tag, Building2, FileDown, FileUp } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, FileText, X, Calendar, DollarSign, Hash, Tag, Building2, FileDown, FileUp, Loader } from 'lucide-react';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction, exportTransactions, bulkImportTransactions } from '../services/localStorageService';
 import { searchSecurity } from '../services/priceService';
+import { detectSubCategory } from '../services/categoryDetectionService';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 
@@ -13,6 +14,7 @@ function Transactions() {
   const [showModal, setShowModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [formData, setFormData] = useState(getEmptyForm());
+  const [detectingSubCategory, setDetectingSubCategory] = useState(false);
 
   useEffect(() => {
     loadTransactions();
@@ -30,7 +32,8 @@ function Transactions() {
         { value: 'Obbligazionario', label: '📜 Obbligazionario' },
         { value: 'Materie Prime', label: '🏭 Materie Prime' },
         { value: 'Misto', label: '🔀 Misto (Bilanciato)' },
-        { value: 'Immobiliare', label: '🏢 Immobiliare (REIT)' }
+        { value: 'Immobiliare', label: '🏢 Immobiliare (REIT)' },
+        { value: 'Monetario', label: '💵 Monetario' }
       ],
       'Crypto': [
         { value: 'Bitcoin', label: '₿ Bitcoin' },
@@ -144,6 +147,36 @@ function Transactions() {
       alert('Errore nell\'eliminazione della transazione');
     }
   };
+
+  // Auto-detect sub-category when ticker or category changes
+  useEffect(() => {
+    const autoDetectSubCategory = async () => {
+      // Only auto-detect if we have ticker and category, and not editing existing transaction
+      if (formData.ticker && formData.category && formData.ticker.length >= 2 && !editingTransaction) {
+        // Don't auto-detect if user has already manually selected a sub-category
+        if (formData.subCategory) {
+          return;
+        }
+
+        setDetectingSubCategory(true);
+        try {
+          const detectedSubCat = await detectSubCategory(formData.ticker, formData.category);
+          if (detectedSubCat) {
+            console.log(`✓ Auto-detected sub-category: ${detectedSubCat}`);
+            setFormData(prev => ({ ...prev, subCategory: detectedSubCat }));
+          }
+        } catch (error) {
+          console.error('Error auto-detecting sub-category:', error);
+        } finally {
+          setDetectingSubCategory(false);
+        }
+      }
+    };
+
+    // Debounce to avoid too many API calls
+    const timeoutId = setTimeout(autoDetectSubCategory, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [formData.ticker, formData.category]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -471,19 +504,35 @@ function Transactions() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <Building2 className="w-4 h-4 inline mr-1" />
                     Sotto-Categoria
+                    {detectingSubCategory && (
+                      <span className="ml-2 text-xs text-primary-600">
+                        <Loader className="w-3 h-3 inline animate-spin mr-1" />
+                        Auto-rilevamento...
+                      </span>
+                    )}
                   </label>
-                  <select
-                    value={formData.subCategory}
-                    onChange={(e) => setFormData({ ...formData, subCategory: e.target.value })}
-                    className="select"
-                  >
-                    <option value="">Seleziona...</option>
-                    {getSubCategoryOptions(formData.category).map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
+                  <div className="relative">
+                    <select
+                      value={formData.subCategory}
+                      onChange={(e) => setFormData({ ...formData, subCategory: e.target.value })}
+                      className="select"
+                      disabled={detectingSubCategory}
+                    >
+                      <option value="">
+                        {detectingSubCategory ? 'Rilevamento automatico...' : 'Seleziona...'}
                       </option>
-                    ))}
-                  </select>
+                      {getSubCategoryOptions(formData.category).map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    {formData.subCategory && !detectingSubCategory && (
+                      <div className="mt-1 text-xs text-success-600">
+                        ✓ Rilevato automaticamente
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

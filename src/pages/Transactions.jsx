@@ -22,12 +22,57 @@ function Transactions() {
     applyFilters();
   }, [transactions, searchTerm, filterType]);
 
+  // Sub-category options based on main category
+  const getSubCategoryOptions = (category) => {
+    const options = {
+      'ETF': [
+        { value: 'Azionario', label: '📈 Azionario' },
+        { value: 'Obbligazionario', label: '📜 Obbligazionario' },
+        { value: 'Materie Prime', label: '🏭 Materie Prime' },
+        { value: 'Misto', label: '🔀 Misto (Bilanciato)' },
+        { value: 'Immobiliare', label: '🏢 Immobiliare (REIT)' }
+      ],
+      'Crypto': [
+        { value: 'Bitcoin', label: '₿ Bitcoin' },
+        { value: 'Stablecoin', label: '💵 Stablecoin' },
+        { value: 'Meme Coin', label: '🐕 Meme Coin' },
+        { value: 'Alt Coin', label: '🔷 Alt Coin' },
+        { value: 'DeFi', label: '🏦 DeFi Token' },
+        { value: 'Layer 1', label: '⛓️ Layer 1' },
+        { value: 'Layer 2', label: '⚡ Layer 2' }
+      ],
+      'Stock': [
+        { value: 'Large Cap', label: '🏢 Large Cap' },
+        { value: 'Mid Cap', label: '🏪 Mid Cap' },
+        { value: 'Small Cap', label: '🏠 Small Cap' },
+        { value: 'Growth', label: '🚀 Growth' },
+        { value: 'Value', label: '💎 Value' }
+      ],
+      'Bond': [
+        { value: 'Governativi', label: '🏛️ Governativi' },
+        { value: 'Corporativi', label: '🏢 Corporativi' },
+        { value: 'High Yield', label: '⚠️ High Yield' },
+        { value: 'Municipali', label: '🏙️ Municipali' }
+      ],
+      'Cash': [
+        { value: 'Conto Corrente', label: '🏦 Conto Corrente' },
+        { value: 'Conto Deposito', label: '💰 Conto Deposito' },
+        { value: 'Money Market', label: '📊 Money Market' }
+      ],
+      'Other': [
+        { value: 'Altro', label: '📦 Altro' }
+      ]
+    };
+    return options[category] || [];
+  };
+
   function getEmptyForm() {
     return {
       name: '',
       ticker: '',
       isin: '',
       category: 'ETF',
+      subCategory: '',
       date: new Date().toISOString().split('T')[0],
       price: '',
       quantity: '',
@@ -76,6 +121,7 @@ function Transactions() {
       ticker: transaction.ticker || '',
       isin: transaction.isin || '',
       category: transaction.category || 'ETF',
+      subCategory: transaction.subCategory || '',
       date: transaction.date || new Date().toISOString().split('T')[0],
       price: transaction.price || '',
       quantity: transaction.quantity || '',
@@ -418,6 +464,28 @@ function Transactions() {
                   </select>
                 </div>
               </div>
+
+              {/* Sub-Category */}
+              {getSubCategoryOptions(formData.category).length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Building2 className="w-4 h-4 inline mr-1" />
+                    Sotto-Categoria
+                  </label>
+                  <select
+                    value={formData.subCategory}
+                    onChange={(e) => setFormData({ ...formData, subCategory: e.target.value })}
+                    className="select"
+                  >
+                    <option value="">Seleziona...</option>
+                    {getSubCategoryOptions(formData.category).map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Date */}
               <div>

@@ -21,6 +21,7 @@ function Dashboard() {
   });
   const [portfolio, setPortfolio] = useState([]);
   const [allocationData, setAllocationData] = useState([]);
+  const [subAllocationData, setSubAllocationData] = useState([]);
   const [performanceData, setPerformanceData] = useState([]);
 
   useEffect(() => {
@@ -126,8 +127,29 @@ function Dashboard() {
 
     setAllocationData(allocation);
 
-    // Prepare performance data (historical simulation)
+    // Prepare sub-category allocation data
     const transactions = getTransactions();
+    const subCategoryTotals = {};
+
+    transactions.forEach(tx => {
+      if (tx.subCategory && tx.type === 'buy') {
+        const holding = updatedPortfolio.find(p => p.ticker === tx.ticker);
+        if (holding) {
+          const key = `${tx.subCategory}`;
+          subCategoryTotals[key] = (subCategoryTotals[key] || 0) + holding.marketValue;
+        }
+      }
+    });
+
+    const subAllocation = Object.entries(subCategoryTotals).map(([name, value]) => ({
+      name,
+      value,
+      percentage: ((value / totalValue) * 100).toFixed(1)
+    })).sort((a, b) => b.value - a.value);
+
+    setSubAllocationData(subAllocation);
+
+    // Prepare performance data (historical simulation)
     const monthlyData = calculateMonthlyPerformance(transactions, updatedPortfolio);
     setPerformanceData(monthlyData);
 
@@ -328,6 +350,52 @@ function Dashboard() {
               </ResponsiveContainer>
             </div>
           </div>
+
+          {/* Sub-Category Allocation */}
+          {subAllocationData.length > 0 && (
+            <div className="card">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Allocazione per Sotto-Categoria
+              </h3>
+              <ResponsiveContainer width="100%" height={350}>
+                <PieChart>
+                  <Pie
+                    data={subAllocationData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percentage }) => `${name} (${percentage}%)`}
+                    outerRadius={120}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {subAllocationData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value) => `€${value.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`}
+                    contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                  />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {subAllocationData.map((item, index) => (
+                  <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                    <div
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-900 truncate">{item.name}</p>
+                      <p className="text-xs text-gray-600">{item.percentage}%</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Top Holdings */}
           <div className="card">

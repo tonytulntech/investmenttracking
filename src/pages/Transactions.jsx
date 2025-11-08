@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, Search, FileText, X, Calendar, DollarSign, Hash, T
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction, exportTransactions, bulkImportTransactions } from '../services/localStorageService';
 import { searchSecurity } from '../services/priceService';
 import { detectSubCategory } from '../services/categoryDetectionService';
+import { getMacroAssetClasses, getMicroCategories } from '../config/assetClasses';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 
@@ -14,6 +15,7 @@ function Transactions() {
   const [showModal, setShowModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [formData, setFormData] = useState(getEmptyForm());
+  const [availableMicroCategories, setAvailableMicroCategories] = useState({});
 
   useEffect(() => {
     loadTransactions();
@@ -28,7 +30,8 @@ function Transactions() {
       name: '',
       ticker: '',
       isin: '',
-      category: 'ETF',
+      macroCategory: 'ETF',
+      microCategory: '',
       date: new Date().toISOString().split('T')[0],
       price: '',
       quantity: '',
@@ -37,6 +40,18 @@ function Transactions() {
       type: 'buy'
     };
   }
+
+  // Update micro categories when macro category changes
+  useEffect(() => {
+    if (formData.macroCategory) {
+      const microCats = getMicroCategories(formData.macroCategory);
+      setAvailableMicroCategories(microCats);
+      // Reset micro category if not valid for new macro
+      if (formData.microCategory && !(formData.microCategory in microCats)) {
+        setFormData(prev => ({ ...prev, microCategory: '' }));
+      }
+    }
+  }, [formData.macroCategory]);
 
   const loadTransactions = () => {
     const data = getTransactions();
@@ -269,8 +284,8 @@ function Transactions() {
                   <th>Tipo</th>
                   <th>Ticker</th>
                   <th>Nome</th>
-                  <th>Categoria</th>
-                  <th>Sotto-Categoria</th>
+                  <th>MACRO</th>
+                  <th>MICRO</th>
                   <th className="text-right">Quantità</th>
                   <th className="text-right">Prezzo</th>
                   <th className="text-right">Totale</th>
@@ -289,12 +304,12 @@ function Transactions() {
                     <td className="font-semibold">{tx.ticker}</td>
                     <td className="text-gray-600 max-w-xs truncate">{tx.name || '-'}</td>
                     <td>
-                      <span className="badge badge-primary">{tx.category}</span>
+                      <span className="badge badge-primary">{tx.macroCategory || tx.category || '-'}</span>
                     </td>
                     <td>
-                      {tx.subCategory ? (
+                      {(tx.microCategory || tx.subCategory) ? (
                         <span className="text-sm text-gray-700 bg-gray-100 px-2 py-1 rounded">
-                          {tx.subCategory}
+                          {tx.microCategory || tx.subCategory}
                         </span>
                       ) : (
                         <span className="text-xs text-gray-400 italic">Non rilevata</span>
@@ -409,38 +424,59 @@ function Transactions() {
                 </div>
               </div>
 
-              {/* ISIN & Category */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    ISIN
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.isin}
-                    onChange={(e) => setFormData({ ...formData, isin: e.target.value.toUpperCase() })}
-                    placeholder="IE00BK5BQT80"
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Categoria (Asset Class) *
-                  </label>
-                  <select
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="select"
-                    required
-                  >
-                    <option value="Azioni">Azioni</option>
-                    <option value="Obbligazioni">Obbligazioni</option>
-                    <option value="Materie Prime">Materie Prime</option>
-                    <option value="Crypto">Crypto</option>
-                    <option value="Liquidità">Liquidità</option>
-                    <option value="Altro">Altro</option>
-                  </select>
-                </div>
+              {/* ISIN */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ISIN
+                </label>
+                <input
+                  type="text"
+                  value={formData.isin}
+                  onChange={(e) => setFormData({ ...formData, isin: e.target.value.toUpperCase() })}
+                  placeholder="IE00BK5BQT80"
+                  className="input"
+                />
+              </div>
+
+              {/* MACRO Category */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  MACRO-Asset Class *
+                </label>
+                <select
+                  value={formData.macroCategory}
+                  onChange={(e) => setFormData({ ...formData, macroCategory: e.target.value, microCategory: '' })}
+                  className="select"
+                  required
+                >
+                  {getMacroAssetClasses().map(macro => (
+                    <option key={macro} value={macro}>{macro}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* MICRO Category */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  MICRO-Asset Class
+                  {formData.macroCategory && Object.keys(availableMicroCategories).length > 0 && ' *'}
+                </label>
+                <select
+                  value={formData.microCategory}
+                  onChange={(e) => setFormData({ ...formData, microCategory: e.target.value })}
+                  className="select"
+                  required={formData.macroCategory && Object.keys(availableMicroCategories).length > 0}
+                  disabled={!formData.macroCategory || Object.keys(availableMicroCategories).length === 0}
+                >
+                  <option value="">-- Seleziona --</option>
+                  {Object.keys(availableMicroCategories).map(micro => (
+                    <option key={micro} value={micro}>{micro}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {!formData.macroCategory && 'Seleziona prima una MACRO-Asset Class'}
+                  {formData.macroCategory && Object.keys(availableMicroCategories).length === 0 && 'Nessuna sottocategoria disponibile'}
+                </p>
               </div>
 
               {/* Date */}

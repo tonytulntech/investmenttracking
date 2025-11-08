@@ -1,15 +1,14 @@
 import axios from 'axios';
+import ASSET_CLASSES from '../config/assetClasses';
 
 /**
  * Category Detection Service
  *
- * Automatically detects sub-categories for assets:
- * - ETF: Azionario, Obbligazionario, Materie Prime, Misto, Monetario, Immobiliare
- * - Crypto: Bitcoin, Stablecoin, DeFi, Layer-1, Layer-2, Meme Coin, Alt Coin
- * - Stock: Large Cap, Mid Cap, Small Cap
- * - Bond: Governativi, Corporativi, High Yield
+ * Automatically detects MACRO and MICRO asset classes:
+ * - MACRO: ETF, ETC, ETN, Azioni, Obbligazioni, Crypto, Materie Prime, Monetario, Immobiliare, Cash
+ * - MICRO: Specific sub-categories for each macro (e.g., Azionario Mondiale, Bitcoin, BTP Italia)
  *
- * Uses free APIs: Yahoo Finance, CoinGecko
+ * Uses pattern matching with 170+ tickers and free APIs when needed
  */
 
 // Try multiple CORS proxies for better reliability
@@ -552,10 +551,87 @@ export async function detectSubCategory(ticker, category) {
   }
 }
 
+/**
+ * NEW: Detect both MACRO and MICRO asset classes automatically from ticker
+ * Returns: { macroCategory, microCategory }
+ */
+export async function detectMacroAndMicro(ticker) {
+  try {
+    console.log(`Auto-detecting MACRO + MICRO for ticker: ${ticker}`);
+
+    const normalizedTicker = ticker.toUpperCase()
+      .replace(/\.DE$|\.L$|\.MI$|\.PA$|\.AS$|\.SW$/g, '')
+      .replace(/-USD$|-EUR$|-GBP$|:USD$/g, '')
+      .trim();
+
+    // Check each MACRO category's MICRO categories for ticker patterns
+    for (const [macroKey, config] of Object.entries(ASSET_CLASSES)) {
+      const microCategories = config.microCategories;
+
+      for (const [microKey, tickers] of Object.entries(microCategories)) {
+        if (tickers && tickers.some(t => {
+          const normalized = t.toUpperCase()
+            .replace(/\.DE$|\.L$|\.MI$|\.PA$|\.AS$|\.SW$/g, '')
+            .replace(/-USD$|-EUR$|-GBP$|:USD$/g, '')
+            .trim();
+          return normalizedTicker === normalized || ticker.toUpperCase().includes(normalized);
+        })) {
+          console.log(`✓ Matched ${ticker} to MACRO: ${macroKey}, MICRO: ${microKey}`);
+          return {
+            macroCategory: macroKey,
+            microCategory: microKey
+          };
+        }
+      }
+    }
+
+    // Fallback: detect macro from general patterns
+    const macro = detectMacroFromPattern(normalizedTicker);
+    if (macro) {
+      console.log(`✓ Detected MACRO: ${macro} for ${ticker} (no specific MICRO found)`);
+      return {
+        macroCategory: macro,
+        microCategory: null
+      };
+    }
+
+    console.log(`⚠️ Could not detect categories for ${ticker}`);
+    return { macroCategory: null, microCategory: null };
+  } catch (error) {
+    console.error(`Error detecting categories for ${ticker}:`, error);
+    return { macroCategory: null, microCategory: null };
+  }
+}
+
+/**
+ * Helper: Detect MACRO category from ticker pattern
+ */
+function detectMacroFromPattern(ticker) {
+  const t = ticker.toUpperCase();
+
+  // Crypto patterns
+  if (/^(BTC|ETH|SOL|ADA|DOT|USDT|USDC|DOGE|SHIB|MATIC|LINK|UNI|AAVE)/i.test(t)) {
+    return 'Crypto';
+  }
+
+  // ETF patterns (3-4 letter codes)
+  if (/^[A-Z]{3,4}$/.test(t) && !['BTC', 'ETH', 'SOL', 'ADA'].includes(t)) {
+    return 'ETF';
+  }
+
+  // ETC/Commodities
+  if (/^(GLD|SLV|USO|UNG|DBC|GSG)/.test(t)) {
+    return 'ETC';
+  }
+
+  return null;
+}
+
 export default {
   detectSubCategory,
   detectETFSubCategory,
   detectCryptoSubCategory,
   detectStockSubCategory,
-  detectBondSubCategory
+  detectBondSubCategory,
+  detectMacroAndMicro
 };

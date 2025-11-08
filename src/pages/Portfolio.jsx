@@ -57,7 +57,8 @@ function Portfolio() {
     const updatedPortfolio = holdings.map(holding => {
       // For Cash: price is always 1, no price change, ROI = 0, no TER
       if (holding.isCash) {
-        const marketValue = holding.quantity * 1; // price = 1
+        // Use totalCost which contains the actual cash value (can be negative)
+        const marketValue = holding.totalCost;
         return {
           ...holding,
           currentPrice: 1,

@@ -318,22 +318,25 @@ export const calculatePortfolio = () => {
     const { calculateCashFlow } = require('./cashFlowService');
     const cashFlow = calculateCashFlow();
 
-    if (cashFlow.availableCash > 0) {
+    // Always add cash if there were any cash movements (deposits/withdrawals/purchases/sales)
+    // This includes negative cash (overspent) and zero cash
+    if (cashFlow.cashDeposits > 0 || cashFlow.assetPurchases > 0 || cashFlow.assetSales > 0 || cashFlow.cashWithdrawals > 0) {
       portfolio.push({
         ticker: 'CASH',
-        name: 'Liquidità Disponibile',
+        name: cashFlow.availableCash >= 0 ? 'Liquidità Disponibile' : 'Liquidità (Negativa)',
         isin: '',
         category: 'Cash',
         macroCategory: 'Cash',
         microCategory: 'Disponibile',
         subCategory: 'Disponibile',
         currency: 'EUR',
-        quantity: cashFlow.availableCash,
-        totalCost: cashFlow.availableCash,
+        quantity: Math.abs(cashFlow.availableCash), // Use absolute value for quantity
+        totalCost: cashFlow.availableCash, // Keep actual value (can be negative)
         avgPrice: 1,
         transactions: [],
         lastTransactionDate: new Date().toISOString(),
-        isCash: true
+        isCash: true,
+        isNegativeCash: cashFlow.availableCash < 0
       });
     }
   } catch (error) {

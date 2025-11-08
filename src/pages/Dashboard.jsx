@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Wallet, DollarSign, BarChart3, RefreshCw, Target, AlertCircle, ArrowDownCircle, ArrowUpCircle, ShoppingCart } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, DollarSign, BarChart3, RefreshCw, Target, AlertCircle, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Calendar, Clock, Zap } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, Area, XAxis, YAxis, CartesianGrid, BarChart, Bar } from 'recharts';
 import { getTransactions, calculatePortfolio } from '../services/localStorageService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { calculateCashFlow } from '../services/cashFlowService';
+import { getPerformanceSummary } from '../services/performanceService';
 import { format } from 'date-fns';
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
@@ -28,6 +29,7 @@ function Dashboard() {
   const [strategy, setStrategy] = useState(null);
   const [allocationComparison, setAllocationComparison] = useState([]);
   const [cashFlow, setCashFlow] = useState(null);
+  const [performanceMetrics, setPerformanceMetrics] = useState(null);
 
   // Asset class filters (all enabled by default)
   const [filters, setFilters] = useState({
@@ -226,6 +228,11 @@ function Dashboard() {
       const comparison = calculateAllocationComparison(categoryTotals, totalValue, strategyData.assetAllocation);
       setAllocationComparison(comparison);
     }
+
+    // Calculate performance metrics (CAGR, etc.) based on filtered portfolio
+    const allTransactions = getTransactions();
+    const perfMetrics = getPerformanceSummary(filteredPortfolio, strategy);
+    setPerformanceMetrics(perfMetrics);
 
     // Stop refreshing spinner
     setRefreshing(false);
@@ -525,6 +532,144 @@ function Dashboard() {
                       </p>
                     </div>
                   </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* CAGR & Performance Metrics */}
+          {performanceMetrics && performanceMetrics.daysInvesting > 0 && (
+            <div className="card bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-purple-600" />
+                  Performance & CAGR
+                </h3>
+                <span className="text-xs text-gray-500">
+                  Basato sui filtri attivi
+                </span>
+              </div>
+
+              {/* Key Metrics Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <div className="bg-white rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                      <Zap className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-600">CAGR</p>
+                  </div>
+                  <p className={`text-3xl font-bold ${performanceMetrics.cagr >= 0 ? 'text-purple-600' : 'text-red-600'}`}>
+                    {performanceMetrics.cagr >= 0 ? '+' : ''}{performanceMetrics.cagr.toFixed(2)}%
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Rendimento annuo composto
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <Calendar className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-600">Inizio Investimenti</p>
+                  </div>
+                  <p className="text-lg font-bold text-blue-600">
+                    {format(new Date(performanceMetrics.startDate), 'dd/MM/yyyy')}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Prima transazione
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                      <Clock className="w-4 h-4 text-green-600" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-600">Tempo Investito</p>
+                  </div>
+                  <p className="text-2xl font-bold text-green-600">
+                    {performanceMetrics.daysInvesting} giorni
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {performanceMetrics.yearsInvesting.toFixed(1)} anni
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                      <TrendingUp className="w-4 h-4 text-orange-600" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-600">Rendimento Totale</p>
+                  </div>
+                  <p className={`text-2xl font-bold ${performanceMetrics.totalReturnPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {performanceMetrics.totalReturnPercent >= 0 ? '+' : ''}{performanceMetrics.totalReturnPercent.toFixed(2)}%
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {performanceMetrics.totalReturn >= 0 ? '+' : ''}€{performanceMetrics.totalReturn.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
+
+              {/* Goal Projection */}
+              {performanceMetrics.goalProjection && (
+                <div className="bg-white rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Target className="w-5 h-5 text-purple-600" />
+                    <h4 className="font-semibold text-gray-900">Proiezione Obiettivo</h4>
+                  </div>
+
+                  {performanceMetrics.goalProjection.achieved ? (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                      <p className="text-green-900 font-semibold">
+                        🎉 {performanceMetrics.goalProjection.message}
+                      </p>
+                    </div>
+                  ) : performanceMetrics.goalProjection.yearsToGoal ? (
+                    <div className="space-y-3">
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                        <p className="text-purple-900 font-semibold mb-2">
+                          📈 {performanceMetrics.goalProjection.message}
+                        </p>
+                        <div className="grid grid-cols-3 gap-4 mt-3">
+                          <div>
+                            <p className="text-xs text-purple-700">Tempo Rimanente</p>
+                            <p className="text-lg font-bold text-purple-900">
+                              {performanceMetrics.goalProjection.yearsToGoal} anni
+                            </p>
+                            <p className="text-xs text-purple-600">
+                              {performanceMetrics.goalProjection.monthsToGoal} mesi
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-purple-700">Anno Obiettivo</p>
+                            <p className="text-lg font-bold text-purple-900">
+                              {performanceMetrics.goalProjection.yearAtGoal}
+                            </p>
+                          </div>
+                          {performanceMetrics.goalProjection.ageAtGoal && (
+                            <div>
+                              <p className="text-xs text-purple-700">Età Prevista</p>
+                              <p className="text-lg font-bold text-purple-900">
+                                {performanceMetrics.goalProjection.ageAtGoal} anni
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-600 italic">
+                        ⚡ Proiezione basata sul CAGR attuale di {performanceMetrics.cagr.toFixed(2)}% e contributi mensili di €{strategy?.monthlyInvestment || 0}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                      <p className="text-orange-900 text-sm">
+                        ⚠️ {performanceMetrics.goalProjection.message}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

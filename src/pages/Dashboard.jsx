@@ -154,7 +154,7 @@ function Dashboard() {
 
     setPortfolio(filteredPortfolio);
 
-    // Calculate overall stats from filtered portfolio
+    // Recalculate everything with filtered data
     const totalValue = filteredPortfolio.reduce((sum, p) => sum + p.marketValue, 0);
     const totalCost = filteredPortfolio.reduce((sum, p) => sum + p.totalCost, 0);
     const totalPL = totalValue - totalCost;
@@ -182,7 +182,7 @@ function Dashboard() {
     const allocation = Object.entries(categoryTotals).map(([name, value]) => ({
       name,
       value,
-      percentage: ((value / totalValue) * 100).toFixed(1)
+      percentage: totalValue > 0 ? ((value / totalValue) * 100).toFixed(1) : 0
     }));
 
     setAllocationData(allocation);
@@ -220,6 +220,9 @@ function Dashboard() {
       const comparison = calculateAllocationComparison(categoryTotals, totalValue, strategyData.assetAllocation);
       setAllocationComparison(comparison);
     }
+
+    // Stop refreshing spinner
+    setRefreshing(false);
   };
 
   const calculateAllocationComparison = (categoryTotals, totalValue, targetAllocation) => {
@@ -243,10 +246,14 @@ function Dashboard() {
   };
 
   const calculateMonthlyPerformance = (transactions, currentPortfolio) => {
-    // Simple simulation: group transactions by month
+    // Filter transactions to only include tickers in current filtered portfolio
+    const portfolioTickers = new Set(currentPortfolio.map(p => p.ticker));
+    const filteredTransactions = transactions.filter(tx => portfolioTickers.has(tx.ticker));
+
+    // Group filtered transactions by month
     const months = {};
 
-    transactions.forEach(tx => {
+    filteredTransactions.forEach(tx => {
       const monthKey = format(new Date(tx.date), 'MMM yyyy');
       if (!months[monthKey]) {
         months[monthKey] = { month: monthKey, invested: 0 };
@@ -258,12 +265,17 @@ function Dashboard() {
       }
     });
 
+    // Calculate ROI from filtered portfolio
+    const totalValue = currentPortfolio.reduce((sum, p) => sum + p.marketValue, 0);
+    const totalCost = currentPortfolio.reduce((sum, p) => sum + p.totalCost, 0);
+    const roiPercent = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
+
     // Calculate cumulative and current value estimation
     let cumulative = 0;
     return Object.values(months).map((m, index) => {
       cumulative += m.invested;
-      // Simple ROI simulation based on current portfolio performance
-      const currentValue = cumulative * (1 + (stats.totalPLPercent / 100));
+      // ROI simulation based on filtered portfolio performance
+      const currentValue = cumulative * (1 + (roiPercent / 100));
       return {
         month: m.month,
         invested: cumulative,

@@ -35,6 +35,7 @@ function Transactions() {
       date: new Date().toISOString().split('T')[0],
       price: '',
       quantity: '',
+      commission: '',
       currency: 'EUR',
       notes: '',
       type: 'buy'
@@ -52,6 +53,36 @@ function Transactions() {
       }
     }
   }, [formData.macroCategory]);
+
+  // Auto-fill form when ticker changes (from last transaction for that ticker)
+  const handleTickerChange = (newTicker) => {
+    setFormData(prev => ({ ...prev, ticker: newTicker.toUpperCase() }));
+
+    if (!newTicker || editingTransaction) return; // Don't auto-fill when editing
+
+    // Find last transaction for this ticker
+    const lastTransaction = transactions
+      .filter(tx => tx.ticker.toUpperCase() === newTicker.toUpperCase())
+      .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+    if (lastTransaction) {
+      console.log(`📋 Auto-filling from last transaction for ${newTicker}`);
+      setFormData(prev => ({
+        ...prev,
+        ticker: newTicker.toUpperCase(),
+        name: lastTransaction.name || prev.name,
+        isin: lastTransaction.isin || prev.isin,
+        macroCategory: lastTransaction.macroCategory || lastTransaction.category || prev.macroCategory,
+        microCategory: lastTransaction.microCategory || lastTransaction.subCategory || prev.microCategory,
+        currency: lastTransaction.currency || prev.currency,
+        // Keep current date, price, quantity, commission (user will update these)
+        date: new Date().toISOString().split('T')[0],
+        price: '',
+        quantity: '',
+        commission: ''
+      }));
+    }
+  };
 
   const loadTransactions = () => {
     const data = getTransactions();
@@ -91,10 +122,12 @@ function Transactions() {
       name: transaction.name || '',
       ticker: transaction.ticker || '',
       isin: transaction.isin || '',
-      category: transaction.category || 'ETF',
+      macroCategory: transaction.macroCategory || transaction.category || 'ETF',
+      microCategory: transaction.microCategory || transaction.subCategory || '',
       date: transaction.date || new Date().toISOString().split('T')[0],
       price: transaction.price || '',
       quantity: transaction.quantity || '',
+      commission: transaction.commission || '',
       currency: transaction.currency || 'EUR',
       notes: transaction.notes || '',
       type: transaction.type || 'buy'
@@ -140,6 +173,7 @@ function Transactions() {
         ...formData,
         price: parseFloat(formData.price),
         quantity: parseFloat(formData.quantity),
+        commission: formData.commission ? parseFloat(formData.commission) : 0,
         subCategory: detectedSubCategory || '' // Save detected sub-category silently
       };
 
@@ -182,10 +216,12 @@ function Transactions() {
               name: row.name || row.ticker,
               ticker: row.ticker,
               isin: row.isin || '',
-              category: row.category || 'ETF',
+              macroCategory: row.macroCategory || row.category || 'ETF',
+              microCategory: row.microCategory || row.subCategory || '',
               date: row.date || new Date().toISOString().split('T')[0],
               price: parseFloat(row.price),
               quantity: parseFloat(row.quantity),
+              commission: row.commission ? parseFloat(row.commission) : 0,
               currency: row.currency || 'EUR',
               notes: row.notes || '',
               type: row.type || 'buy'
@@ -289,6 +325,7 @@ function Transactions() {
                   <th className="text-right">Quantità</th>
                   <th className="text-right">Prezzo</th>
                   <th className="text-right">Totale</th>
+                  <th className="text-right">Commissioni</th>
                   <th className="text-right">Azioni</th>
                 </tr>
               </thead>
@@ -319,6 +356,15 @@ function Transactions() {
                     <td className="text-right">€{tx.price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 8 })}</td>
                     <td className="text-right font-medium">
                       €{(tx.quantity * tx.price).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 8 })}
+                    </td>
+                    <td className="text-right">
+                      {tx.commission && tx.commission > 0 ? (
+                        <span className="text-orange-700">
+                          €{tx.commission.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
                     </td>
                     <td className="text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -404,11 +450,16 @@ function Transactions() {
                   <input
                     type="text"
                     value={formData.ticker}
-                    onChange={(e) => setFormData({ ...formData, ticker: e.target.value.toUpperCase() })}
+                    onChange={(e) => handleTickerChange(e.target.value)}
                     placeholder="VWCE.DE"
                     className="input"
                     required
                   />
+                  {!editingTransaction && formData.ticker && transactions.some(tx => tx.ticker.toUpperCase() === formData.ticker.toUpperCase()) && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      📋 Form auto-compilato dall'ultima transazione
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -531,29 +582,63 @@ function Transactions() {
                 </div>
               </div>
 
-              {/* Currency */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Valuta
-                </label>
-                <select
-                  value={formData.currency}
-                  onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                  className="select"
-                >
-                  <option value="EUR">EUR (€)</option>
-                  <option value="USD">USD ($)</option>
-                  <option value="GBP">GBP (£)</option>
-                </select>
+              {/* Currency & Commission */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Valuta
+                  </label>
+                  <select
+                    value={formData.currency}
+                    onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                    className="select"
+                  >
+                    <option value="EUR">EUR (€)</option>
+                    <option value="USD">USD ($)</option>
+                    <option value="GBP">GBP (£)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Commissioni €
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={formData.commission}
+                    onChange={(e) => setFormData({ ...formData, commission: e.target.value })}
+                    placeholder="0.00"
+                    className="input"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Commissioni di broker/exchange
+                  </p>
+                </div>
               </div>
 
               {/* Total Preview */}
               {formData.price && formData.quantity && (
                 <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
-                  <p className="text-sm text-primary-700 mb-1">Totale Operazione</p>
-                  <p className="text-2xl font-bold text-primary-900">
-                    €{(parseFloat(formData.price) * parseFloat(formData.quantity)).toFixed(2)}
-                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-primary-700 mb-1">Totale Operazione</p>
+                      <p className="text-2xl font-bold text-primary-900">
+                        €{(parseFloat(formData.price) * parseFloat(formData.quantity)).toFixed(2)}
+                      </p>
+                    </div>
+                    {formData.commission && parseFloat(formData.commission) > 0 && (
+                      <div>
+                        <p className="text-sm text-primary-700 mb-1">Commissioni</p>
+                        <p className="text-lg font-semibold text-orange-700">
+                          +€{parseFloat(formData.commission).toFixed(2)}
+                        </p>
+                        <p className="text-xs text-gray-600 mt-1">
+                          Totale: €{((parseFloat(formData.price) * parseFloat(formData.quantity)) + parseFloat(formData.commission)).toFixed(2)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

@@ -323,40 +323,94 @@ function Dashboard() {
   };
 
   const calculateMonthlyPerformance = (transactions, currentPortfolio) => {
-    // Filter transactions to only include tickers in current filtered portfolio
-    const portfolioTickers = new Set(currentPortfolio.map(p => p.ticker));
-    const filteredTransactions = transactions.filter(tx => portfolioTickers.has(tx.ticker));
+    // Separate cash deposits from asset purchases for accurate tracking
+    // "Versato" = cash deposits (what you put in)
+    // "Valore" = current value of assets (what you have now with returns)
 
-    // Group filtered transactions by month
+    // Filter to only include tickers in current filtered portfolio
+    const portfolioTickers = new Set(currentPortfolio.filter(p => !p.isCash).map(p => p.ticker));
+
+    // Get all transactions (cash + assets) for filtered portfolio
+    const allTransactions = transactions.filter(tx =>
+      tx.isCash || tx.macroCategory === 'Cash' || portfolioTickers.has(tx.ticker)
+    );
+
+    // Group by month
     const months = {};
 
-    filteredTransactions.forEach(tx => {
+    allTransactions.forEach(tx => {
       const monthKey = format(new Date(tx.date), 'MMM yyyy');
       if (!months[monthKey]) {
-        months[monthKey] = { month: monthKey, invested: 0 };
+        months[monthKey] = {
+          month: monthKey,
+          cashDeposits: 0,      // Versato (deposits)
+          cashWithdrawals: 0,   // Prelevato (withdrawals)
+          assetPurchases: 0,    // Acquisti asset
+          assetSales: 0         // Vendite asset
+        };
       }
-      if (tx.type === 'buy') {
-        months[monthKey].invested += tx.quantity * tx.price;
-      } else if (tx.type === 'sell') {
-        months[monthKey].invested -= tx.quantity * tx.price;
+
+      const isCash = tx.isCash || tx.macroCategory === 'Cash';
+      const amount = tx.quantity * tx.price;
+      const commission = tx.commission || 0;
+
+      if (isCash) {
+        // Cash transaction
+        if (tx.type === 'buy') {
+          months[monthKey].cashDeposits += amount; // Deposito
+        } else if (tx.type === 'sell') {
+          months[monthKey].cashWithdrawals += amount; // Prelievo
+        }
+      } else {
+        // Asset transaction (only for filtered assets)
+        if (tx.type === 'buy') {
+          months[monthKey].assetPurchases += (amount + commission); // Acquisto asset
+        } else if (tx.type === 'sell') {
+          months[monthKey].assetSales += (amount - commission); // Vendita asset
+        }
       }
     });
 
-    // Calculate ROI from filtered portfolio
-    const totalValue = currentPortfolio.reduce((sum, p) => sum + p.marketValue, 0);
-    const totalCost = currentPortfolio.reduce((sum, p) => sum + p.totalCost, 0);
-    const roiPercent = totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
+    // Calculate current portfolio value and cost for filtered assets only
+    const filteredAssets = currentPortfolio.filter(p => !p.isCash);
+    const totalCurrentValue = filteredAssets.reduce((sum, p) => sum + (p.marketValue || 0), 0);
+    const totalInvested = filteredAssets.reduce((sum, p) => sum + p.totalCost, 0);
 
-    // Calculate cumulative and current value estimation
-    let cumulative = 0;
-    return Object.values(months).map((m, index) => {
-      cumulative += m.invested;
-      // ROI simulation based on filtered portfolio performance
-      const currentValue = cumulative * (1 + (roiPercent / 100));
+    // Calculate cumulative values month by month
+    let cumulativeDeposits = 0;
+    let cumulativeWithdrawals = 0;
+    let cumulativePurchases = 0;
+    let cumulativeSales = 0;
+
+    return Object.values(months).map((m, index, array) => {
+      cumulativeDeposits += m.cashDeposits;
+      cumulativeWithdrawals += m.cashWithdrawals;
+      cumulativePurchases += m.assetPurchases;
+      cumulativeSales += m.assetSales;
+
+      // "Versato" = quanto hai messo in totale (deposits - withdrawals)
+      const versato = cumulativeDeposits - cumulativeWithdrawals;
+
+      // Calculate value progression based on actual portfolio performance
+      // For historical months, estimate based on current ROI
+      // For final month, use actual current value
+      const isLastMonth = index === array.length - 1;
+
+      let value;
+      if (isLastMonth) {
+        // Use actual current value
+        value = totalCurrentValue;
+      } else {
+        // Estimate based on invested amount and current ROI
+        const investedAtThisPoint = cumulativePurchases - cumulativeSales;
+        const roi = totalInvested > 0 ? (totalCurrentValue / totalInvested) : 1;
+        value = investedAtThisPoint * roi;
+      }
+
       return {
         month: m.month,
-        invested: cumulative,
-        value: currentValue
+        versato: parseFloat(versato.toFixed(2)),      // Quanto hai versato (linea verde)
+        value: parseFloat(value.toFixed(2))            // Valore attuale con rendimento (linea blu)
       };
     });
   };
@@ -815,9 +869,16 @@ function Dashboard() {
 
             {/* Performance Chart */}
             <div className="card">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Andamento Portafoglio
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Andamento Portafoglio
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Confronto tra importo versato e valore con rendimento
+                  </p>
+                </div>
+              </div>
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={performanceData}>
                   <defs>
@@ -825,7 +886,7 @@ function Dashboard() {
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
                       <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
                     </linearGradient>
-                    <linearGradient id="colorInvested" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="colorVersato" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
                       <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                     </linearGradient>
@@ -835,10 +896,24 @@ function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <Tooltip formatter={(value) => `€${value.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`} />
                   <Legend />
-                  <Area type="monotone" dataKey="value" stroke="#3b82f6" fillOpacity={1} fill="url(#colorValue)" name="Valore Attuale" />
-                  <Area type="monotone" dataKey="invested" stroke="#10b981" fillOpacity={1} fill="url(#colorInvested)" name="Investito" />
+                  <Area type="monotone" dataKey="value" stroke="#3b82f6" fillOpacity={1} fill="url(#colorValue)" name="Valore con Rendimento" />
+                  <Area type="monotone" dataKey="versato" stroke="#10b981" fillOpacity={1} fill="url(#colorVersato)" name="Importo Versato" />
                 </AreaChart>
               </ResponsiveContainer>
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs text-blue-600 font-medium">VALORE CON RENDIMENTO</p>
+                  <p className="text-sm text-blue-700 mt-1">
+                    Quanto valgono i tuoi asset filtrati oggi (include guadagni/perdite)
+                  </p>
+                </div>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-xs text-green-600 font-medium">IMPORTO VERSATO</p>
+                  <p className="text-sm text-green-700 mt-1">
+                    Quanto hai depositato in totale (depositi - prelievi)
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 

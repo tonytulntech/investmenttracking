@@ -103,7 +103,7 @@ function Strategy() {
     }));
   };
 
-  const totalMicroAllocation = Object.values(strategyData.microAllocation).reduce((sum, val) => sum + val, 0);
+  const totalMicroAllocation = Object.values(strategyData.microAllocation || {}).reduce((sum, val) => sum + val, 0);
 
   const handleChange = (field, value) => {
     setStrategyData(prev => ({
@@ -286,7 +286,16 @@ function Strategy() {
     // Load saved strategy
     const saved = localStorage.getItem('investment_strategy');
     if (saved) {
-      setStrategyData(JSON.parse(saved));
+      const loadedData = JSON.parse(saved);
+      // Ensure microAllocation exists (backwards compatibility with old strategies)
+      if (!loadedData.microAllocation) {
+        loadedData.microAllocation = {};
+      }
+      // Ensure assetAllocation exists
+      if (!loadedData.assetAllocation) {
+        loadedData.assetAllocation = {};
+      }
+      setStrategyData(loadedData);
     }
   }, []);
 

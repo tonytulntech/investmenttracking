@@ -247,8 +247,14 @@ function Dashboard() {
     const savedStrategy = localStorage.getItem('investment_strategy');
     if (savedStrategy) {
       const strategyData = JSON.parse(savedStrategy);
-      const comparison = calculateAllocationComparison(categoryTotals, totalValue, strategyData.assetAllocation);
-      setAllocationComparison(comparison);
+      // Use MICRO allocation if available, otherwise fall back to MACRO
+      if (strategyData.microAllocation && Object.keys(strategyData.microAllocation).length > 0) {
+        const comparison = calculateMicroAllocationComparison(filteredPortfolio, totalValue, strategyData.microAllocation);
+        setAllocationComparison(comparison);
+      } else if (strategyData.assetAllocation) {
+        const comparison = calculateAllocationComparison(categoryTotals, totalValue, strategyData.assetAllocation);
+        setAllocationComparison(comparison);
+      }
     }
 
     // Calculate performance metrics (CAGR, etc.) based on filtered portfolio
@@ -260,8 +266,44 @@ function Dashboard() {
     setRefreshing(false);
   };
 
+  const calculateMicroAllocationComparison = (portfolio, totalValue, microTargets) => {
+    // Exclude cash from comparison
+    const investablePortfolio = portfolio.filter(p => !p.isCash);
+    const investableValue = investablePortfolio.reduce((sum, p) => sum + (p.marketValue || 0), 0);
+
+    // Calculate current MICRO totals from portfolio
+    const microTotals = {};
+    investablePortfolio.forEach(holding => {
+      const micro = holding.microCategory || holding.subCategory || 'Non categorizzato';
+      microTotals[micro] = (microTotals[micro] || 0) + (holding.marketValue || 0);
+    });
+
+    // Combine all MICRO categories (both current and target)
+    const allMicroCategories = new Set([
+      ...Object.keys(microTotals),
+      ...Object.keys(microTargets)
+    ]);
+
+    return Array.from(allMicroCategories).map(microCategory => {
+      const currentValue = microTotals[microCategory] || 0;
+      const currentPercentage = investableValue > 0 ? (currentValue / investableValue) * 100 : 0;
+      const targetPercentage = microTargets[microCategory] || 0;
+      const difference = currentPercentage - targetPercentage;
+
+      return {
+        assetClass: microCategory, // Keep same field name for compatibility
+        current: parseFloat(currentPercentage.toFixed(2)),
+        target: parseFloat(targetPercentage),
+        difference: parseFloat(difference.toFixed(2)),
+        status: Math.abs(difference) < 2 ? 'ok' : Math.abs(difference) < 5 ? 'warning' : 'alert'
+      };
+    })
+    .filter(d => d.current > 0 || d.target > 0) // Only show categories with value
+    .sort((a, b) => b.current - a.current); // Sort by current allocation
+  };
+
   const calculateAllocationComparison = (categoryTotals, totalValue, targetAllocation) => {
-    // Create comparison array with all asset classes
+    // Create comparison array with all asset classes (MACRO)
     const assetClasses = Object.keys(targetAllocation);
 
     return assetClasses.map(assetClass => {

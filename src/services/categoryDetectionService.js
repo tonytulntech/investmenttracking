@@ -29,24 +29,57 @@ function getCorsProxy() {
  * Smart fallback: detect category from ticker name patterns
  */
 function detectFromTickerName(ticker) {
-  const t = ticker.toUpperCase();
+  // Normalize ticker: remove suffixes like .DE, .L, -USD, :USD, etc.
+  const t = ticker.toUpperCase()
+    .replace(/\.DE$|\.L$|\.MI$|\.PA$|\.AS$|\.SW$/g, '') // European exchanges
+    .replace(/-USD$|-EUR$|-GBP$|:USD$/g, '') // Currency suffixes
+    .trim();
 
-  // Common ETF patterns
+  // Common ETF patterns (expanded list for European/Italian investors)
   const patterns = {
-    // Equity/Azionario
-    'VWCE': 'Azionario', 'SWDA': 'Azionario', 'IWDA': 'Azionario', 'IS3N': 'Azionario',
+    // === Equity/Azionario - World/Global ===
+    'VWCE': 'Azionario', 'VWRL': 'Azionario', 'SWDA': 'Azionario', 'IWDA': 'Azionario',
+    'IS3N': 'Azionario', 'EUNL': 'Azionario', 'LCWD': 'Azionario', 'VDEV': 'Azionario',
+
+    // === Equity/Azionario - USA ===
     'SPY': 'Azionario', 'VOO': 'Azionario', 'VTI': 'Azionario', 'VUSA': 'Azionario',
     'QQQ': 'Azionario', 'CSPX': 'Azionario', 'SXRV': 'Azionario', 'SPPW': 'Azionario',
+    'IVV': 'Azionario', 'VUAA': 'Azionario', 'SXR8': 'Azionario', 'CSSPX': 'Azionario',
+    'VUG': 'Azionario', 'VTV': 'Azionario', 'IWMO': 'Azionario',
 
-    // Bond/Obbligazionario
+    // === Equity/Azionario - Europe ===
+    'VEUR': 'Azionario', 'MEUD': 'Azionario', 'IMEU': 'Azionario', 'EXS1': 'Azionario',
+    'IQQE': 'Azionario', 'EUNK': 'Azionario', 'VJPN': 'Azionario',
+
+    // === Equity/Azionario - Emerging Markets ===
+    'EIMI': 'Azionario', 'IEMM': 'Azionario', 'VFEM': 'Azionario', 'VWO': 'Azionario',
+    'IEEM': 'Azionario', 'AEEM': 'Azionario',
+
+    // === Equity/Azionario - Sectors ===
+    'XLK': 'Azionario', 'VGT': 'Azionario', 'XLF': 'Azionario', 'XLE': 'Azionario',
+    'XLV': 'Azionario', 'XLI': 'Azionario', 'XLP': 'Azionario', 'XLY': 'Azionario',
+    'ICLN': 'Azionario', 'TAN': 'Azionario', 'ESPO': 'Azionario',
+
+    // === Bond/Obbligazionario ===
     'AGG': 'Obbligazionario', 'BND': 'Obbligazionario', 'TLT': 'Obbligazionario',
-    'VGLT': 'Obbligazionario', 'IBTA': 'Obbligazionario',
+    'VGLT': 'Obbligazionario', 'IBTA': 'Obbligazionario', 'AGGH': 'Obbligazionario',
+    'VWOB': 'Obbligazionario', 'IGLO': 'Obbligazionario', 'IEAG': 'Obbligazionario',
+    'VUCP': 'Obbligazionario', 'GOVI': 'Obbligazionario', 'IBTM': 'Obbligazionario',
+    'IS0J': 'Obbligazionario', 'IS0L': 'Obbligazionario', 'EUNU': 'Obbligazionario',
 
-    // Commodities
+    // === Commodities/Materie Prime ===
     'GLD': 'Materie Prime', 'SLV': 'Materie Prime', 'DBC': 'Materie Prime',
+    'IAU': 'Materie Prime', 'GDX': 'Materie Prime', 'USO': 'Materie Prime',
+    'PDBC': 'Materie Prime', 'SGOL': 'Materie Prime', 'GLTR': 'Materie Prime',
+    'COMT': 'Materie Prime', 'GSG': 'Materie Prime',
 
-    // Real Estate/Immobiliare
-    'VNQ': 'Immobiliare', 'VNQI': 'Immobiliare'
+    // === Real Estate/Immobiliare ===
+    'VNQ': 'Immobiliare', 'VNQI': 'Immobiliare', 'IYR': 'Immobiliare',
+    'RWO': 'Immobiliare', 'REET': 'Immobiliare', 'EPRA': 'Immobiliare',
+
+    // === Balanced/Misto ===
+    'AOR': 'Misto', 'AOM': 'Misto', 'AOA': 'Misto', 'AOK': 'Misto',
+    'VBAL': 'Misto', 'VGRO': 'Misto'
   };
 
   // Direct match
@@ -197,25 +230,81 @@ async function detectETFSubCategory(ticker) {
  * Detect Crypto sub-category from CoinGecko
  */
 async function detectCryptoSubCategory(symbol) {
-  // Smart fallback for common cryptos
-  const s = symbol.toUpperCase();
+  // Normalize crypto ticker: remove -USD, -EUR, etc.
+  const s = symbol.toUpperCase()
+    .replace(/-USD$|-EUR$|-USDT$|-BUSD$/g, '')
+    .replace(/USD$|EUR$/g, '') // Also remove without dash
+    .trim();
+
+  // Smart fallback for common cryptos (expanded)
   const cryptoPatterns = {
-    'BTC': 'Bitcoin', 'BITCOIN': 'Bitcoin',
+    // Bitcoin
+    'BTC': 'Bitcoin', 'BITCOIN': 'Bitcoin', 'XBT': 'Bitcoin',
+
+    // Layer 1
     'ETH': 'Layer 1', 'ETHEREUM': 'Layer 1',
     'SOL': 'Layer 1', 'SOLANA': 'Layer 1',
     'ADA': 'Layer 1', 'CARDANO': 'Layer 1',
     'AVAX': 'Layer 1', 'AVALANCHE': 'Layer 1',
     'DOT': 'Layer 1', 'POLKADOT': 'Layer 1',
+    'ATOM': 'Layer 1', 'COSMOS': 'Layer 1',
+    'ALGO': 'Layer 1', 'ALGORAND': 'Layer 1',
+    'NEAR': 'Layer 1', 'TRX': 'Layer 1', 'TRON': 'Layer 1',
+    'APT': 'Layer 1', 'APTOS': 'Layer 1',
+    'SUI': 'Layer 1',
+
+    // Layer 2
     'MATIC': 'Layer 2', 'POLYGON': 'Layer 2',
     'ARB': 'Layer 2', 'ARBITRUM': 'Layer 2',
     'OP': 'Layer 2', 'OPTIMISM': 'Layer 2',
+    'IMX': 'Layer 2', 'IMMUTABLE': 'Layer 2',
+    'LRC': 'Layer 2', 'LOOPRING': 'Layer 2',
+
+    // Stablecoins
     'USDT': 'Stablecoin', 'TETHER': 'Stablecoin',
     'USDC': 'Stablecoin', 'DAI': 'Stablecoin',
     'BUSD': 'Stablecoin', 'TUSD': 'Stablecoin',
-    'DOGE': 'Meme Coin', 'SHIB': 'Meme Coin', 'PEPE': 'Meme Coin',
-    'FLOKI': 'Meme Coin', 'BONK': 'Meme Coin',
-    'UNI': 'DeFi', 'AAVE': 'DeFi', 'COMP': 'DeFi', 'MKR': 'DeFi',
-    'SUSHI': 'DeFi', 'CRV': 'DeFi', 'SNX': 'DeFi'
+    'USDD': 'Stablecoin', 'FRAX': 'Stablecoin',
+    'USDP': 'Stablecoin', 'GUSD': 'Stablecoin',
+    'LUSD': 'Stablecoin', 'SUSD': 'Stablecoin',
+
+    // Meme Coins
+    'DOGE': 'Meme Coin', 'DOGECOIN': 'Meme Coin',
+    'SHIB': 'Meme Coin', 'SHIBA': 'Meme Coin',
+    'PEPE': 'Meme Coin', 'FLOKI': 'Meme Coin',
+    'BONK': 'Meme Coin', 'WIF': 'Meme Coin',
+    'MEME': 'Meme Coin', 'ELON': 'Meme Coin',
+
+    // DeFi
+    'UNI': 'DeFi', 'UNISWAP': 'DeFi',
+    'AAVE': 'DeFi', 'COMP': 'DeFi', 'COMPOUND': 'DeFi',
+    'MKR': 'DeFi', 'MAKER': 'DeFi',
+    'SUSHI': 'DeFi', 'SUSHISWAP': 'DeFi',
+    'CRV': 'DeFi', 'CURVE': 'DeFi',
+    'SNX': 'DeFi', 'SYNTHETIX': 'DeFi',
+    'LINK': 'DeFi', 'CHAINLINK': 'DeFi',
+    'LDO': 'DeFi', 'LIDO': 'DeFi',
+    'CAKE': 'DeFi', 'PANCAKESWAP': 'DeFi',
+    'GMX': 'DeFi', 'DYDX': 'DeFi',
+
+    // Exchange Tokens
+    'BNB': 'Alt Coin', 'BINANCE': 'Alt Coin',
+    'FTT': 'Alt Coin', 'CRO': 'Alt Coin', 'CRONOS': 'Alt Coin',
+    'OKB': 'Alt Coin', 'HT': 'Alt Coin',
+
+    // Popular Alt Coins
+    'XRP': 'Alt Coin', 'RIPPLE': 'Alt Coin',
+    'LTC': 'Alt Coin', 'LITECOIN': 'Alt Coin',
+    'BCH': 'Alt Coin', 'BITCOINCASH': 'Alt Coin',
+    'XLM': 'Alt Coin', 'STELLAR': 'Alt Coin',
+    'XMR': 'Alt Coin', 'MONERO': 'Alt Coin',
+    'VET': 'Alt Coin', 'VECHAIN': 'Alt Coin',
+    'FIL': 'Alt Coin', 'FILECOIN': 'Alt Coin',
+    'ETC': 'Alt Coin', 'ETHEREUMCLASSIC': 'Alt Coin',
+    'HBAR': 'Alt Coin', 'HEDERA': 'Alt Coin',
+    'ICP': 'Alt Coin', 'INTERNET': 'Alt Coin',
+    'APE': 'Alt Coin', 'SAND': 'Alt Coin', 'MANA': 'Alt Coin',
+    'AXS': 'Alt Coin', 'GALA': 'Alt Coin'
   };
 
   if (cryptoPatterns[s]) {

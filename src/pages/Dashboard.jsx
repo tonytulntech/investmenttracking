@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Wallet, DollarSign, BarChart3, RefreshCw, Target, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, DollarSign, BarChart3, RefreshCw, Target, AlertCircle, ArrowDownCircle, ArrowUpCircle, ShoppingCart } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, Area, XAxis, YAxis, CartesianGrid, BarChart, Bar } from 'recharts';
 import { getTransactions, calculatePortfolio } from '../services/localStorageService';
 import { fetchMultiplePrices } from '../services/priceService';
+import { calculateCashFlow } from '../services/cashFlowService';
 import { format } from 'date-fns';
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
@@ -26,6 +27,7 @@ function Dashboard() {
   const [performanceData, setPerformanceData] = useState([]);
   const [strategy, setStrategy] = useState(null);
   const [allocationComparison, setAllocationComparison] = useState([]);
+  const [cashFlow, setCashFlow] = useState(null);
 
   // Asset class filters (all enabled by default)
   const [filters, setFilters] = useState({
@@ -60,6 +62,10 @@ function Dashboard() {
       if (savedStrategy) {
         setStrategy(JSON.parse(savedStrategy));
       }
+      // Calculate cash flow
+      const cf = calculateCashFlow();
+      setCashFlow(cf);
+
       await updatePricesAndCalculate();
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -436,6 +442,93 @@ function Dashboard() {
               </div>
             </div>
           </div>
+
+          {/* Cash Flow Summary */}
+          {cashFlow && (
+            <div className="card bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Wallet className="w-5 h-5 text-green-600" />
+                  Cash Flow & Liquidità
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                      <Wallet className="w-4 h-4 text-green-600" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-600">Liquidità Disponibile</p>
+                  </div>
+                  <p className={`text-2xl font-bold ${cashFlow.availableCash >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    €{cashFlow.availableCash.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Cash pronto per investimenti
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <ArrowDownCircle className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-600">Depositi Totali</p>
+                  </div>
+                  <p className="text-xl font-bold text-blue-600">
+                    €{cashFlow.cashDeposits.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Contante depositato
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                      <ShoppingCart className="w-4 h-4 text-orange-600" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-600">Investito in Asset</p>
+                  </div>
+                  <p className="text-xl font-bold text-orange-600">
+                    €{cashFlow.assetPurchases.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Acquisti totali
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                      <ArrowUpCircle className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <p className="text-sm font-medium text-gray-600">Da Vendite</p>
+                  </div>
+                  <p className="text-xl font-bold text-purple-600">
+                    €{cashFlow.assetSales.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Vendite realizzate
+                  </p>
+                </div>
+              </div>
+
+              {cashFlow.availableCash < 0 && (
+                <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-red-900 text-sm">⚠️ Cash Negativo</p>
+                      <p className="text-xs text-red-700 mt-1">
+                        Hai speso più di quanto depositato. Considera di aggiungere liquidità o vendere asset.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

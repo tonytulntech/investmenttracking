@@ -254,6 +254,12 @@ export const calculatePortfolio = () => {
 
   transactions.forEach(tx => {
     const { ticker, type, quantity, price, date } = tx;
+    const isCash = tx.isCash || (tx.macroCategory === 'Cash');
+
+    // Skip cash transactions - they will be calculated separately via cash flow
+    if (isCash) {
+      return;
+    }
 
     if (!holdings[ticker]) {
       holdings[ticker] = {
@@ -270,7 +276,7 @@ export const calculatePortfolio = () => {
         avgPrice: 0,
         transactions: [],
         lastTransactionDate: date,
-        isCash: tx.isCash || (tx.macroCategory === 'Cash') || false
+        isCash: false
       };
     }
 
@@ -280,7 +286,6 @@ export const calculatePortfolio = () => {
       holdings[ticker].category = tx.macroCategory || tx.category || holdings[ticker].category;
       holdings[ticker].microCategory = tx.microCategory || tx.subCategory || holdings[ticker].microCategory;
       holdings[ticker].subCategory = tx.microCategory || tx.subCategory || holdings[ticker].subCategory;
-      holdings[ticker].isCash = tx.isCash || (tx.macroCategory === 'Cash') || false;
       holdings[ticker].lastTransactionDate = date;
     }
 
@@ -301,13 +306,41 @@ export const calculatePortfolio = () => {
   });
 
   // Calculate average price and filter out zero positions
-  return Object.values(holdings)
+  const portfolio = Object.values(holdings)
     .filter(h => h.quantity > 0)
     .map(h => ({
       ...h,
-      // For Cash, avgPrice is always 1
-      avgPrice: h.isCash ? 1 : (h.totalCost / h.quantity)
+      avgPrice: h.totalCost / h.quantity
     }));
+
+  // Add cash as a single virtual holding using cash flow
+  try {
+    const { calculateCashFlow } = require('./cashFlowService');
+    const cashFlow = calculateCashFlow();
+
+    if (cashFlow.availableCash > 0) {
+      portfolio.push({
+        ticker: 'CASH',
+        name: 'Liquidità Disponibile',
+        isin: '',
+        category: 'Cash',
+        macroCategory: 'Cash',
+        microCategory: 'Disponibile',
+        subCategory: 'Disponibile',
+        currency: 'EUR',
+        quantity: cashFlow.availableCash,
+        totalCost: cashFlow.availableCash,
+        avgPrice: 1,
+        transactions: [],
+        lastTransactionDate: new Date().toISOString(),
+        isCash: true
+      });
+    }
+  } catch (error) {
+    console.error('Error calculating cash flow:', error);
+  }
+
+  return portfolio;
 };
 
 /**

@@ -4,6 +4,7 @@ import { getTransactions, addTransaction, updateTransaction, deleteTransaction, 
 import { searchSecurity } from '../services/priceService';
 import { detectSubCategory } from '../services/categoryDetectionService';
 import { getMacroAssetClasses, getMicroCategories } from '../config/assetClasses';
+import { checkCashAvailability } from '../services/cashFlowService';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 
@@ -170,6 +171,27 @@ function Transactions() {
     }
 
     try {
+      // Check cash availability for non-cash purchases
+      if (!isCash && formData.type === 'buy' && !editingTransaction) {
+        const purchaseAmount = parseFloat(formData.price) * parseFloat(formData.quantity);
+        const commission = formData.commission ? parseFloat(formData.commission) : 0;
+        const cashCheck = checkCashAvailability(purchaseAmount, commission);
+
+        if (!cashCheck.sufficient) {
+          const confirmPurchase = window.confirm(
+            `⚠️ ATTENZIONE: Liquidità insufficiente!\n\n` +
+            `Necessario: €${cashCheck.needed.toLocaleString('it-IT', { minimumFractionDigits: 2 })}\n` +
+            `Disponibile: €${cashCheck.available.toLocaleString('it-IT', { minimumFractionDigits: 2 })}\n` +
+            `Mancano: €${cashCheck.shortfall.toLocaleString('it-IT', { minimumFractionDigits: 2 })}\n\n` +
+            `Vuoi procedere comunque? (Il cash disponibile andrà in negativo)`
+          );
+
+          if (!confirmPurchase) {
+            return;
+          }
+        }
+      }
+
       // Auto-detect sub-category in background (silently)
       let detectedSubCategory = null;
       try {

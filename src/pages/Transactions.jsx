@@ -151,8 +151,21 @@ function Transactions() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.ticker || !formData.date || !formData.price || !formData.quantity) {
+    // For Cash, price and quantity are handled differently
+    const isCash = formData.macroCategory === 'Cash';
+
+    if (!formData.ticker || !formData.date) {
       alert('Compila tutti i campi obbligatori');
+      return;
+    }
+
+    if (!isCash && (!formData.price || !formData.quantity)) {
+      alert('Compila prezzo e quantità');
+      return;
+    }
+
+    if (isCash && !formData.quantity) {
+      alert('Compila l\'importo del contante');
       return;
     }
 
@@ -171,10 +184,13 @@ function Transactions() {
 
       const transactionData = {
         ...formData,
-        price: parseFloat(formData.price),
+        // For Cash: price is always 1, quantity is the amount
+        price: isCash ? 1 : parseFloat(formData.price),
         quantity: parseFloat(formData.quantity),
-        commission: formData.commission ? parseFloat(formData.commission) : 0,
-        subCategory: detectedSubCategory || '' // Save detected sub-category silently
+        commission: (isCash || !formData.commission) ? 0 : parseFloat(formData.commission),
+        subCategory: detectedSubCategory || '', // Save detected sub-category silently
+        // Mark as cash for special handling
+        isCash: isCash
       };
 
       if (editingTransaction) {
@@ -441,53 +457,62 @@ function Transactions() {
               </div>
 
               {/* Ticker & Name */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className={formData.macroCategory === 'Cash' ? '' : 'grid grid-cols-2 gap-4'}>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <Tag className="w-4 h-4 inline mr-1" />
-                    Ticker *
+                    {formData.macroCategory === 'Cash' ? 'Descrizione *' : 'Ticker *'}
                   </label>
                   <input
                     type="text"
                     value={formData.ticker}
                     onChange={(e) => handleTickerChange(e.target.value)}
-                    placeholder="VWCE.DE"
+                    placeholder={formData.macroCategory === 'Cash' ? 'es. Contante, Conto Corrente, Deposito...' : 'VWCE.DE'}
                     className="input"
                     required
                   />
-                  {!editingTransaction && formData.ticker && transactions.some(tx => tx.ticker.toUpperCase() === formData.ticker.toUpperCase()) && (
+                  {!editingTransaction && formData.macroCategory !== 'Cash' && formData.ticker && transactions.some(tx => tx.ticker.toUpperCase() === formData.ticker.toUpperCase()) && (
                     <p className="text-xs text-blue-600 mt-1">
                       📋 Form auto-compilato dall'ultima transazione
                     </p>
                   )}
+                  {formData.macroCategory === 'Cash' && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Esempio: "Conto Corrente Intesa", "Contante Portafoglio", "Deposito Vincolato"
+                    </p>
+                  )}
                 </div>
+                {formData.macroCategory !== 'Cash' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nome
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Nome asset"
+                      className="input"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* ISIN - Only show if NOT Cash */}
+              {formData.macroCategory !== 'Cash' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nome
+                    ISIN
                   </label>
                   <input
                     type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Nome asset"
+                    value={formData.isin}
+                    onChange={(e) => setFormData({ ...formData, isin: e.target.value.toUpperCase() })}
+                    placeholder="IE00BK5BQT80"
                     className="input"
                   />
                 </div>
-              </div>
-
-              {/* ISIN */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ISIN
-                </label>
-                <input
-                  type="text"
-                  value={formData.isin}
-                  onChange={(e) => setFormData({ ...formData, isin: e.target.value.toUpperCase() })}
-                  placeholder="IE00BK5BQT80"
-                  className="input"
-                />
-              </div>
+              )}
 
               {/* MACRO Category */}
               <div>
@@ -546,28 +571,12 @@ function Transactions() {
                 />
               </div>
 
-              {/* Price & Quantity */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Price & Quantity - Different for Cash */}
+              {formData.macroCategory === 'Cash' ? (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <DollarSign className="w-4 h-4 inline mr-1" />
-                    Prezzo *
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    placeholder="0.00"
-                    className="input"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <Hash className="w-4 h-4 inline mr-1" />
-                    Quantità *
+                    Importo € *
                   </label>
                   <input
                     type="number"
@@ -575,15 +584,53 @@ function Transactions() {
                     min="0"
                     value={formData.quantity}
                     onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                    placeholder="0.0000"
+                    placeholder="1000.00"
                     className="input"
                     required
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Importo totale in euro del contante
+                  </p>
                 </div>
-              </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <DollarSign className="w-4 h-4 inline mr-1" />
+                      Prezzo *
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                      placeholder="0.00"
+                      className="input"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <Hash className="w-4 h-4 inline mr-1" />
+                      Quantità *
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      value={formData.quantity}
+                      onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                      placeholder="0.0000"
+                      className="input"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
 
-              {/* Currency & Commission */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Currency & Commission - No commission for Cash */}
+              {formData.macroCategory === 'Cash' ? (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Valuta
@@ -598,36 +645,58 @@ function Transactions() {
                     <option value="GBP">GBP (£)</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Commissioni €
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    value={formData.commission}
-                    onChange={(e) => setFormData({ ...formData, commission: e.target.value })}
-                    placeholder="0.00"
-                    className="input"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Commissioni di broker/exchange
-                  </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Valuta
+                    </label>
+                    <select
+                      value={formData.currency}
+                      onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                      className="select"
+                    >
+                      <option value="EUR">EUR (€)</option>
+                      <option value="USD">USD ($)</option>
+                      <option value="GBP">GBP (£)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Commissioni €
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      value={formData.commission}
+                      onChange={(e) => setFormData({ ...formData, commission: e.target.value })}
+                      placeholder="0.00"
+                      className="input"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Commissioni di broker/exchange
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Total Preview */}
-              {formData.price && formData.quantity && (
+              {formData.quantity && (formData.macroCategory === 'Cash' || formData.price) && (
                 <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-primary-700 mb-1">Totale Operazione</p>
+                      <p className="text-sm text-primary-700 mb-1">
+                        {formData.macroCategory === 'Cash' ? 'Importo Contante' : 'Totale Operazione'}
+                      </p>
                       <p className="text-2xl font-bold text-primary-900">
-                        €{(parseFloat(formData.price) * parseFloat(formData.quantity)).toFixed(2)}
+                        €{formData.macroCategory === 'Cash'
+                          ? parseFloat(formData.quantity).toFixed(2)
+                          : (parseFloat(formData.price) * parseFloat(formData.quantity)).toFixed(2)
+                        }
                       </p>
                     </div>
-                    {formData.commission && parseFloat(formData.commission) > 0 && (
+                    {formData.macroCategory !== 'Cash' && formData.commission && parseFloat(formData.commission) > 0 && (
                       <div>
                         <p className="text-sm text-primary-700 mb-1">Commissioni</p>
                         <p className="text-lg font-semibold text-orange-700">

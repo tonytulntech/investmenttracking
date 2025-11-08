@@ -260,20 +260,27 @@ export const calculatePortfolio = () => {
         ticker,
         name: tx.name || ticker,
         isin: tx.isin || '',
-        category: tx.category || 'Other',
-        subCategory: tx.subCategory || null,
+        category: tx.macroCategory || tx.category || 'Other',
+        macroCategory: tx.macroCategory || tx.category || 'Other',
+        microCategory: tx.microCategory || tx.subCategory || null,
+        subCategory: tx.microCategory || tx.subCategory || null,
         currency: tx.currency || 'EUR',
         quantity: 0,
         totalCost: 0,
         avgPrice: 0,
         transactions: [],
-        lastTransactionDate: date
+        lastTransactionDate: date,
+        isCash: tx.isCash || (tx.macroCategory === 'Cash') || false
       };
     }
 
-    // Update subCategory from most recent transaction
-    if (tx.subCategory && new Date(date) >= new Date(holdings[ticker].lastTransactionDate)) {
-      holdings[ticker].subCategory = tx.subCategory;
+    // Update categories from most recent transaction
+    if (new Date(date) >= new Date(holdings[ticker].lastTransactionDate)) {
+      holdings[ticker].macroCategory = tx.macroCategory || tx.category || holdings[ticker].macroCategory;
+      holdings[ticker].category = tx.macroCategory || tx.category || holdings[ticker].category;
+      holdings[ticker].microCategory = tx.microCategory || tx.subCategory || holdings[ticker].microCategory;
+      holdings[ticker].subCategory = tx.microCategory || tx.subCategory || holdings[ticker].subCategory;
+      holdings[ticker].isCash = tx.isCash || (tx.macroCategory === 'Cash') || false;
       holdings[ticker].lastTransactionDate = date;
     }
 
@@ -298,7 +305,8 @@ export const calculatePortfolio = () => {
     .filter(h => h.quantity > 0)
     .map(h => ({
       ...h,
-      avgPrice: h.totalCost / h.quantity
+      // For Cash, avgPrice is always 1
+      avgPrice: h.isCash ? 1 : (h.totalCost / h.quantity)
     }));
 };
 

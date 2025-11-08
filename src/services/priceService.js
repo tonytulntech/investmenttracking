@@ -4,6 +4,7 @@
  */
 
 import axios from 'axios';
+import { getCachedPrices, cachePrices } from './priceCache';
 
 // CORS proxy options
 const CORS_PROXIES = [
@@ -159,10 +160,33 @@ export const fetchPrice = async (ticker, category = null) => {
  * Fetch prices for multiple tickers in parallel
  * @param {Array} tickers - Array of ticker symbols
  * @param {Object} categoriesMap - Map of ticker to category (optional)
+ * @param {boolean} forceRefresh - Force refresh bypassing cache (default: false)
  * @returns {Promise<Object>} Object mapping ticker to price data
  */
-export const fetchMultiplePrices = async (tickers, categoriesMap = {}) => {
+export const fetchMultiplePrices = async (tickers, categoriesMap = {}, forceRefresh = false) => {
   try {
+    // Check cache first (unless force refresh)
+    if (!forceRefresh) {
+      const cachedPrices = getCachedPrices();
+      if (cachedPrices) {
+        // Check if we have all tickers in cache
+        const uniqueTickers = [...new Set(tickers)];
+        const allCached = uniqueTickers.every(ticker => cachedPrices[ticker]);
+
+        if (allCached) {
+          // Return cached prices
+          const filteredCache = {};
+          uniqueTickers.forEach(ticker => {
+            if (cachedPrices[ticker]) {
+              filteredCache[ticker] = cachedPrices[ticker];
+            }
+          });
+          return filteredCache;
+        }
+      }
+    }
+
+    // Fetch fresh prices
     const uniqueTickers = [...new Set(tickers)];
 
     const promises = uniqueTickers.map(ticker =>
@@ -183,6 +207,9 @@ export const fetchMultiplePrices = async (tickers, categoriesMap = {}) => {
         pricesMap[result.ticker] = result;
       }
     });
+
+    // Cache the results
+    cachePrices(pricesMap);
 
     return pricesMap;
   } catch (error) {

@@ -44,15 +44,35 @@ function Portfolio() {
       return;
     }
 
-    const tickers = holdings.map(h => h.ticker);
-    const categoriesMap = holdings.reduce((acc, h) => {
+    // Filter out cash from price fetching (cash price is always 1)
+    const nonCashHoldings = holdings.filter(h => !h.isCash);
+    const tickers = nonCashHoldings.map(h => h.ticker);
+    const categoriesMap = nonCashHoldings.reduce((acc, h) => {
       acc[h.ticker] = h.category;
       return acc;
     }, {});
 
-    const prices = await fetchMultiplePrices(tickers, categoriesMap);
+    const prices = tickers.length > 0 ? await fetchMultiplePrices(tickers, categoriesMap) : {};
 
     const updatedPortfolio = holdings.map(holding => {
+      // For Cash: price is always 1, no price change, ROI = 0, no TER
+      if (holding.isCash) {
+        const marketValue = holding.quantity * 1; // price = 1
+        return {
+          ...holding,
+          currentPrice: 1,
+          marketValue,
+          totalCost: marketValue,
+          unrealizedPL: 0,
+          roi: 0,
+          dayChange: 0,
+          dayChangePercent: 0,
+          ter: null,
+          annualTERCost: 0
+        };
+      }
+
+      // For other assets: fetch current price
       const priceData = prices[holding.ticker];
       const currentPrice = priceData?.price || holding.avgPrice;
 

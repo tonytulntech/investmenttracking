@@ -190,12 +190,27 @@ function Dashboard() {
     const { startDate, endDate } = getDateRange(dateFilter);
     if (!startDate) return transactions;
 
-    return transactions.filter(tx => {
-      const txDate = new Date(tx.date);
-      const afterStart = !startDate || isAfter(txDate, startDate) || txDate.getTime() === startDate.getTime();
-      const beforeEnd = !endDate || isBefore(txDate, endDate) || txDate.getTime() === endDate.getTime();
-      return afterStart && beforeEnd;
-    });
+    // IMPORTANT: For specific years (e.g., '2023'), we need ALL transactions UP TO that year's end
+    // to show the portfolio snapshot at that point in time
+    // For relative periods (YTD, 3M, etc.), we only need transactions DURING that period
+    const isYearFilter = !isNaN(dateFilter); // Check if filter is a specific year
+
+    if (isYearFilter) {
+      // Specific year: take all transactions UP TO end of that year
+      return transactions.filter(tx => {
+        const txDate = new Date(tx.date);
+        const beforeEnd = !endDate || isBefore(txDate, endDate) || txDate.getTime() === endDate.getTime();
+        return beforeEnd; // Only check end date, not start date
+      });
+    } else {
+      // Relative period: take transactions DURING that period
+      return transactions.filter(tx => {
+        const txDate = new Date(tx.date);
+        const afterStart = !startDate || isAfter(txDate, startDate) || txDate.getTime() === startDate.getTime();
+        const beforeEnd = !endDate || isBefore(txDate, endDate) || txDate.getTime() === endDate.getTime();
+        return afterStart && beforeEnd;
+      });
+    }
   };
 
   const updatePricesAndCalculate = async () => {
@@ -307,14 +322,20 @@ function Dashboard() {
     console.log('📋 All transactions:', allTransactions);
 
     const dateFilteredTransactions = filterTransactionsByDate(allTransactions);
+    const isYearFilter = !isNaN(dateFilter);
+    console.log('📅 Date filter type:', isYearFilter ? `Snapshot at end of ${dateFilter}` : `Period: ${dateFilter}`);
     console.log('📅 Date filtered transactions:', dateFilteredTransactions.length);
+    if (isYearFilter) {
+      console.log(`💡 Showing portfolio snapshot at 31/12/${dateFilter} (all transactions up to that date)`);
+    }
 
     // CRITICAL FIX: If date filter is active, recalculate portfolio from filtered transactions
     // This ensures statistics reflect only the selected time period
     let workingPortfolio;
 
+    // Always recalculate when there's an active date filter (year or period)
     if (dateFilter !== 'all') {
-      console.log('🔄 Recalculating portfolio from date-filtered transactions...');
+      console.log('🔄 Rebuilding portfolio from filtered transactions...');
       // Rebuild portfolio from scratch using only date-filtered transactions
       const holdings = {};
 

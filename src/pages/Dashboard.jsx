@@ -73,14 +73,15 @@ function Dashboard() {
 
   // Recalculate stats when filters change or portfolio updates
   useEffect(() => {
-    if (fullPortfolio.length > 0) {
-      console.log('🔄 Filters changed, recalculating...', {
-        dateFilter,
-        activeFilters: Object.entries(filters).filter(([k, v]) => v).map(([k]) => k)
-      });
-      applyFilters();
-    }
-  }, [filters, dateFilter, fullPortfolio]);
+    // Always apply filters when dependencies change (even if fullPortfolio is empty)
+    console.log('🔄 Filters or data changed, recalculating...', {
+      dateFilter,
+      fullPortfolioLength: fullPortfolio.length,
+      priceCacheSize: Object.keys(priceCache).length,
+      activeFilters: Object.entries(filters).filter(([k, v]) => v).map(([k]) => k)
+    });
+    applyFilters();
+  }, [filters, dateFilter, fullPortfolio, priceCache]); // Added priceCache to dependencies!
 
   const loadData = async () => {
     try {
@@ -321,6 +322,26 @@ function Dashboard() {
     console.log('📝 Total transactions:', allTransactions.length);
     console.log('📋 All transactions:', allTransactions);
 
+    // Guard: if no transactions exist, show empty state (not loading)
+    if (allTransactions.length === 0) {
+      console.log('⚠️ No transactions found, showing empty state');
+      setPortfolio([]);
+      setAllocationData([]);
+      setSubAllocationData([]);
+      setPerformanceData([]);
+      setStats({
+        totalValue: 0,
+        totalCost: 0,
+        totalPL: 0,
+        totalPLPercent: 0,
+        dayChange: 0,
+        dayChangePercent: 0,
+        assetsCount: 0
+      });
+      setRefreshing(false);
+      return;
+    }
+
     const dateFilteredTransactions = filterTransactionsByDate(allTransactions);
     const isYearFilter = !isNaN(dateFilter);
     console.log('📅 Date filter type:', isYearFilter ? `Snapshot at end of ${dateFilter}` : `Period: ${dateFilter}`);
@@ -450,8 +471,44 @@ function Dashboard() {
 
       console.log('✅ Portfolio recalculated from filtered transactions:', workingPortfolio.length, 'holdings');
     } else {
-      // No date filter - use full portfolio
-      workingPortfolio = fullPortfolio;
+      // No date filter - use full portfolio if available
+      // If fullPortfolio is empty (initial load), rebuild from all transactions
+      if (fullPortfolio.length > 0) {
+        console.log('✅ Using full portfolio (no filters)');
+        workingPortfolio = fullPortfolio;
+      } else {
+        console.log('⚠️ Full portfolio empty, rebuilding from all transactions...');
+        // Rebuild from scratch with current prices
+        const holdings = calculatePortfolio();
+        workingPortfolio = holdings.map(holding => {
+          if (holding.isCash) {
+            return {
+              ...holding,
+              currentPrice: 1,
+              marketValue: holding.totalCost,
+              unrealizedPL: 0,
+              roi: 0,
+              dayChange: 0,
+              dayChangePercent: 0
+            };
+          }
+          const priceData = priceCache[holding.ticker];
+          const currentPrice = priceData?.price || holding.avgPrice;
+          const marketValue = currentPrice * holding.quantity;
+          const totalCost = holding.avgPrice * holding.quantity;
+          return {
+            ...holding,
+            currentPrice,
+            marketValue,
+            totalCost,
+            unrealizedPL: marketValue - totalCost,
+            roi: totalCost > 0 ? ((marketValue - totalCost) / totalCost) * 100 : 0,
+            dayChange: priceData?.change || 0,
+            dayChangePercent: priceData?.changePercent || 0
+          };
+        });
+        console.log('✅ Portfolio rebuilt:', workingPortfolio.length, 'holdings');
+      }
     }
 
     // Filter portfolio based on selected asset classes

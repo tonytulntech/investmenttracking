@@ -22,7 +22,6 @@ function Dashboard() {
     assetsCount: 0
   });
   const [portfolio, setPortfolio] = useState([]);
-  const [fullPortfolio, setFullPortfolio] = useState([]); // Unfiltered portfolio
   const [priceCache, setPriceCache] = useState(() => {
     // Initialize price cache from localStorage if available
     try {
@@ -71,26 +70,40 @@ function Dashboard() {
     loadData();
   }, []);
 
-  // Recalculate stats when filters change or portfolio updates
+  // Single effect that recalculates everything when filters or prices change
   useEffect(() => {
-    // Always apply filters when dependencies change (even if fullPortfolio is empty)
-    console.log('🔄 Filters or data changed, recalculating...', {
+    console.log('🔄 Filters or prices changed, recalculating dashboard...', {
       dateFilter,
-      fullPortfolioLength: fullPortfolio.length,
       priceCacheSize: Object.keys(priceCache).length,
       activeFilters: Object.entries(filters).filter(([k, v]) => v).map(([k]) => k)
     });
-    applyFilters();
-  }, [filters, dateFilter, fullPortfolio, priceCache]); // Added priceCache to dependencies!
+
+    // Calculate everything in one go
+    const dashboardData = calculateDashboardData();
+
+    // Update all states
+    setPortfolio(dashboardData.portfolio);
+    setStats(dashboardData.stats);
+    setAllocationData(dashboardData.allocation);
+    setSubAllocationData(dashboardData.subAllocation);
+    setPerformanceData(dashboardData.performanceData);
+    setAllocationComparison(dashboardData.allocationComparison);
+    setPerformanceMetrics(dashboardData.performanceMetrics);
+    setRefreshing(false);
+
+    console.log('✅ Dashboard calculated:', dashboardData);
+  }, [filters, dateFilter, priceCache]); // Only these 3 dependencies!
 
   const loadData = async () => {
     try {
       setLoading(true);
+
       // Load strategy
       const savedStrategy = localStorage.getItem('investment_strategy');
       if (savedStrategy) {
         setStrategy(JSON.parse(savedStrategy));
       }
+
       // Calculate cash flow
       const cf = calculateCashFlow();
       setCashFlow(cf);
@@ -102,49 +115,14 @@ function Dashboard() {
         const year = new Date(tx.date).getFullYear();
         years.add(year);
       });
-      setAvailableYears(Array.from(years).sort((a, b) => b - a)); // Descending order
+      setAvailableYears(Array.from(years).sort((a, b) => b - a));
 
-      // If we have cached prices, show portfolio immediately
-      const holdings = calculatePortfolio();
-      if (holdings.length > 0 && Object.keys(priceCache).length > 0) {
-        console.log('⚡ Using cached prices for instant display');
-        // Apply cached prices to holdings
-        const quickPortfolio = holdings.map(holding => {
-          if (holding.isCash) {
-            return {
-              ...holding,
-              currentPrice: 1,
-              marketValue: holding.totalCost,
-              unrealizedPL: 0,
-              roi: 0,
-              dayChange: 0,
-              dayChangePercent: 0
-            };
-          }
-          const priceData = priceCache[holding.ticker];
-          const currentPrice = priceData?.price || holding.avgPrice;
-          const marketValue = currentPrice * holding.quantity;
-          const totalCost = holding.avgPrice * holding.quantity;
-          return {
-            ...holding,
-            currentPrice,
-            marketValue,
-            totalCost,
-            unrealizedPL: marketValue - totalCost,
-            roi: totalCost > 0 ? ((marketValue - totalCost) / totalCost) * 100 : 0,
-            dayChange: priceData?.change || 0,
-            dayChangePercent: priceData?.changePercent || 0
-          };
-        });
-        setFullPortfolio(quickPortfolio);
-        setLoading(false);
-      }
+      // Fetch latest prices (this will trigger useEffect to recalculate)
+      await fetchLatestPrices();
 
-      // Then fetch fresh prices
-      await updatePricesAndCalculate();
+      setLoading(false);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
-    } finally {
       setLoading(false);
     }
   };
@@ -214,379 +192,220 @@ function Dashboard() {
     }
   };
 
-  const updatePricesAndCalculate = async () => {
+  const fetchLatestPrices = async () => {
+    console.log('🔄 Fetching latest prices...');
     setRefreshing(true);
 
-    // Get portfolio from transactions
-    const holdings = calculatePortfolio();
+    // Get all unique tickers from transactions
+    const transactions = getTransactions();
+    const uniqueTickers = new Set();
+    const categoriesMap = {};
 
-    if (holdings.length === 0) {
-      setStats({
-        totalValue: 0,
-        totalCost: 0,
-        totalPL: 0,
-        totalPLPercent: 0,
-        dayChange: 0,
-        dayChangePercent: 0,
-        assetsCount: 0
-      });
-      setPortfolio([]);
-      setAllocationData([]);
-      setPerformanceData([]);
+    transactions.forEach(tx => {
+      if (!tx.isCash && tx.macroCategory !== 'Cash' && tx.ticker) {
+        uniqueTickers.add(tx.ticker);
+        if (!categoriesMap[tx.ticker]) {
+          categoriesMap[tx.ticker] = tx.macroCategory || tx.category;
+        }
+      }
+    });
+
+    const tickers = Array.from(uniqueTickers);
+
+    if (tickers.length === 0) {
+      console.log('⚠️ No tickers to fetch');
       setRefreshing(false);
       return;
     }
 
-    // Fetch current prices (skip cash - price is always 1)
-    const nonCashHoldings = holdings.filter(h => !h.isCash);
-    const tickers = nonCashHoldings.map(h => h.ticker);
-    const categoriesMap = nonCashHoldings.reduce((acc, h) => {
-      acc[h.ticker] = h.category;
-      return acc;
-    }, {});
+    // Fetch prices
+    const prices = await fetchMultiplePrices(tickers, categoriesMap);
 
-    const prices = tickers.length > 0 ? await fetchMultiplePrices(tickers, categoriesMap) : {};
-
-    // Update price cache with newly fetched prices
-    const newPriceCache = { ...priceCache };
-    Object.keys(prices).forEach(ticker => {
-      newPriceCache[ticker] = prices[ticker];
-    });
+    // Update price cache
+    const newPriceCache = { ...priceCache, ...prices };
     setPriceCache(newPriceCache);
 
-    // Save to localStorage for persistence across navigation
+    // Save to localStorage
     try {
       localStorage.setItem('price_cache', JSON.stringify({
         cache: newPriceCache,
         timestamp: Date.now()
       }));
-      console.log('💾 Price cache updated and saved with', Object.keys(prices).length, 'prices');
+      console.log('💾 Fetched and cached', Object.keys(prices).length, 'prices');
     } catch (e) {
       console.error('Error saving price cache:', e);
     }
 
-    // Calculate updated portfolio with current prices
-    const updatedPortfolio = holdings.map(holding => {
-      // For Cash: price is always 1, no price change, ROI = 0
-      if (holding.isCash) {
-        // Use totalCost which contains the actual cash value (can be negative)
-        const marketValue = holding.totalCost;
-        return {
-          ...holding,
-          currentPrice: 1,
-          marketValue,
-          totalCost: marketValue,
-          unrealizedPL: 0,
-          roi: 0,
-          dayChange: 0,
-          dayChangePercent: 0
-        };
-      }
-
-      // For other assets: fetch current price
-      const priceData = prices[holding.ticker];
-      const currentPrice = priceData?.price || holding.avgPrice;
-
-      const marketValue = currentPrice * holding.quantity;
-      const totalCost = holding.avgPrice * holding.quantity;
-      const unrealizedPL = marketValue - totalCost;
-      const roi = totalCost > 0 ? (unrealizedPL / totalCost) * 100 : 0;
-
-      return {
-        ...holding,
-        currentPrice,
-        marketValue,
-        totalCost,
-        unrealizedPL,
-        roi,
-        dayChange: priceData?.change || 0,
-        dayChangePercent: priceData?.changePercent || 0
-      };
-    });
-
-    // Save full portfolio (unfiltered)
-    // The useEffect will automatically trigger applyFilters when fullPortfolio changes
-    // applyFilters will set refreshing to false when done
-    setFullPortfolio(updatedPortfolio);
+    setRefreshing(false);
   };
 
-  const applyFilters = () => {
-    console.log('📊 Applying filters...', {
-      fullPortfolioLength: fullPortfolio.length,
-      dateFilter,
-      activeAssetFilters: Object.entries(filters).filter(([k, v]) => v).length
-    });
+  // ==============================================
+  // SINGLE FUNCTION THAT CALCULATES EVERYTHING
+  // ==============================================
+  const calculateDashboardData = () => {
+    console.log('📊 === CALCULATING DASHBOARD ===');
+    console.log('Date Filter:', dateFilter);
+    console.log('Asset Filters:', Object.entries(filters).filter(([k, v]) => v).map(([k]) => k));
+    console.log('Price Cache Size:', Object.keys(priceCache).length);
 
-    // Get all transactions and apply date filter first
+    // 1. Get ALL transactions
     const allTransactions = getTransactions();
     console.log('📝 Total transactions:', allTransactions.length);
-    console.log('📋 All transactions:', allTransactions);
 
-    // Guard: if no transactions exist, show empty state (not loading)
     if (allTransactions.length === 0) {
-      console.log('⚠️ No transactions found, showing empty state');
-      setPortfolio([]);
-      setAllocationData([]);
-      setSubAllocationData([]);
-      setPerformanceData([]);
-      setStats({
-        totalValue: 0,
-        totalCost: 0,
-        totalPL: 0,
-        totalPLPercent: 0,
-        dayChange: 0,
-        dayChangePercent: 0,
-        assetsCount: 0
-      });
-      setRefreshing(false);
-      return;
+      console.log('⚠️ No transactions - returning empty state');
+      return {
+        portfolio: [],
+        stats: { totalValue: 0, totalCost: 0, totalPL: 0, totalPLPercent: 0, dayChange: 0, dayChangePercent: 0, assetsCount: 0 },
+        allocation: [],
+        subAllocation: [],
+        performanceData: [],
+        allocationComparison: [],
+        performanceMetrics: null
+      };
     }
 
+    // 2. Filter transactions by date
     const dateFilteredTransactions = filterTransactionsByDate(allTransactions);
     const isYearFilter = !isNaN(dateFilter);
-    console.log('📅 Date filter type:', isYearFilter ? `Snapshot at end of ${dateFilter}` : `Period: ${dateFilter}`);
-    console.log('📅 Date filtered transactions:', dateFilteredTransactions.length);
-    if (isYearFilter) {
-      console.log(`💡 Showing portfolio snapshot at 31/12/${dateFilter} (all transactions up to that date)`);
-    }
+    console.log('📅 Date-filtered transactions:', dateFilteredTransactions.length, isYearFilter ? `(snapshot at end of ${dateFilter})` : `(period: ${dateFilter})`);
 
-    // CRITICAL FIX: If date filter is active, recalculate portfolio from filtered transactions
-    // This ensures statistics reflect only the selected time period
-    let workingPortfolio;
+    // 3. Rebuild portfolio from filtered transactions
+    const holdings = {};
+    dateFilteredTransactions.forEach(tx => {
+      const { ticker, type, quantity, price } = tx;
+      const isCash = tx.isCash || tx.macroCategory === 'Cash';
 
-    // Always recalculate when there's an active date filter (year or period)
-    if (dateFilter !== 'all') {
-      console.log('🔄 Rebuilding portfolio from filtered transactions...');
-      // Rebuild portfolio from scratch using only date-filtered transactions
-      const holdings = {};
+      if (isCash) return; // Skip cash, handle separately
 
-      dateFilteredTransactions.forEach(tx => {
-        const { ticker, type, quantity, price, date } = tx;
-        const isCash = tx.isCash || (tx.macroCategory === 'Cash');
-
-        // Skip cash - handled separately
-        if (isCash) return;
-
-        if (!holdings[ticker]) {
-          holdings[ticker] = {
-            ticker,
-            name: tx.name || ticker,
-            macroCategory: tx.macroCategory || tx.category || 'Other',
-            microCategory: tx.microCategory || tx.subCategory || null,
-            quantity: 0,
-            totalCost: 0
-          };
-        }
-
-        if (type === 'buy') {
-          holdings[ticker].quantity += quantity;
-          holdings[ticker].totalCost += quantity * price;
-        } else if (type === 'sell') {
-          holdings[ticker].quantity -= quantity;
-          holdings[ticker].totalCost -= quantity * price;
-        }
-      });
-
-      // Convert to array and match with current prices from price cache
-      workingPortfolio = Object.values(holdings)
-        .filter(h => h.quantity > 0)
-        .map(h => {
-          // Get current price from price cache (always preserved)
-          const priceData = priceCache[h.ticker];
-          const currentPrice = priceData?.price || (h.totalCost / h.quantity);
-          const marketValue = currentPrice * h.quantity;
-          const unrealizedPL = marketValue - h.totalCost;
-          const roi = h.totalCost > 0 ? (unrealizedPL / h.totalCost) * 100 : 0;
-
-          return {
-            ...h,
-            currentPrice,
-            marketValue,
-            unrealizedPL,
-            roi,
-            avgPrice: h.totalCost / h.quantity,
-            dayChange: priceData?.change || 0,
-            dayChangePercent: priceData?.changePercent || 0
-          };
-        });
-
-      // Recalculate cash from date-filtered transactions
-      const cashTransactions = dateFilteredTransactions.filter(tx => tx.isCash || tx.macroCategory === 'Cash');
-      let cashDeposits = 0;
-      let cashWithdrawals = 0;
-
-      cashTransactions.forEach(tx => {
-        const amount = tx.quantity * tx.price;
-        if (tx.type === 'buy') {
-          cashDeposits += amount;
-        } else if (tx.type === 'sell') {
-          cashWithdrawals += amount;
-        }
-      });
-
-      // Calculate asset purchases/sales from date-filtered transactions
-      const assetTransactions = dateFilteredTransactions.filter(tx => !tx.isCash && tx.macroCategory !== 'Cash');
-      let assetPurchases = 0;
-      let assetSales = 0;
-
-      assetTransactions.forEach(tx => {
-        const amount = tx.quantity * tx.price;
-        const commission = tx.commission || 0;
-        if (tx.type === 'buy') {
-          assetPurchases += (amount + commission);
-        } else if (tx.type === 'sell') {
-          assetSales += (amount - commission);
-        }
-      });
-
-      const availableCash = cashDeposits - cashWithdrawals - assetPurchases + assetSales;
-
-      // Add cash holding based on filtered transactions
-      if (cashDeposits > 0 || assetPurchases > 0 || assetSales > 0 || cashWithdrawals > 0) {
-        const cashHolding = {
-          ticker: 'CASH',
-          name: 'Cash',
-          isin: '',
-          category: 'Cash',
-          macroCategory: 'Cash',
-          microCategory: 'Liquidità',
-          subCategory: 'Liquidità',
-          currency: 'EUR',
-          quantity: Math.abs(availableCash),
-          totalCost: availableCash,
-          avgPrice: 1,
-          currentPrice: 1,
-          marketValue: availableCash,
-          unrealizedPL: 0,
-          roi: 0,
-          dayChange: 0,
-          dayChangePercent: 0,
-          transactions: [],
-          lastTransactionDate: new Date().toISOString(),
-          isCash: true,
-          isNegativeCash: availableCash < 0
+      if (!holdings[ticker]) {
+        holdings[ticker] = {
+          ticker,
+          name: tx.name || ticker,
+          macroCategory: tx.macroCategory || tx.category || 'Other',
+          microCategory: tx.microCategory || tx.subCategory || null,
+          quantity: 0,
+          totalCost: 0
         };
-        workingPortfolio.push(cashHolding);
       }
 
-      console.log('✅ Portfolio recalculated from filtered transactions:', workingPortfolio.length, 'holdings');
-    } else {
-      // No date filter - use full portfolio if available
-      // If fullPortfolio is empty (initial load), rebuild from all transactions
-      if (fullPortfolio.length > 0) {
-        console.log('✅ Using full portfolio (no filters)');
-        workingPortfolio = fullPortfolio;
-      } else {
-        console.log('⚠️ Full portfolio empty, rebuilding from all transactions...');
-        // Rebuild from scratch with current prices
-        const holdings = calculatePortfolio();
-        workingPortfolio = holdings.map(holding => {
-          if (holding.isCash) {
-            return {
-              ...holding,
-              currentPrice: 1,
-              marketValue: holding.totalCost,
-              unrealizedPL: 0,
-              roi: 0,
-              dayChange: 0,
-              dayChangePercent: 0
-            };
-          }
-          const priceData = priceCache[holding.ticker];
-          const currentPrice = priceData?.price || holding.avgPrice;
-          const marketValue = currentPrice * holding.quantity;
-          const totalCost = holding.avgPrice * holding.quantity;
-          return {
-            ...holding,
-            currentPrice,
-            marketValue,
-            totalCost,
-            unrealizedPL: marketValue - totalCost,
-            roi: totalCost > 0 ? ((marketValue - totalCost) / totalCost) * 100 : 0,
-            dayChange: priceData?.change || 0,
-            dayChangePercent: priceData?.changePercent || 0
-          };
-        });
-        console.log('✅ Portfolio rebuilt:', workingPortfolio.length, 'holdings');
+      if (type === 'buy') {
+        holdings[ticker].quantity += quantity;
+        holdings[ticker].totalCost += quantity * price;
+      } else if (type === 'sell') {
+        holdings[ticker].quantity -= quantity;
+        holdings[ticker].totalCost -= quantity * price;
       }
-    }
-
-    // Filter portfolio based on selected asset classes
-    const filteredPortfolio = workingPortfolio.filter(holding => {
-      const macroCategory = holding.macroCategory || holding.category;
-      // Special handling for CASH virtual holding
-      if (holding.ticker === 'CASH') {
-        return filters['Cash'] !== false;
-      }
-      return filters[macroCategory] !== false; // Include if filter is true or undefined
     });
 
-    console.log('💼 Working portfolio:', workingPortfolio);
-    console.log('🔍 Filtered portfolio:', filteredPortfolio);
+    // 4. Apply current prices from cache
+    let workingPortfolio = Object.values(holdings)
+      .filter(h => h.quantity > 0)
+      .map(h => {
+        const priceData = priceCache[h.ticker];
+        const currentPrice = priceData?.price || (h.totalCost / h.quantity);
+        const marketValue = currentPrice * h.quantity;
+        const unrealizedPL = marketValue - h.totalCost;
+        const roi = h.totalCost > 0 ? (unrealizedPL / h.totalCost) * 100 : 0;
 
-    setPortfolio(filteredPortfolio);
+        return {
+          ...h,
+          currentPrice,
+          avgPrice: h.totalCost / h.quantity,
+          marketValue,
+          unrealizedPL,
+          roi,
+          dayChange: priceData?.change || 0,
+          dayChangePercent: priceData?.changePercent || 0
+        };
+      });
 
-    // Recalculate everything with filtered data
+    // 5. Calculate and add CASH
+    const cashTransactions = dateFilteredTransactions.filter(tx => tx.isCash || tx.macroCategory === 'Cash');
+    const assetTransactions = dateFilteredTransactions.filter(tx => !tx.isCash && tx.macroCategory !== 'Cash');
+
+    let cashDeposits = 0, cashWithdrawals = 0, assetPurchases = 0, assetSales = 0;
+
+    cashTransactions.forEach(tx => {
+      const amount = tx.quantity * tx.price;
+      if (tx.type === 'buy') cashDeposits += amount;
+      else if (tx.type === 'sell') cashWithdrawals += amount;
+    });
+
+    assetTransactions.forEach(tx => {
+      const amount = tx.quantity * tx.price;
+      const commission = tx.commission || 0;
+      if (tx.type === 'buy') assetPurchases += (amount + commission);
+      else if (tx.type === 'sell') assetSales += (amount - commission);
+    });
+
+    const availableCash = cashDeposits - cashWithdrawals - assetPurchases + assetSales;
+
+    if (cashDeposits > 0 || assetPurchases > 0 || assetSales > 0 || cashWithdrawals > 0) {
+      workingPortfolio.push({
+        ticker: 'CASH',
+        name: 'Cash',
+        macroCategory: 'Cash',
+        microCategory: 'Liquidità',
+        quantity: Math.abs(availableCash),
+        totalCost: availableCash,
+        avgPrice: 1,
+        currentPrice: 1,
+        marketValue: availableCash,
+        unrealizedPL: 0,
+        roi: 0,
+        dayChange: 0,
+        dayChangePercent: 0,
+        isCash: true
+      });
+    }
+
+    console.log('💼 Working portfolio:', workingPortfolio.length, 'holdings');
+
+    // 6. Filter by asset class
+    const filteredPortfolio = workingPortfolio.filter(holding => {
+      if (holding.ticker === 'CASH') return filters['Cash'] !== false;
+      return filters[holding.macroCategory] !== false;
+    });
+
+    console.log('🔍 Filtered portfolio:', filteredPortfolio.length, 'holdings');
+
+    // 7. Calculate stats
     const totalValue = filteredPortfolio.reduce((sum, p) => sum + p.marketValue, 0);
     const totalCost = filteredPortfolio.reduce((sum, p) => sum + p.totalCost, 0);
-
-    console.log('💰 Value breakdown:', filteredPortfolio.map(p => ({
-      ticker: p.ticker,
-      quantity: p.quantity,
-      currentPrice: p.currentPrice,
-      marketValue: p.marketValue,
-      totalCost: p.totalCost
-    })));
-    console.log('💵 Total Value:', totalValue, 'Total Cost:', totalCost);
     const totalPL = totalValue - totalCost;
     const totalPLPercent = totalCost > 0 ? (totalPL / totalCost) * 100 : 0;
     const dayChange = filteredPortfolio.reduce((sum, p) => sum + (p.dayChange * p.quantity), 0);
     const dayChangePercent = totalValue > 0 ? (dayChange / (totalValue - dayChange)) * 100 : 0;
 
-    setStats({
-      totalValue,
-      totalCost,
-      totalPL,
-      totalPLPercent,
-      dayChange,
-      dayChangePercent,
-      assetsCount: filteredPortfolio.length
-    });
+    console.log('💵 Total Value:', totalValue, 'Total Cost:', totalCost, 'P/L:', totalPL);
 
-    // Prepare allocation data (by category) from filtered portfolio
-    // EXCLUDE Cash - it should only appear in Cash Flow section
+    // 8. Calculate allocation (exclude Cash)
     const investablePortfolio = filteredPortfolio.filter(p => !p.isCash);
     const investableValue = investablePortfolio.reduce((sum, p) => sum + p.marketValue, 0);
 
     const categoryTotals = investablePortfolio.reduce((acc, p) => {
-      const cat = p.macroCategory || p.category;
-      acc[cat] = (acc[cat] || 0) + p.marketValue;
+      acc[p.macroCategory] = (acc[p.macroCategory] || 0) + p.marketValue;
       return acc;
     }, {});
 
-    // Filter out zero values for pie chart display
     const allocation = Object.entries(categoryTotals)
-      .filter(([name, value]) => value > 0)
+      .filter(([_, value]) => value > 0)
       .map(([name, value]) => ({
         name,
         value,
         percentage: investableValue > 0 ? ((value / investableValue) * 100).toFixed(1) : 0
       }));
 
-    setAllocationData(allocation);
-
-    // Prepare sub-category allocation data from filtered portfolio
-    // EXCLUDE Cash - only show actual investments
+    // 9. Calculate sub-allocation
     const subCategoryTotals = {};
-
     investablePortfolio.forEach(holding => {
-      const subCat = holding.microCategory || holding.subCategory || 'Non categorizzato';
+      const subCat = holding.microCategory || 'Non categorizzato';
       subCategoryTotals[subCat] = (subCategoryTotals[subCat] || 0) + holding.marketValue;
     });
 
-    // Filter out zero values and sort by value
     const subAllocation = Object.entries(subCategoryTotals)
-      .filter(([name, value]) => value > 0)
+      .filter(([_, value]) => value > 0)
       .map(([name, value]) => ({
         name,
         value,
@@ -594,42 +413,36 @@ function Dashboard() {
       }))
       .sort((a, b) => b.value - a.value);
 
-    setSubAllocationData(subAllocation);
+    // 10. Calculate performance data
+    const performanceData = calculateMonthlyPerformance(dateFilteredTransactions, filteredPortfolio);
 
-    // Prepare performance data (historical simulation) - using date-filtered transactions
-    const monthlyData = calculateMonthlyPerformance(dateFilteredTransactions, filteredPortfolio);
-    setPerformanceData(monthlyData);
-
-    // Calculate allocation comparison if strategy exists
-    // Use investablePortfolio and investableValue to exclude Cash from comparison
-    const savedStrategy = localStorage.getItem('investment_strategy');
-    if (savedStrategy) {
-      const strategyData = JSON.parse(savedStrategy);
-      // Use MICRO allocation if available, otherwise fall back to MACRO
-      if (strategyData.microAllocation && Object.keys(strategyData.microAllocation).length > 0) {
-        const comparison = calculateMicroAllocationComparison(investablePortfolio, investableValue, strategyData.microAllocation);
-        setAllocationComparison(comparison);
-      } else if (strategyData.assetAllocation) {
-        const comparison = calculateAllocationComparison(categoryTotals, investableValue, strategyData.assetAllocation);
-        setAllocationComparison(comparison);
+    // 11. Calculate allocation comparison
+    let allocationComparison = [];
+    if (strategy) {
+      if (strategy.microAllocation && Object.keys(strategy.microAllocation).length > 0) {
+        allocationComparison = calculateMicroAllocationComparison(investablePortfolio, investableValue, strategy.microAllocation);
+      } else if (strategy.assetAllocation) {
+        allocationComparison = calculateAllocationComparison(categoryTotals, investableValue, strategy.assetAllocation);
       }
     }
 
-    // Calculate performance metrics (CAGR, etc.) based on filtered portfolio and date-filtered transactions
-    // Note: getPerformanceSummary doesn't accept transactions parameter - it recalculates internally
-    // This means CAGR will be calculated from full portfolio, but filtered by asset classes
-    const perfMetrics = getPerformanceSummary(filteredPortfolio, strategy);
-    setPerformanceMetrics(perfMetrics);
+    // 12. Calculate performance metrics
+    const performanceMetrics = getPerformanceSummary(filteredPortfolio, strategy);
 
-    // Stop refreshing spinner
-    setRefreshing(false);
+    console.log('✅ === DASHBOARD CALCULATED ===');
 
-    console.log('✅ Filters applied successfully!', {
-      filteredPortfolioLength: filteredPortfolio.length,
-      totalValue: totalValue.toFixed(2),
-      statsCalculated: Object.keys(stats).length > 0
-    });
+    return {
+      portfolio: filteredPortfolio,
+      stats: { totalValue, totalCost, totalPL, totalPLPercent, dayChange, dayChangePercent, assetsCount: filteredPortfolio.length },
+      allocation,
+      subAllocation,
+      performanceData,
+      allocationComparison,
+      performanceMetrics
+    };
   };
+
+  // Old applyFilters function - DELETED, replaced by calculateDashboardData
 
   const calculateMicroAllocationComparison = (portfolio, totalValue, microTargets) => {
     // Exclude cash from comparison
@@ -799,7 +612,7 @@ function Dashboard() {
   }
 
   const hasData = portfolio.length > 0;
-  const hasFullPortfolio = fullPortfolio.length > 0;
+  const hasTransactions = getTransactions().length > 0;
   const allFiltersDisabled = Object.values(filters).every(v => v === false);
 
   return (
@@ -816,9 +629,9 @@ function Dashboard() {
             </p>
           </div>
         </div>
-        {hasFullPortfolio && (
+        {hasTransactions && (
           <button
-            onClick={() => updatePricesAndCalculate()}
+            onClick={() => fetchLatestPrices()}
             disabled={refreshing}
             className="btn-secondary flex items-center gap-2"
           >
@@ -829,7 +642,7 @@ function Dashboard() {
       </div>
 
       {/* Date Filter Buttons */}
-      {hasFullPortfolio && (
+      {hasTransactions && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
@@ -916,7 +729,7 @@ function Dashboard() {
         </div>
       )}
 
-      {!hasFullPortfolio ? (
+      {!hasTransactions ? (
         <div className="card text-center py-12">
           <Wallet className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-gray-900 mb-2">

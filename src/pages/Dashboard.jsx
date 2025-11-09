@@ -53,7 +53,7 @@ function Dashboard() {
     loadData();
   }, []);
 
-  // Recalculate stats when filters change
+  // Recalculate stats when filters change or portfolio updates
   useEffect(() => {
     if (fullPortfolio.length > 0) {
       console.log('🔄 Filters changed, recalculating...', {
@@ -62,7 +62,7 @@ function Dashboard() {
       });
       applyFilters();
     }
-  }, [filters, dateFilter]);
+  }, [filters, dateFilter, fullPortfolio]);
 
   const loadData = async () => {
     try {
@@ -216,12 +216,9 @@ function Dashboard() {
     });
 
     // Save full portfolio (unfiltered)
+    // The useEffect will automatically trigger applyFilters when fullPortfolio changes
+    // applyFilters will set refreshing to false when done
     setFullPortfolio(updatedPortfolio);
-
-    // Trigger filter application with a small delay to ensure state is updated
-    setTimeout(() => {
-      applyFilters();
-    }, 0);
   };
 
   const applyFilters = () => {

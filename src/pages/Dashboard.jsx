@@ -295,9 +295,62 @@ function Dashboard() {
           };
         });
 
-      // Add cash from fullPortfolio if it exists
-      const cashHolding = fullPortfolio.find(h => h.ticker === 'CASH');
-      if (cashHolding) {
+      // Recalculate cash from date-filtered transactions
+      const cashTransactions = dateFilteredTransactions.filter(tx => tx.isCash || tx.macroCategory === 'Cash');
+      let cashDeposits = 0;
+      let cashWithdrawals = 0;
+
+      cashTransactions.forEach(tx => {
+        const amount = tx.quantity * tx.price;
+        if (tx.type === 'buy') {
+          cashDeposits += amount;
+        } else if (tx.type === 'sell') {
+          cashWithdrawals += amount;
+        }
+      });
+
+      // Calculate asset purchases/sales from date-filtered transactions
+      const assetTransactions = dateFilteredTransactions.filter(tx => !tx.isCash && tx.macroCategory !== 'Cash');
+      let assetPurchases = 0;
+      let assetSales = 0;
+
+      assetTransactions.forEach(tx => {
+        const amount = tx.quantity * tx.price;
+        const commission = tx.commission || 0;
+        if (tx.type === 'buy') {
+          assetPurchases += (amount + commission);
+        } else if (tx.type === 'sell') {
+          assetSales += (amount - commission);
+        }
+      });
+
+      const availableCash = cashDeposits - cashWithdrawals - assetPurchases + assetSales;
+
+      // Add cash holding based on filtered transactions
+      if (cashDeposits > 0 || assetPurchases > 0 || assetSales > 0 || cashWithdrawals > 0) {
+        const cashHolding = {
+          ticker: 'CASH',
+          name: 'Cash',
+          isin: '',
+          category: 'Cash',
+          macroCategory: 'Cash',
+          microCategory: 'Liquidità',
+          subCategory: 'Liquidità',
+          currency: 'EUR',
+          quantity: Math.abs(availableCash),
+          totalCost: availableCash,
+          avgPrice: 1,
+          currentPrice: 1,
+          marketValue: availableCash,
+          unrealizedPL: 0,
+          roi: 0,
+          dayChange: 0,
+          dayChangePercent: 0,
+          transactions: [],
+          lastTransactionDate: new Date().toISOString(),
+          isCash: true,
+          isNegativeCash: availableCash < 0
+        };
         workingPortfolio.push(cashHolding);
       }
 
@@ -350,11 +403,13 @@ function Dashboard() {
     });
 
     // Prepare allocation data (by category) from filtered portfolio
-    const categoryTotals = filteredPortfolio.reduce((acc, p) => {
+    // EXCLUDE Cash - it should only appear in Cash Flow section
+    const investablePortfolio = filteredPortfolio.filter(p => !p.isCash);
+    const investableValue = investablePortfolio.reduce((sum, p) => sum + p.marketValue, 0);
+
+    const categoryTotals = investablePortfolio.reduce((acc, p) => {
       const cat = p.macroCategory || p.category;
-      // Use absolute value for display in pie chart (pie charts can't handle negative values)
-      const value = p.isCash ? Math.abs(p.marketValue) : p.marketValue;
-      acc[cat] = (acc[cat] || 0) + value;
+      acc[cat] = (acc[cat] || 0) + p.marketValue;
       return acc;
     }, {});
 
@@ -364,20 +419,18 @@ function Dashboard() {
       .map(([name, value]) => ({
         name,
         value,
-        percentage: totalValue > 0 ? ((value / totalValue) * 100).toFixed(1) : 0
+        percentage: investableValue > 0 ? ((value / investableValue) * 100).toFixed(1) : 0
       }));
 
     setAllocationData(allocation);
 
     // Prepare sub-category allocation data from filtered portfolio
-    // FIXED: Calculate directly from portfolio, not from transactions (was causing duplicates)
+    // EXCLUDE Cash - only show actual investments
     const subCategoryTotals = {};
 
-    filteredPortfolio.forEach(holding => {
+    investablePortfolio.forEach(holding => {
       const subCat = holding.microCategory || holding.subCategory || 'Non categorizzato';
-      // Use absolute value for cash in pie chart display
-      const value = holding.isCash ? Math.abs(holding.marketValue) : holding.marketValue;
-      subCategoryTotals[subCat] = (subCategoryTotals[subCat] || 0) + value;
+      subCategoryTotals[subCat] = (subCategoryTotals[subCat] || 0) + holding.marketValue;
     });
 
     // Filter out zero values and sort by value
@@ -386,7 +439,7 @@ function Dashboard() {
       .map(([name, value]) => ({
         name,
         value,
-        percentage: totalValue > 0 ? ((value / totalValue) * 100).toFixed(1) : 0
+        percentage: investableValue > 0 ? ((value / investableValue) * 100).toFixed(1) : 0
       }))
       .sort((a, b) => b.value - a.value);
 
@@ -397,15 +450,16 @@ function Dashboard() {
     setPerformanceData(monthlyData);
 
     // Calculate allocation comparison if strategy exists
+    // Use investablePortfolio and investableValue to exclude Cash from comparison
     const savedStrategy = localStorage.getItem('investment_strategy');
     if (savedStrategy) {
       const strategyData = JSON.parse(savedStrategy);
       // Use MICRO allocation if available, otherwise fall back to MACRO
       if (strategyData.microAllocation && Object.keys(strategyData.microAllocation).length > 0) {
-        const comparison = calculateMicroAllocationComparison(filteredPortfolio, totalValue, strategyData.microAllocation);
+        const comparison = calculateMicroAllocationComparison(investablePortfolio, investableValue, strategyData.microAllocation);
         setAllocationComparison(comparison);
       } else if (strategyData.assetAllocation) {
-        const comparison = calculateAllocationComparison(categoryTotals, totalValue, strategyData.assetAllocation);
+        const comparison = calculateAllocationComparison(categoryTotals, investableValue, strategyData.assetAllocation);
         setAllocationComparison(comparison);
       }
     }
@@ -542,7 +596,14 @@ function Dashboard() {
     let cumulativePurchases = 0;
     let cumulativeSales = 0;
 
-    return Object.values(months).map((m, index, array) => {
+    // Sort months chronologically (oldest to newest)
+    const sortedMonths = Object.values(months).sort((a, b) => {
+      const dateA = new Date(a.month);
+      const dateB = new Date(b.month);
+      return dateA - dateB;
+    });
+
+    return sortedMonths.map((m, index, array) => {
       cumulativeDeposits += m.cashDeposits;
       cumulativeWithdrawals += m.cashWithdrawals;
       cumulativePurchases += m.assetPurchases;

@@ -23,6 +23,24 @@ function Dashboard() {
   });
   const [portfolio, setPortfolio] = useState([]);
   const [fullPortfolio, setFullPortfolio] = useState([]); // Unfiltered portfolio
+  const [priceCache, setPriceCache] = useState(() => {
+    // Initialize price cache from localStorage if available
+    try {
+      const saved = localStorage.getItem('price_cache');
+      if (saved) {
+        const { cache, timestamp } = JSON.parse(saved);
+        const age = Date.now() - timestamp;
+        // Use cache if less than 5 minutes old
+        if (age < 5 * 60 * 1000) {
+          console.log('💾 Loaded price cache from localStorage (age:', Math.round(age / 1000), 'seconds)');
+          return cache;
+        }
+      }
+    } catch (e) {
+      console.error('Error loading price cache:', e);
+    }
+    return {};
+  }); // Cache of current prices by ticker
   const [allocationData, setAllocationData] = useState([]);
   const [subAllocationData, setSubAllocationData] = useState([]);
   const [performanceData, setPerformanceData] = useState([]);
@@ -85,6 +103,43 @@ function Dashboard() {
       });
       setAvailableYears(Array.from(years).sort((a, b) => b - a)); // Descending order
 
+      // If we have cached prices, show portfolio immediately
+      const holdings = calculatePortfolio();
+      if (holdings.length > 0 && Object.keys(priceCache).length > 0) {
+        console.log('⚡ Using cached prices for instant display');
+        // Apply cached prices to holdings
+        const quickPortfolio = holdings.map(holding => {
+          if (holding.isCash) {
+            return {
+              ...holding,
+              currentPrice: 1,
+              marketValue: holding.totalCost,
+              unrealizedPL: 0,
+              roi: 0,
+              dayChange: 0,
+              dayChangePercent: 0
+            };
+          }
+          const priceData = priceCache[holding.ticker];
+          const currentPrice = priceData?.price || holding.avgPrice;
+          const marketValue = currentPrice * holding.quantity;
+          const totalCost = holding.avgPrice * holding.quantity;
+          return {
+            ...holding,
+            currentPrice,
+            marketValue,
+            totalCost,
+            unrealizedPL: marketValue - totalCost,
+            roi: totalCost > 0 ? ((marketValue - totalCost) / totalCost) * 100 : 0,
+            dayChange: priceData?.change || 0,
+            dayChangePercent: priceData?.changePercent || 0
+          };
+        });
+        setFullPortfolio(quickPortfolio);
+        setLoading(false);
+      }
+
+      // Then fetch fresh prices
       await updatePricesAndCalculate();
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -175,6 +230,24 @@ function Dashboard() {
     }, {});
 
     const prices = tickers.length > 0 ? await fetchMultiplePrices(tickers, categoriesMap) : {};
+
+    // Update price cache with newly fetched prices
+    const newPriceCache = { ...priceCache };
+    Object.keys(prices).forEach(ticker => {
+      newPriceCache[ticker] = prices[ticker];
+    });
+    setPriceCache(newPriceCache);
+
+    // Save to localStorage for persistence across navigation
+    try {
+      localStorage.setItem('price_cache', JSON.stringify({
+        cache: newPriceCache,
+        timestamp: Date.now()
+      }));
+      console.log('💾 Price cache updated and saved with', Object.keys(prices).length, 'prices');
+    } catch (e) {
+      console.error('Error saving price cache:', e);
+    }
 
     // Calculate updated portfolio with current prices
     const updatedPortfolio = holdings.map(holding => {
@@ -272,13 +345,13 @@ function Dashboard() {
         }
       });
 
-      // Convert to array and match with current prices from fullPortfolio
+      // Convert to array and match with current prices from price cache
       workingPortfolio = Object.values(holdings)
         .filter(h => h.quantity > 0)
         .map(h => {
-          // Find current price from fullPortfolio
-          const fullHolding = fullPortfolio.find(fh => fh.ticker === h.ticker);
-          const currentPrice = fullHolding?.currentPrice || (h.totalCost / h.quantity);
+          // Get current price from price cache (always preserved)
+          const priceData = priceCache[h.ticker];
+          const currentPrice = priceData?.price || (h.totalCost / h.quantity);
           const marketValue = currentPrice * h.quantity;
           const unrealizedPL = marketValue - h.totalCost;
           const roi = h.totalCost > 0 ? (unrealizedPL / h.totalCost) * 100 : 0;
@@ -290,8 +363,8 @@ function Dashboard() {
             unrealizedPL,
             roi,
             avgPrice: h.totalCost / h.quantity,
-            dayChange: fullHolding?.dayChange || 0,
-            dayChangePercent: fullHolding?.dayChangePercent || 0
+            dayChange: priceData?.change || 0,
+            dayChangePercent: priceData?.changePercent || 0
           };
         });
 

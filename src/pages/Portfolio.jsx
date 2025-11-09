@@ -8,6 +8,24 @@ function Portfolio() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [portfolio, setPortfolio] = useState([]);
+  const [priceCache, setPriceCache] = useState(() => {
+    // Initialize price cache from localStorage if available
+    try {
+      const saved = localStorage.getItem('price_cache');
+      if (saved) {
+        const { cache, timestamp } = JSON.parse(saved);
+        const age = Date.now() - timestamp;
+        // Use cache if less than 5 minutes old
+        if (age < 5 * 60 * 1000) {
+          console.log('💾 Loaded price cache from localStorage (age:', Math.round(age / 1000), 'seconds)');
+          return cache;
+        }
+      }
+    } catch (e) {
+      console.error('Error loading price cache:', e);
+    }
+    return {};
+  }); // Cache of current prices by ticker
   const [filteredPortfolio, setFilteredPortfolio] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
@@ -25,6 +43,17 @@ function Portfolio() {
   const loadPortfolio = async () => {
     try {
       setLoading(true);
+
+      // If we have cached prices, use them immediately to show data faster
+      const holdings = calculatePortfolio();
+      if (holdings.length > 0 && Object.keys(priceCache).length > 0) {
+        console.log('⚡ Using cached prices for instant display');
+        const quickPortfolio = calculatePortfolioWithPrices(holdings, priceCache);
+        setPortfolio(quickPortfolio);
+        setLoading(false);
+      }
+
+      // Then fetch fresh prices in the background
       await updatePrices();
     } catch (error) {
       console.error('Error loading portfolio:', error);
@@ -33,31 +62,11 @@ function Portfolio() {
     }
   };
 
-  const updatePrices = async () => {
-    setRefreshing(true);
-
-    const holdings = calculatePortfolio();
-
-    if (holdings.length === 0) {
-      setPortfolio([]);
-      setRefreshing(false);
-      return;
-    }
-
-    // Filter out cash from price fetching (cash price is always 1)
-    const nonCashHoldings = holdings.filter(h => !h.isCash);
-    const tickers = nonCashHoldings.map(h => h.ticker);
-    const categoriesMap = nonCashHoldings.reduce((acc, h) => {
-      acc[h.ticker] = h.category;
-      return acc;
-    }, {});
-
-    const prices = tickers.length > 0 ? await fetchMultiplePrices(tickers, categoriesMap) : {};
-
-    const updatedPortfolio = holdings.map(holding => {
+  const calculatePortfolioWithPrices = (holdings, prices) => {
+    // Calculate portfolio with given prices (from cache or fresh fetch)
+    return holdings.map(holding => {
       // For Cash: price is always 1, no price change, ROI = 0, no TER
       if (holding.isCash) {
-        // Use totalCost which contains the actual cash value (can be negative)
         const marketValue = holding.totalCost;
         return {
           ...holding,
@@ -73,7 +82,7 @@ function Portfolio() {
         };
       }
 
-      // For other assets: fetch current price
+      // For other assets: use provided price data
       const priceData = prices[holding.ticker];
       const currentPrice = priceData?.price || holding.avgPrice;
 
@@ -99,6 +108,49 @@ function Portfolio() {
         annualTERCost
       };
     });
+  };
+
+  const updatePrices = async () => {
+    setRefreshing(true);
+
+    const holdings = calculatePortfolio();
+
+    if (holdings.length === 0) {
+      setPortfolio([]);
+      setRefreshing(false);
+      return;
+    }
+
+    // Filter out cash from price fetching (cash price is always 1)
+    const nonCashHoldings = holdings.filter(h => !h.isCash);
+    const tickers = nonCashHoldings.map(h => h.ticker);
+    const categoriesMap = nonCashHoldings.reduce((acc, h) => {
+      acc[h.ticker] = h.category;
+      return acc;
+    }, {});
+
+    const prices = tickers.length > 0 ? await fetchMultiplePrices(tickers, categoriesMap) : {};
+
+    // Update price cache with newly fetched prices
+    const newPriceCache = { ...priceCache };
+    Object.keys(prices).forEach(ticker => {
+      newPriceCache[ticker] = prices[ticker];
+    });
+    setPriceCache(newPriceCache);
+
+    // Save to localStorage for persistence across navigation
+    try {
+      localStorage.setItem('price_cache', JSON.stringify({
+        cache: newPriceCache,
+        timestamp: Date.now()
+      }));
+      console.log('💾 Portfolio price cache updated and saved with', Object.keys(prices).length, 'prices');
+    } catch (e) {
+      console.error('Error saving price cache:', e);
+    }
+
+    // Use helper function to calculate portfolio with prices
+    const updatedPortfolio = calculatePortfolioWithPrices(holdings, newPriceCache);
 
     setPortfolio(updatedPortfolio);
     setRefreshing(false);

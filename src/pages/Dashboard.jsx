@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Wallet, DollarSign, BarChart3, RefreshCw, Target, AlertCircle, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Calendar, Clock, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, DollarSign, BarChart3, Target, AlertCircle, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Calendar, Zap } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, Area, XAxis, YAxis, CartesianGrid, BarChart, Bar } from 'recharts';
 import { getTransactions, calculatePortfolio } from '../services/localStorageService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { calculateCashFlow } from '../services/cashFlowService';
 import { getPerformanceSummary } from '../services/performanceService';
-import { format, startOfYear, subMonths, isAfter, isBefore } from 'date-fns';
+import { format } from 'date-fns';
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
 
@@ -29,7 +29,6 @@ function Dashboard() {
   const [allocationComparison, setAllocationComparison] = useState([]);
   const [cashFlow, setCashFlow] = useState(null);
   const [performanceMetrics, setPerformanceMetrics] = useState(null);
-  const [availableYears, setAvailableYears] = useState([]);
 
   // Asset class filters (all enabled by default)
   const [filters, setFilters] = useState({
@@ -45,17 +44,14 @@ function Dashboard() {
     Cash: true
   });
 
-  // Date filter (default: all time)
-  const [dateFilter, setDateFilter] = useState('all');
-
   useEffect(() => {
     loadData();
 
-    // Auto-refresh prices every 5 minutes
+    // Auto-refresh prices every 15 minutes (reduced frequency to avoid rate limiting)
     const intervalId = setInterval(() => {
       console.log('🔄 Auto-refreshing prices...');
       updatePricesAndCalculate();
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 15 * 60 * 1000); // 15 minutes
 
     // Cleanup interval on unmount
     return () => clearInterval(intervalId);
@@ -65,13 +61,12 @@ function Dashboard() {
   useEffect(() => {
     if (fullPortfolio.length > 0) {
       console.log('🔄 Filters changed, recalculating...', {
-        dateFilter,
         activeFilters: Object.entries(filters).filter(([k, v]) => v).map(([k]) => k)
       });
       applyFilters();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, dateFilter, fullPortfolio.length]);
+  }, [filters, fullPortfolio.length]);
 
   const loadData = async () => {
     try {
@@ -85,71 +80,12 @@ function Dashboard() {
       const cf = calculateCashFlow();
       setCashFlow(cf);
 
-      // Calculate available years from transactions
-      const transactions = getTransactions();
-      const years = new Set();
-      transactions.forEach(tx => {
-        const year = new Date(tx.date).getFullYear();
-        years.add(year);
-      });
-      setAvailableYears(Array.from(years).sort((a, b) => b - a)); // Descending order
-
       await updatePricesAndCalculate();
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Get date range based on filter selection
-  const getDateRange = (filter) => {
-    const now = new Date();
-    let startDate = null;
-
-    switch (filter) {
-      case 'ytd':
-        startDate = startOfYear(now);
-        break;
-      case '3m':
-        startDate = subMonths(now, 3);
-        break;
-      case '6m':
-        startDate = subMonths(now, 6);
-        break;
-      case '1y':
-        startDate = subMonths(now, 12);
-        break;
-      case 'all':
-        startDate = null; // No filter
-        break;
-      default:
-        // Specific year (e.g., '2023')
-        if (!isNaN(filter)) {
-          const year = parseInt(filter);
-          startDate = new Date(year, 0, 1); // Jan 1st
-          const endDate = new Date(year, 11, 31, 23, 59, 59); // Dec 31st
-          return { startDate, endDate };
-        }
-        break;
-    }
-
-    return { startDate, endDate: now };
-  };
-
-  // Filter transactions by date range
-  const filterTransactionsByDate = (transactions) => {
-    if (dateFilter === 'all') return transactions;
-
-    const { startDate, endDate } = getDateRange(dateFilter);
-    if (!startDate) return transactions;
-
-    return transactions.filter(tx => {
-      const txDate = new Date(tx.date);
-      const afterStart = !startDate || isAfter(txDate, startDate) || txDate.getTime() === startDate.getTime();
-      const beforeEnd = !endDate || isBefore(txDate, endDate) || txDate.getTime() === endDate.getTime();
-      return afterStart && beforeEnd;
-    });
   };
 
   const updatePricesAndCalculate = async () => {
@@ -234,16 +170,12 @@ function Dashboard() {
   const applyFilters = () => {
     console.log('📊 Applying filters...', {
       fullPortfolioLength: fullPortfolio.length,
-      dateFilter,
       activeAssetFilters: Object.entries(filters).filter(([k, v]) => v).length
     });
 
-    // Get all transactions and apply date filter first
+    // Get all transactions
     const allTransactions = getTransactions();
     console.log('📝 Total transactions:', allTransactions.length);
-
-    const dateFilteredTransactions = filterTransactionsByDate(allTransactions);
-    console.log('📅 Date filtered transactions:', dateFilteredTransactions.length);
 
     // Filter portfolio based on selected asset classes
     const filteredPortfolio = fullPortfolio.filter(holding => {
@@ -305,8 +237,8 @@ function Dashboard() {
       subCategoryTotals[cashHolding.microCategory] = Math.abs(cashHolding.marketValue);
     }
 
-    // Add other holdings from date-filtered transactions
-    dateFilteredTransactions.forEach(tx => {
+    // Add other holdings from all transactions
+    allTransactions.forEach(tx => {
       if ((tx.microCategory || tx.subCategory) && tx.type === 'buy') {
         const holding = filteredPortfolio.find(p => p.ticker === tx.ticker && p.ticker !== 'CASH');
         if (holding) {
@@ -328,8 +260,8 @@ function Dashboard() {
 
     setSubAllocationData(subAllocation);
 
-    // Prepare performance data (historical simulation) - using date-filtered transactions
-    const monthlyData = calculateMonthlyPerformance(dateFilteredTransactions, filteredPortfolio);
+    // Prepare performance data (historical simulation) - using all transactions
+    const monthlyData = calculateMonthlyPerformance(allTransactions, filteredPortfolio);
     setPerformanceData(monthlyData);
 
     // Calculate allocation comparison if strategy exists
@@ -354,8 +286,7 @@ function Dashboard() {
 
     console.log('✅ Filters applied successfully!', {
       filteredPortfolioLength: filteredPortfolio.length,
-      totalValue: totalValue.toFixed(2),
-      statsCalculated: Object.keys(stats).length > 0
+      totalValue: totalValue.toFixed(2)
     });
   };
 
@@ -544,94 +475,6 @@ function Dashboard() {
           </div>
         )}
       </div>
-
-      {/* Date Filter Buttons */}
-      {hasFullPortfolio && (
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-primary-600" />
-              Filtra per Periodo
-            </h3>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {/* Predefined periods */}
-            <button
-              onClick={() => setDateFilter('all')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                dateFilter === 'all'
-                  ? 'bg-primary-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Tutto
-            </button>
-            <button
-              onClick={() => setDateFilter('ytd')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                dateFilter === 'ytd'
-                  ? 'bg-primary-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              YTD
-            </button>
-            <button
-              onClick={() => setDateFilter('3m')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                dateFilter === '3m'
-                  ? 'bg-primary-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              3 Mesi
-            </button>
-            <button
-              onClick={() => setDateFilter('6m')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                dateFilter === '6m'
-                  ? 'bg-primary-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              6 Mesi
-            </button>
-            <button
-              onClick={() => setDateFilter('1y')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                dateFilter === '1y'
-                  ? 'bg-primary-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              1 Anno
-            </button>
-
-            {/* Separator */}
-            {availableYears.length > 0 && (
-              <div className="w-px bg-gray-300 mx-2"></div>
-            )}
-
-            {/* Year buttons (only show if there are transactions in those years) */}
-            {availableYears.map(year => (
-              <button
-                key={year}
-                onClick={() => setDateFilter(year.toString())}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  dateFilter === year.toString()
-                    ? 'bg-primary-600 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {year}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-gray-500 mt-3">
-            Seleziona un periodo per filtrare tutte le statistiche e i grafici
-          </p>
-        </div>
-      )}
 
       {!hasFullPortfolio ? (
         <div className="card text-center py-12">

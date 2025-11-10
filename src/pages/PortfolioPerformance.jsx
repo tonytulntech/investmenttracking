@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Calendar, BarChart3, Activity, AlertCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { getTransactions, getSettings } from '../services/localStorageService';
+import { getTransactions } from '../services/localStorageService';
 import { fetchMultipleHistoricalPrices, buildMonthlyPriceTable, getPriceForMonth } from '../services/historicalPriceService';
 import { format, startOfMonth, endOfMonth, eachMonthOfInterval, parseISO, isAfter } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -34,14 +34,6 @@ function PortfolioPerformance() {
 
     try {
       const transactions = getTransactions();
-      const settings = getSettings();
-
-      // Check if Google Apps Script URL is configured
-      if (!settings.googleAppsScriptUrl) {
-        setError('Configura l\'URL di Google Apps Script nelle impostazioni per visualizzare i dati storici.');
-        setLoading(false);
-        return;
-      }
 
       // Filter out cash transactions
       const assetTransactions = transactions.filter(tx => {

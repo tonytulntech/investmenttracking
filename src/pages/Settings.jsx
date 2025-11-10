@@ -143,24 +143,6 @@ function Settings() {
               />
             </button>
           </div>
-
-          {/* Google Apps Script URL */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Google Apps Script URL (Prezzi Storici)
-            </label>
-            <input
-              type="url"
-              value={settings.googleAppsScriptUrl || ''}
-              onChange={(e) => handleSettingChange('googleAppsScriptUrl', e.target.value)}
-              placeholder="https://script.google.com/macros/s/..."
-              className="input w-full"
-            />
-            <p className="text-sm text-gray-500 mt-1">
-              URL del tuo Web App di Google Apps Script per recuperare i prezzi storici da Google Finance.
-              Richiesto per la pagina Performance con dati reali.
-            </p>
-          </div>
         </div>
       </div>
 

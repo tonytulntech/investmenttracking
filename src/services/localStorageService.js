@@ -263,8 +263,7 @@ const getDefaultSettings = () => ({
   autoRefreshPrices: true,
   refreshInterval: 60000, // 1 minute
   dateFormat: 'dd/MM/yyyy',
-  numberFormat: 'de-DE', // European format
-  googleAppsScriptUrl: 'https://script.google.com/macros/s/AKfycbzMWW-Z2WtpmO7Fkwbvm_p0FCmy4UYlIpWmNnp9LMEjM6ZXePjIaDPIGM3G17LZzjpGiw/exec' // URL for historical prices API
+  numberFormat: 'de-DE' // European format
 });
 
 // ============================================

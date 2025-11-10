@@ -5,7 +5,8 @@
  * Supports monthly historical data for accurate performance calculations
  */
 
-import { getSettings } from './localStorageService';
+// HARDCODED Google Apps Script URL
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzMWW-Z2WtpmO7Fkwbvm_p0FCmy4UYlIpWmNnp9LMEjM6ZXePjIaDPIGM3G17LZzjpGiw/exec';
 
 /**
  * Fetch historical prices for a ticker from Google Apps Script API
@@ -17,18 +18,11 @@ import { getSettings } from './localStorageService';
  */
 export async function fetchHistoricalPrices(ticker, startDate, endDate) {
   try {
-    const settings = getSettings();
-    const apiUrl = settings.googleAppsScriptUrl;
-
-    if (!apiUrl) {
-      console.warn('Google Apps Script URL not configured in settings');
-      return [];
-    }
-
     // Build URL with parameters
-    const url = `${apiUrl}?ticker=${encodeURIComponent(ticker)}&startDate=${startDate}&endDate=${endDate}`;
+    const url = `${GOOGLE_APPS_SCRIPT_URL}?ticker=${encodeURIComponent(ticker)}&startDate=${startDate}&endDate=${endDate}`;
 
     console.log(`📡 Fetching historical prices for ${ticker} from ${startDate} to ${endDate}`);
+    console.log(`🔗 URL: ${url}`);
 
     const response = await fetch(url);
 
@@ -38,14 +32,17 @@ export async function fetchHistoricalPrices(ticker, startDate, endDate) {
     }
 
     const data = await response.json();
+    console.log(`📦 Response for ${ticker}:`, data);
 
     if (data.error) {
-      console.error(`API returned error for ${ticker}:`, data.error);
+      console.error(`❌ API returned error for ${ticker}:`, data.error);
       return [];
     }
 
+    // Check if historicalPrices exists and is an array
     if (!data.historicalPrices || !Array.isArray(data.historicalPrices)) {
-      console.error(`Invalid response format for ${ticker}:`, data);
+      console.error(`❌ Invalid response format for ${ticker}. Expected {historicalPrices: [...]}, got:`, data);
+      console.error(`❌ Missing historicalPrices array. Did you update your Google Apps Script with the new doGet() function?`);
       return [];
     }
 
@@ -54,7 +51,7 @@ export async function fetchHistoricalPrices(ticker, startDate, endDate) {
     return data.historicalPrices;
 
   } catch (error) {
-    console.error(`Error fetching historical prices for ${ticker}:`, error);
+    console.error(`❌ Error fetching historical prices for ${ticker}:`, error);
     return [];
   }
 }

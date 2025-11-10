@@ -4,7 +4,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, A
 import { getTransactions, calculatePortfolio } from '../services/localStorageService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { calculateCashFlow } from '../services/cashFlowService';
-import { getPerformanceSummary } from '../services/performanceService';
+import { getPerformanceSummary, calculateMonthlyReturns, calculateAverageMonthlyReturn } from '../services/performanceService';
 import { format, startOfYear, subMonths, isAfter, isBefore } from 'date-fns';
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
@@ -47,6 +47,8 @@ function Dashboard() {
   const [allocationComparison, setAllocationComparison] = useState([]);
   const [cashFlow, setCashFlow] = useState(null);
   const [performanceMetrics, setPerformanceMetrics] = useState(null);
+  const [monthlyReturns, setMonthlyReturns] = useState([]);
+  const [averageMonthlyReturn, setAverageMonthlyReturn] = useState(0);
   const [availableYears, setAvailableYears] = useState([]);
 
   // Asset class filters (all enabled by default)
@@ -89,6 +91,8 @@ function Dashboard() {
     setPerformanceData(dashboardData.performanceData);
     setAllocationComparison(dashboardData.allocationComparison);
     setPerformanceMetrics(dashboardData.performanceMetrics);
+    setMonthlyReturns(dashboardData.monthlyReturns || []);
+    setAverageMonthlyReturn(dashboardData.averageMonthlyReturn || 0);
     setRefreshing(false);
 
     console.log('✅ Dashboard calculated:', dashboardData);
@@ -429,7 +433,13 @@ function Dashboard() {
     // 12. Calculate performance metrics
     const performanceMetrics = getPerformanceSummary(filteredPortfolio, strategy);
 
+    // 13. Calculate monthly returns (REAL performance excluding cash flows)
+    const monthlyReturns = calculateMonthlyReturns(dateFilteredTransactions, priceCache);
+    const averageMonthlyReturn = calculateAverageMonthlyReturn(monthlyReturns);
+
     console.log('✅ === DASHBOARD CALCULATED ===');
+    console.log('📈 Monthly Returns:', monthlyReturns.length, 'months');
+    console.log('📊 Average Monthly Return:', averageMonthlyReturn.toFixed(2) + '%');
 
     return {
       portfolio: filteredPortfolio,
@@ -438,7 +448,9 @@ function Dashboard() {
       subAllocation,
       performanceData,
       allocationComparison,
-      performanceMetrics
+      performanceMetrics,
+      monthlyReturns,
+      averageMonthlyReturn
     };
   };
 
@@ -621,11 +633,16 @@ function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-1">Panoramica del tuo portafoglio</p>
+          <p className="text-gray-600 mt-1">Panoramica del tuo portafoglio con rendimenti reali</p>
           <div className="flex items-center gap-2 mt-2">
             <Calendar className="w-4 h-4 text-primary-600" />
             <p className="text-sm text-primary-600 font-medium">
               Oggi: {format(new Date(), 'dd/MM/yyyy')}
+            </p>
+          </div>
+          <div className="mt-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 inline-block">
+            <p className="text-xs text-blue-700">
+              💡 <strong>Statistiche precise:</strong> I rendimenti mostrati escludono i nuovi depositi e acquisti, mostrando solo le variazioni di mercato reali.
             </p>
           </div>
         </div>
@@ -1032,6 +1049,70 @@ function Dashboard() {
                   <p className="text-xs text-gray-500 mt-1">
                     {performanceMetrics.totalReturn >= 0 ? '+' : ''}€{performanceMetrics.totalReturn.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
                   </p>
+                </div>
+              </div>
+
+              {/* Additional Metrics Row - Monthly Returns */}
+              <div className="bg-white rounded-lg p-4 shadow-sm mb-4">
+                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-indigo-600" />
+                  Analisi dettagliata della performance e crescita del patrimonio
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-lg">
+                    <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <TrendingUp className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-indigo-600 font-medium">Rendimento Medio Mensile</p>
+                      <p className={`text-lg font-bold ${averageMonthlyReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {averageMonthlyReturn >= 0 ? '+' : ''}{averageMonthlyReturn.toFixed(2)}%
+                      </p>
+                      <p className="text-xs text-gray-500">Solo investimenti (escluso cash)</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <TrendingUp className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-green-600 font-medium">Miglior Mese</p>
+                      {monthlyReturns.length > 0 && monthlyReturns.some(m => m.startValue > 0) ? (
+                        <>
+                          <p className="text-lg font-bold text-green-600">
+                            +{Math.max(...monthlyReturns.filter(m => m.startValue > 0).map(m => m.monthReturnPercent)).toFixed(2)}%
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {format(monthlyReturns.filter(m => m.startValue > 0).reduce((max, m) => m.monthReturnPercent > max.monthReturnPercent ? m : max).date, 'MMM yyyy')}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-gray-500">N/A</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg">
+                    <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <TrendingDown className="w-5 h-5 text-red-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-red-600 font-medium">Peggior Mese</p>
+                      {monthlyReturns.length > 0 && monthlyReturns.some(m => m.startValue > 0) ? (
+                        <>
+                          <p className="text-lg font-bold text-red-600">
+                            {Math.min(...monthlyReturns.filter(m => m.startValue > 0).map(m => m.monthReturnPercent)).toFixed(2)}%
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {format(monthlyReturns.filter(m => m.startValue > 0).reduce((min, m) => m.monthReturnPercent < min.monthReturnPercent ? m : min).date, 'MMM yyyy')}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-gray-500">N/A</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 

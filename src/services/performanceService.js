@@ -316,10 +316,187 @@ export function getPerformanceSummary(filteredPortfolio, strategy = null) {
   };
 }
 
+/**
+ * Calculate monthly returns using Modified Dietz method
+ * This method correctly handles cash flows and new purchases
+ *
+ * @param {Array} transactions - All transactions
+ * @param {Object} priceCache - Current prices for all assets
+ * @returns {Array} Monthly return data with proper calculations
+ */
+export function calculateMonthlyReturns(transactions, priceCache = {}) {
+  if (transactions.length === 0) {
+    return [];
+  }
+
+  // Group transactions by month
+  const monthlyData = {};
+
+  transactions.forEach(tx => {
+    const date = new Date(tx.date);
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+    if (!monthlyData[monthKey]) {
+      monthlyData[monthKey] = {
+        month: monthKey,
+        date: new Date(date.getFullYear(), date.getMonth(), 1),
+        cashFlows: [],
+        transactions: []
+      };
+    }
+
+    monthlyData[monthKey].transactions.push(tx);
+
+    // Track cash flows (deposits, withdrawals, purchases, sales)
+    const isCash = tx.isCash || tx.macroCategory === 'Cash';
+    const amount = tx.quantity * tx.price;
+    const commission = tx.commission || 0;
+
+    if (isCash && tx.type === 'buy') {
+      // Cash deposit - add to flows
+      monthlyData[monthKey].cashFlows.push({ type: 'deposit', amount, date: tx.date });
+    } else if (isCash && tx.type === 'sell') {
+      // Cash withdrawal - subtract from flows
+      monthlyData[monthKey].cashFlows.push({ type: 'withdrawal', amount: -amount, date: tx.date });
+    } else if (!isCash && tx.type === 'buy') {
+      // Asset purchase - this is a flow out
+      monthlyData[monthKey].cashFlows.push({ type: 'purchase', amount: -(amount + commission), date: tx.date, ticker: tx.ticker });
+    } else if (!isCash && tx.type === 'sell') {
+      // Asset sale - this is a flow in
+      monthlyData[monthKey].cashFlows.push({ type: 'sale', amount: (amount - commission), date: tx.date, ticker: tx.ticker });
+    }
+  });
+
+  // Sort months chronologically
+  const sortedMonths = Object.values(monthlyData).sort((a, b) => a.date - b.date);
+
+  // Calculate portfolio value and returns month by month
+  const results = [];
+  let holdings = {}; // Track holdings over time
+  let cashBalance = 0;
+
+  sortedMonths.forEach((monthData, index) => {
+    const startValue = calculatePortfolioValue(holdings, cashBalance, priceCache);
+
+    // Process transactions for this month
+    monthData.transactions.forEach(tx => {
+      const isCash = tx.isCash || tx.macroCategory === 'Cash';
+      const amount = tx.quantity * tx.price;
+      const commission = tx.commission || 0;
+
+      if (isCash) {
+        if (tx.type === 'buy') {
+          cashBalance += amount;
+        } else if (tx.type === 'sell') {
+          cashBalance -= amount;
+        }
+      } else {
+        if (tx.type === 'buy') {
+          if (!holdings[tx.ticker]) {
+            holdings[tx.ticker] = { quantity: 0, totalCost: 0, ticker: tx.ticker };
+          }
+          holdings[tx.ticker].quantity += tx.quantity;
+          holdings[tx.ticker].totalCost += amount + commission;
+          cashBalance -= (amount + commission);
+        } else if (tx.type === 'sell') {
+          if (holdings[tx.ticker]) {
+            holdings[tx.ticker].quantity -= tx.quantity;
+            holdings[tx.ticker].totalCost -= amount;
+            if (holdings[tx.ticker].quantity <= 0) {
+              delete holdings[tx.ticker];
+            }
+          }
+          cashBalance += (amount - commission);
+        }
+      }
+    });
+
+    const endValue = calculatePortfolioValue(holdings, cashBalance, priceCache);
+
+    // Calculate net cash flow for the month
+    const netCashFlow = monthData.cashFlows.reduce((sum, cf) => sum + cf.amount, 0);
+
+    // Modified Dietz Return = (End Value - Start Value - Net Cash Flow) / (Start Value + Weighted Cash Flow)
+    // For simplicity, we use Start Value as denominator (assumes cash flows at end of period)
+    let monthReturn = 0;
+    let monthReturnPercent = 0;
+
+    if (startValue > 0) {
+      monthReturn = endValue - startValue - netCashFlow;
+      monthReturnPercent = (monthReturn / startValue) * 100;
+    }
+
+    // Calculate total invested (cumulative)
+    const cashDeposited = monthData.cashFlows
+      .filter(cf => cf.type === 'deposit')
+      .reduce((sum, cf) => sum + cf.amount, 0);
+
+    const invested = Object.values(holdings).reduce((sum, h) => sum + h.totalCost, 0);
+
+    results.push({
+      month: monthData.month,
+      date: monthData.date,
+      startValue,
+      endValue,
+      netCashFlow,
+      monthReturn,
+      monthReturnPercent,
+      invested,
+      cashBalance,
+      totalValue: endValue
+    });
+  });
+
+  return results;
+}
+
+/**
+ * Calculate portfolio value given holdings and cash
+ *
+ * @param {Object} holdings - Current holdings
+ * @param {number} cashBalance - Current cash balance
+ * @param {Object} priceCache - Current prices
+ * @returns {number} Total portfolio value
+ */
+function calculatePortfolioValue(holdings, cashBalance, priceCache) {
+  let value = cashBalance;
+
+  for (const ticker in holdings) {
+    const holding = holdings[ticker];
+    if (holding.quantity > 0) {
+      const priceData = priceCache[ticker];
+      const currentPrice = priceData?.price || (holding.totalCost / holding.quantity);
+      value += currentPrice * holding.quantity;
+    }
+  }
+
+  return value;
+}
+
+/**
+ * Calculate average monthly return from monthly returns data
+ *
+ * @param {Array} monthlyReturns - Array of monthly return data
+ * @returns {number} Average monthly return percentage
+ */
+export function calculateAverageMonthlyReturn(monthlyReturns) {
+  if (monthlyReturns.length === 0) return 0;
+
+  // Only consider months with positive starting value (actual invested months)
+  const validReturns = monthlyReturns.filter(m => m.startValue > 0);
+
+  if (validReturns.length === 0) return 0;
+
+  const sumReturns = validReturns.reduce((sum, m) => sum + m.monthReturnPercent, 0);
+  return sumReturns / validReturns.length;
+}
+
 export default {
   calculateCAGR,
   calculateInvestmentMetrics,
   projectGoalAchievement,
   calculateTimeWeightedReturn,
-  getPerformanceSummary
+  getPerformanceSummary,
+  calculateMonthlyReturns,
+  calculateAverageMonthlyReturn
 };

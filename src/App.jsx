@@ -1,10 +1,11 @@
 import React from 'react';
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { TrendingUp, LayoutDashboard, Wallet, FileText, Settings, Plus, Target, RefreshCcw } from 'lucide-react';
+import { TrendingUp, LayoutDashboard, Wallet, FileText, Settings, Plus, Target, RefreshCcw, BarChart3 } from 'lucide-react';
 
 // Pages
 import Dashboard from './pages/Dashboard';
 import Portfolio from './pages/Portfolio';
+import PortfolioPerformance from './pages/PortfolioPerformance';
 import Transactions from './pages/Transactions';
 import SettingsPage from './pages/Settings';
 import Strategy from './pages/Strategy';
@@ -16,6 +17,7 @@ function App() {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Portfolio', href: '/portfolio', icon: Wallet },
+    { name: 'Performance', href: '/performance', icon: BarChart3 },
     { name: 'Transazioni', href: '/transactions', icon: FileText },
     { name: 'Strategia', href: '/strategy', icon: Target },
     { name: 'Ribilanciamento', href: '/rebalancing', icon: RefreshCcw },
@@ -86,6 +88,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/portfolio" element={<Portfolio />} />
+            <Route path="/performance" element={<PortfolioPerformance />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/transactions/new" element={<Transactions />} />
             <Route path="/strategy" element={<Strategy />} />

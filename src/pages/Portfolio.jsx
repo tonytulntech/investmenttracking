@@ -205,11 +205,14 @@ function Portfolio() {
 
   const categories = ['all', ...new Set(portfolio.map(h => h.category))];
 
+  // Summary statistics EXCLUDING cash
+  const portfolioWithoutCash = filteredPortfolio.filter(h => !h.isCash && h.macroCategory !== 'Cash');
+
   const summary = {
-    totalValue: filteredPortfolio.reduce((sum, h) => sum + h.marketValue, 0),
-    totalCost: filteredPortfolio.reduce((sum, h) => sum + h.totalCost, 0),
-    totalPL: filteredPortfolio.reduce((sum, h) => sum + h.unrealizedPL, 0),
-    totalAnnualTERCost: filteredPortfolio.reduce((sum, h) => sum + (h.annualTERCost || 0), 0)
+    totalValue: portfolioWithoutCash.reduce((sum, h) => sum + h.marketValue, 0),
+    totalCost: portfolioWithoutCash.reduce((sum, h) => sum + h.totalCost, 0),
+    totalPL: portfolioWithoutCash.reduce((sum, h) => sum + h.unrealizedPL, 0),
+    totalAnnualTERCost: portfolioWithoutCash.reduce((sum, h) => sum + (h.annualTERCost || 0), 0)
   };
 
   if (loading) {
@@ -435,6 +438,11 @@ function Portfolio() {
 
           {/* Summary */}
           <div className="card bg-gray-50">
+            <div className="mb-3">
+              <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1 inline-block">
+                ℹ️ Statistiche calcolate <strong>escludendo il Cash</strong>
+              </p>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Valore Totale</p>

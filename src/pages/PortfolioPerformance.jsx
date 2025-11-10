@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Calendar, BarChart3, Activity, AlertCircle } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, Cell } from 'recharts';
 import { getTransactions } from '../services/localStorageService';
 import { fetchMultipleHistoricalPrices, buildMonthlyPriceTable } from '../services/historicalPriceService';
 import { format, startOfMonth, endOfMonth, eachMonthOfInterval, parseISO, isAfter } from 'date-fns';
@@ -57,14 +57,11 @@ function PortfolioPerformance() {
 
       const firstDate = parseISO(sortedTransactions[0].date);
       const now = new Date();
+      const lastDate = now; // Include current month with partial data
 
-      // Exclude current month (incomplete data) - use end of previous month
-      const lastCompleteMonth = new Date(now.getFullYear(), now.getMonth(), 0); // Last day of previous month
-      const lastDate = lastCompleteMonth;
+      console.log(`📅 Date range: ${format(firstDate, 'yyyy-MM-dd')} to ${format(lastDate, 'yyyy-MM-dd')} (including current month)`);
 
-      console.log(`📅 Date range: ${format(firstDate, 'yyyy-MM-dd')} to ${format(lastDate, 'yyyy-MM-dd')} (excluding incomplete current month)`);
-
-      // Get all months between first transaction and last complete month
+      // Get all months between first transaction and now
       const allMonths = eachMonthOfInterval({ start: firstDate, end: lastDate });
 
       // Calculate available years for filters
@@ -632,17 +629,10 @@ function PortfolioPerformance() {
                 formatter={(value) => `${value.toFixed(2)}%`}
                 labelStyle={{ fontWeight: 'bold' }}
               />
-              <Bar
-                dataKey="return"
-                name="Rendimento %"
-                fill={(entry) => {
-                  // Color based on positive/negative
-                  return entry.return >= 0 ? '#10b981' : '#ef4444';
-                }}
-              >
+              <Bar dataKey="return" name="Rendimento %">
                 {monthlyReturns.map((entry, index) => (
-                  <Bar
-                    key={`bar-${index}`}
+                  <Cell
+                    key={`cell-${index}`}
                     fill={entry.return >= 0 ? '#10b981' : '#ef4444'}
                   />
                 ))}
@@ -744,7 +734,7 @@ function PortfolioPerformance() {
             <p className="text-sm text-green-700 mt-1">
               Questa pagina utilizza <strong>prezzi storici reali</strong> recuperati da Google Finance tramite Google Apps Script.
               I rendimenti sono calcolati con il <strong>metodo Modified Dietz</strong>, che esclude correttamente i flussi di cassa (nuovi acquisti/vendite).
-              Il <strong>mese corrente è escluso</strong> (dati incompleti). Il cash è escluso da tutti i calcoli di performance.
+              I dati sono aggiornati fino ad <strong>oggi</strong>. Il cash è escluso da tutti i calcoli di performance.
             </p>
           </div>
         </div>

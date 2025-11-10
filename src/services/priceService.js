@@ -6,24 +6,23 @@
 import axios from 'axios';
 import { getCachedPrices, cachePrices } from './priceCache';
 
-// CORS proxy options
-const CORS_PROXIES = [
-  'https://api.allorigins.win/raw?url=',
-  'https://corsproxy.io/?'
-];
+// Use Vite proxy in development, direct URLs in production
+const isDevelopment = import.meta.env.DEV;
 
-let currentProxyIndex = 0;
+const getYahooURL = (path) => {
+  if (isDevelopment) {
+    return `/api/yahoo${path}`;
+  }
+  // In production, use CORS proxy
+  return `https://api.allorigins.win/raw?url=${encodeURIComponent('https://query1.finance.yahoo.com' + path)}`;
+};
 
-/**
- * Get current CORS proxy
- */
-const getCorsProxy = () => CORS_PROXIES[currentProxyIndex];
-
-/**
- * Rotate to next CORS proxy
- */
-const rotateProxy = () => {
-  currentProxyIndex = (currentProxyIndex + 1) % CORS_PROXIES.length;
+const getCoinGeckoURL = (path) => {
+  if (isDevelopment) {
+    return `/api/coingecko${path}`;
+  }
+  // In production, direct access (CoinGecko has CORS enabled)
+  return `https://api.coingecko.com${path}`;
 };
 
 /**
@@ -33,8 +32,8 @@ const rotateProxy = () => {
  */
 export const fetchStockPrice = async (ticker) => {
   try {
-    const yahooURL = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
-    const response = await axios.get(getCorsProxy() + encodeURIComponent(yahooURL), {
+    const url = getYahooURL(`/v8/finance/chart/${ticker}?interval=1d&range=1d`);
+    const response = await axios.get(url, {
       timeout: 10000
     });
 
@@ -65,10 +64,6 @@ export const fetchStockPrice = async (ticker) => {
     };
   } catch (error) {
     console.error(`Error fetching price for ${ticker}:`, error.message);
-
-    // Try rotating proxy on error
-    rotateProxy();
-
     // Return null to indicate failure
     return null;
   }
@@ -98,7 +93,7 @@ export const fetchCryptoPrice = async (symbol, vsCurrency = 'eur') => {
     };
 
     const cryptoId = cryptoIdMap[symbol.toUpperCase()] || symbol.toLowerCase();
-    const url = `https://api.coingecko.com/api/v3/simple/price`;
+    const url = getCoinGeckoURL(`/api/v3/simple/price`);
 
     const response = await axios.get(url, {
       params: {
@@ -225,8 +220,8 @@ export const fetchMultiplePrices = async (tickers, categoriesMap = {}, forceRefr
  */
 export const searchSecurity = async (query) => {
   try {
-    const yahooURL = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=10`;
-    const response = await axios.get(getCorsProxy() + encodeURIComponent(yahooURL), {
+    const url = getYahooURL(`/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=10`);
+    const response = await axios.get(url, {
       timeout: 10000
     });
 

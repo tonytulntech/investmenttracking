@@ -62,7 +62,8 @@ function Dashboard() {
       });
       applyFilters();
     }
-  }, [filters, dateFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, dateFilter, fullPortfolio.length]);
 
   const loadData = async () => {
     try {

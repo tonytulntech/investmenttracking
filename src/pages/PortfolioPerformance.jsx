@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Calendar, BarChart3, Activity, AlertCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { getTransactions } from '../services/localStorageService';
-import { fetchMultipleHistoricalPrices, buildMonthlyPriceTable, getPriceForMonth } from '../services/historicalPriceService';
+import { fetchMultipleHistoricalPrices, buildMonthlyPriceTable } from '../services/historicalPriceService';
 import { format, startOfMonth, endOfMonth, eachMonthOfInterval, parseISO, isAfter } from 'date-fns';
 import { it } from 'date-fns/locale';
 
@@ -133,8 +133,10 @@ function PortfolioPerformance() {
 
         Object.values(holdings).forEach(holding => {
           if (holding.quantity > 0) {
-            // Get historical price for this month
-            const historicalPrice = getPriceForMonth(priceTables[holding.ticker], monthKey);
+            // Get historical price for this month from price table
+            // priceTables is an object with monthKey as keys, e.g., {"2024-01": 100, "2024-02": 102}
+            const priceTable = priceTables[holding.ticker] || {};
+            const historicalPrice = priceTable[monthKey];
 
             // If no historical price found, use average cost as fallback
             const price = historicalPrice || (holding.totalCost / holding.quantity);

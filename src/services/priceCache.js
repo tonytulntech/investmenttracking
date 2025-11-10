@@ -2,10 +2,10 @@
  * Price Cache Service
  *
  * Caches price data to avoid excessive API calls and improve performance.
- * Cache expires after 15 minutes.
+ * Cache expires after 30 minutes.
  */
 
-const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes in milliseconds
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
 const CACHE_KEY = 'price_cache';
 
 /**

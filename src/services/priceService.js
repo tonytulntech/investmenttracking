@@ -9,6 +9,10 @@ import { getCachedPrices, cachePrices } from './priceCache';
 // Use Vite proxy in development, direct URLs in production
 const isDevelopment = import.meta.env.DEV;
 
+// Rate limiting: track last API call time
+let lastApiCallTime = 0;
+const MIN_TIME_BETWEEN_CALLS = 2000; // 2 seconds between API calls
+
 const getYahooURL = (path) => {
   if (isDevelopment) {
     return `/api/yahoo${path}`;
@@ -180,6 +184,15 @@ export const fetchMultiplePrices = async (tickers, categoriesMap = {}, forceRefr
         }
       }
     }
+
+    // Rate limiting: check if enough time has passed since last call
+    const now = Date.now();
+    const timeSinceLastCall = now - lastApiCallTime;
+    if (timeSinceLastCall < MIN_TIME_BETWEEN_CALLS) {
+      console.log('⏱️ Rate limiting: waiting before next API call...');
+      await new Promise(resolve => setTimeout(resolve, MIN_TIME_BETWEEN_CALLS - timeSinceLastCall));
+    }
+    lastApiCallTime = Date.now();
 
     // Fetch fresh prices
     const uniqueTickers = [...new Set(tickers)];

@@ -30,6 +30,10 @@ function Dashboard() {
   const [cashFlow, setCashFlow] = useState(null);
   const [performanceMetrics, setPerformanceMetrics] = useState(null);
 
+  // Prevent duplicate API calls
+  const isInitialMount = React.useRef(true);
+  const updateInProgress = React.useRef(false);
+
   // Asset class filters (all enabled by default)
   const [filters, setFilters] = useState({
     ETF: true,
@@ -45,16 +49,20 @@ function Dashboard() {
   });
 
   useEffect(() => {
-    loadData();
+    // Only run once on initial mount
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      loadData();
 
-    // Auto-refresh prices every 15 minutes (reduced frequency to avoid rate limiting)
-    const intervalId = setInterval(() => {
-      console.log('🔄 Auto-refreshing prices...');
-      updatePricesAndCalculate();
-    }, 15 * 60 * 1000); // 15 minutes
+      // Auto-refresh prices every 30 minutes (increased to reduce API calls)
+      const intervalId = setInterval(() => {
+        console.log('🔄 Auto-refreshing prices...');
+        updatePricesAndCalculate();
+      }, 30 * 60 * 1000); // 30 minutes
 
-    // Cleanup interval on unmount
-    return () => clearInterval(intervalId);
+      // Cleanup interval on unmount
+      return () => clearInterval(intervalId);
+    }
   }, []);
 
   // Recalculate stats when filters change
@@ -89,35 +97,44 @@ function Dashboard() {
   };
 
   const updatePricesAndCalculate = async () => {
-    // Get portfolio from transactions
-    const holdings = calculatePortfolio();
-
-    if (holdings.length === 0) {
-      setStats({
-        totalValue: 0,
-        totalCost: 0,
-        totalPL: 0,
-        totalPLPercent: 0,
-        dayChange: 0,
-        dayChangePercent: 0,
-        assetsCount: 0
-      });
-      setPortfolio([]);
-      setFullPortfolio([]);
-      setAllocationData([]);
-      setPerformanceData([]);
+    // Prevent concurrent updates
+    if (updateInProgress.current) {
+      console.log('⏭️ Update already in progress, skipping...');
       return;
     }
 
-    // Fetch current prices (skip cash - price is always 1)
-    const nonCashHoldings = holdings.filter(h => !h.isCash);
-    const tickers = nonCashHoldings.map(h => h.ticker);
-    const categoriesMap = nonCashHoldings.reduce((acc, h) => {
-      acc[h.ticker] = h.category;
-      return acc;
-    }, {});
+    updateInProgress.current = true;
 
-    const prices = tickers.length > 0 ? await fetchMultiplePrices(tickers, categoriesMap) : {};
+    try {
+      // Get portfolio from transactions
+      const holdings = calculatePortfolio();
+
+      if (holdings.length === 0) {
+        setStats({
+          totalValue: 0,
+          totalCost: 0,
+          totalPL: 0,
+          totalPLPercent: 0,
+          dayChange: 0,
+          dayChangePercent: 0,
+          assetsCount: 0
+        });
+        setPortfolio([]);
+        setFullPortfolio([]);
+        setAllocationData([]);
+        setPerformanceData([]);
+        return;
+      }
+
+      // Fetch current prices (skip cash - price is always 1)
+      const nonCashHoldings = holdings.filter(h => !h.isCash);
+      const tickers = nonCashHoldings.map(h => h.ticker);
+      const categoriesMap = nonCashHoldings.reduce((acc, h) => {
+        acc[h.ticker] = h.category;
+        return acc;
+      }, {});
+
+      const prices = tickers.length > 0 ? await fetchMultiplePrices(tickers, categoriesMap) : {};
 
     // Calculate updated portfolio with current prices
     const updatedPortfolio = holdings.map(holding => {
@@ -139,7 +156,7 @@ function Dashboard() {
 
       // For other assets: fetch current price
       const priceData = prices[holding.ticker];
-      const currentPrice = priceData?.price || holding.avgPrice;
+      const currentPrice = priceData?.price || holding.avgPrice; // Fallback to purchase price if API fails
 
       const marketValue = currentPrice * holding.quantity;
       const totalCost = holding.avgPrice * holding.quantity;
@@ -165,7 +182,10 @@ function Dashboard() {
     setTimeout(() => {
       applyFilters();
     }, 0);
-  };
+  } finally {
+    updateInProgress.current = false;
+  }
+};
 
   const applyFilters = () => {
     console.log('📊 Applying filters...', {

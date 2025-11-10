@@ -76,7 +76,7 @@ function Dashboard() {
   useEffect(() => {
     console.log('🔄 Filters or prices changed, recalculating dashboard...', {
       dateFilter,
-      priceCacheSize: Object.keys(priceCache).length,
+      priceCacheSize: priceCache ? Object.keys(priceCache).length : 0,
       activeFilters: Object.entries(filters).filter(([k, v]) => v).map(([k]) => k)
     });
 
@@ -250,7 +250,7 @@ function Dashboard() {
     console.log('📊 === CALCULATING DASHBOARD ===');
     console.log('Date Filter:', dateFilter);
     console.log('Asset Filters:', Object.entries(filters).filter(([k, v]) => v).map(([k]) => k));
-    console.log('Price Cache Size:', Object.keys(priceCache).length);
+    console.log('Price Cache Size:', priceCache ? Object.keys(priceCache).length : 0);
 
     // 1. Get ALL transactions
     const allTransactions = getTransactions();

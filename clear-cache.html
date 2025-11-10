@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Cache</title>
+    <script>
+        // Clear all caches
+        localStorage.clear();
+        sessionStorage.clear();
+
+        if ('caches' in window) {
+            caches.keys().then(names => {
+                names.forEach(name => caches.delete(name));
+            });
+        }
+
+        alert('Cache cleared! Now close this tab and reload your app with Ctrl+Shift+R');
+    </script>
+</head>
+<body>
+    <h1>Cache Cleared</h1>
+    <p>Close this tab and reload your app with <strong>Ctrl+Shift+R</strong></p>
+</body>
+</html>

@@ -640,6 +640,11 @@ function Dashboard() {
 
   return (
     <div className="space-y-8 animate-fade-in">
+      {/* Version Indicator */}
+      <div className="fixed bottom-4 right-4 bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-mono z-50">
+        v2.0-REFACTORED
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -1116,6 +1116,69 @@ function Dashboard() {
                 </div>
               </div>
 
+              {/* Monthly Returns Bar Chart */}
+              {monthlyReturns.length > 0 && monthlyReturns.some(m => m.startValue > 0) && (
+                <div className="bg-white rounded-lg p-4 shadow-sm mb-4">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-purple-600" />
+                    Rendimenti Mensili (%)
+                  </h4>
+                  <p className="text-xs text-gray-600 mb-4">
+                    Grafico dei rendimenti mensili. Le barre verdi indicano guadagni, le rosse perdite.
+                    I calcoli escludono depositi e acquisti, mostrando solo le variazioni di mercato.
+                  </p>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart
+                      data={monthlyReturns.filter(m => m.startValue > 0).map(m => ({
+                        month: format(m.date, 'MMM yyyy'),
+                        return: parseFloat(m.monthReturnPercent.toFixed(2)),
+                        fill: m.monthReturnPercent >= 0 ? '#10b981' : '#ef4444'
+                      }))}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="month"
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                        tick={{ fontSize: 11 }}
+                      />
+                      <YAxis
+                        label={{ value: 'Rendimento %', angle: -90, position: 'insideLeft' }}
+                        tick={{ fontSize: 12 }}
+                      />
+                      <Tooltip
+                        formatter={(value) => `${value >= 0 ? '+' : ''}${value}%`}
+                        contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                      />
+                      <Bar
+                        dataKey="return"
+                        name="Rendimento"
+                        radius={[8, 8, 0, 0]}
+                      >
+                        {monthlyReturns.filter(m => m.startValue > 0).map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={entry.monthReturnPercent >= 0 ? '#10b981' : '#ef4444'}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <div className="mt-4 flex items-center justify-center gap-6 text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-green-500 rounded"></div>
+                      <span className="text-gray-600">Guadagno</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-red-500 rounded"></div>
+                      <span className="text-gray-600">Perdita</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Warning for periods < 1 year */}
               {!performanceMetrics.cagrReliable && (
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">

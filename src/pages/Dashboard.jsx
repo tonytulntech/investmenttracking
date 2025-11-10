@@ -10,6 +10,9 @@ import { format, startOfYear, subMonths, isAfter, isBefore } from 'date-fns';
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
 
 function Dashboard() {
+  // VERSION CHECK - Force browser to see this is new code
+  console.log('🚀🚀🚀 DASHBOARD v2.0-REFACTORED LOADED AT:', new Date().toISOString(), '🚀🚀🚀');
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({

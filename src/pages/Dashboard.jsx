@@ -754,7 +754,7 @@ function Dashboard() {
                 <div className="bg-white rounded-lg p-4 shadow-sm">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                      <Clock className="w-4 h-4 text-green-600" />
+                      <Calendar className="w-4 h-4 text-green-600" />
                     </div>
                     <p className="text-sm font-medium text-gray-600">Tempo Investito</p>
                   </div>

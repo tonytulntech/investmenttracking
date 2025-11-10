@@ -5,7 +5,7 @@ import { getTransactions, calculatePortfolio } from '../services/localStorageSer
 import { fetchMultiplePrices } from '../services/priceService';
 import { calculateCashFlow } from '../services/cashFlowService';
 import { getPerformanceSummary, calculateMonthlyReturns, calculateAverageMonthlyReturn } from '../services/performanceService';
-import { format, startOfYear, subMonths, isAfter, isBefore } from 'date-fns';
+import { format } from 'date-fns';
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
 
@@ -49,7 +49,6 @@ function Dashboard() {
   const [performanceMetrics, setPerformanceMetrics] = useState(null);
   const [monthlyReturns, setMonthlyReturns] = useState([]);
   const [averageMonthlyReturn, setAverageMonthlyReturn] = useState(0);
-  const [availableYears, setAvailableYears] = useState([]);
 
   // Asset class filters (all enabled by default)
   const [filters, setFilters] = useState({
@@ -65,17 +64,21 @@ function Dashboard() {
     Cash: true
   });
 
-  // Date filter (default: all time)
-  const [dateFilter, setDateFilter] = useState('all');
-
   useEffect(() => {
     loadData();
+
+    // Auto-refresh prices every 5 minutes
+    const priceRefreshInterval = setInterval(() => {
+      console.log('⏰ Auto-refreshing prices...');
+      fetchLatestPrices();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(priceRefreshInterval);
   }, []);
 
   // Single effect that recalculates everything when filters or prices change
   useEffect(() => {
     console.log('🔄 Filters or prices changed, recalculating dashboard...', {
-      dateFilter,
       priceCacheSize: priceCache ? Object.keys(priceCache).length : 0,
       activeFilters: Object.entries(filters).filter(([k, v]) => v).map(([k]) => k)
     });
@@ -96,7 +99,7 @@ function Dashboard() {
     setRefreshing(false);
 
     console.log('✅ Dashboard calculated:', dashboardData);
-  }, [filters, dateFilter, priceCache]); // Only these 3 dependencies!
+  }, [filters, priceCache]); // Only these 2 dependencies!
 
   const loadData = async () => {
     try {
@@ -112,15 +115,6 @@ function Dashboard() {
       const cf = calculateCashFlow();
       setCashFlow(cf);
 
-      // Calculate available years from transactions
-      const transactions = getTransactions();
-      const years = new Set();
-      transactions.forEach(tx => {
-        const year = new Date(tx.date).getFullYear();
-        years.add(year);
-      });
-      setAvailableYears(Array.from(years).sort((a, b) => b - a));
-
       // Fetch latest prices (this will trigger useEffect to recalculate)
       await fetchLatestPrices();
 
@@ -128,71 +122,6 @@ function Dashboard() {
     } catch (error) {
       console.error('Error loading dashboard data:', error);
       setLoading(false);
-    }
-  };
-
-  // Get date range based on filter selection
-  const getDateRange = (filter) => {
-    const now = new Date();
-    let startDate = null;
-
-    switch (filter) {
-      case 'ytd':
-        startDate = startOfYear(now);
-        break;
-      case '3m':
-        startDate = subMonths(now, 3);
-        break;
-      case '6m':
-        startDate = subMonths(now, 6);
-        break;
-      case '1y':
-        startDate = subMonths(now, 12);
-        break;
-      case 'all':
-        startDate = null; // No filter
-        break;
-      default:
-        // Specific year (e.g., '2023')
-        if (!isNaN(filter)) {
-          const year = parseInt(filter);
-          startDate = new Date(year, 0, 1); // Jan 1st
-          const endDate = new Date(year, 11, 31, 23, 59, 59); // Dec 31st
-          return { startDate, endDate };
-        }
-        break;
-    }
-
-    return { startDate, endDate: now };
-  };
-
-  // Filter transactions by date range
-  const filterTransactionsByDate = (transactions) => {
-    if (dateFilter === 'all') return transactions;
-
-    const { startDate, endDate } = getDateRange(dateFilter);
-    if (!startDate) return transactions;
-
-    // IMPORTANT: For specific years (e.g., '2023'), we need ALL transactions UP TO that year's end
-    // to show the portfolio snapshot at that point in time
-    // For relative periods (YTD, 3M, etc.), we only need transactions DURING that period
-    const isYearFilter = !isNaN(dateFilter); // Check if filter is a specific year
-
-    if (isYearFilter) {
-      // Specific year: take all transactions UP TO end of that year
-      return transactions.filter(tx => {
-        const txDate = new Date(tx.date);
-        const beforeEnd = !endDate || isBefore(txDate, endDate) || txDate.getTime() === endDate.getTime();
-        return beforeEnd; // Only check end date, not start date
-      });
-    } else {
-      // Relative period: take transactions DURING that period
-      return transactions.filter(tx => {
-        const txDate = new Date(tx.date);
-        const afterStart = !startDate || isAfter(txDate, startDate) || txDate.getTime() === startDate.getTime();
-        const beforeEnd = !endDate || isBefore(txDate, endDate) || txDate.getTime() === endDate.getTime();
-        return afterStart && beforeEnd;
-      });
     }
   };
 
@@ -248,7 +177,6 @@ function Dashboard() {
   // ==============================================
   const calculateDashboardData = () => {
     console.log('📊 === CALCULATING DASHBOARD ===');
-    console.log('Date Filter:', dateFilter);
     console.log('Asset Filters:', Object.entries(filters).filter(([k, v]) => v).map(([k]) => k));
     console.log('Price Cache Size:', priceCache ? Object.keys(priceCache).length : 0);
 
@@ -269,14 +197,9 @@ function Dashboard() {
       };
     }
 
-    // 2. Filter transactions by date
-    const dateFilteredTransactions = filterTransactionsByDate(allTransactions);
-    const isYearFilter = !isNaN(dateFilter);
-    console.log('📅 Date-filtered transactions:', dateFilteredTransactions.length, isYearFilter ? `(snapshot at end of ${dateFilter})` : `(period: ${dateFilter})`);
-
-    // 3. Rebuild portfolio from filtered transactions
+    // 2. Rebuild portfolio from all transactions
     const holdings = {};
-    dateFilteredTransactions.forEach(tx => {
+    allTransactions.forEach(tx => {
       const { ticker, type, quantity, price } = tx;
       const isCash = tx.isCash || tx.macroCategory === 'Cash';
 
@@ -325,8 +248,8 @@ function Dashboard() {
       });
 
     // 5. Calculate and add CASH
-    const cashTransactions = dateFilteredTransactions.filter(tx => tx.isCash || tx.macroCategory === 'Cash');
-    const assetTransactions = dateFilteredTransactions.filter(tx => !tx.isCash && tx.macroCategory !== 'Cash');
+    const cashTransactions = allTransactions.filter(tx => tx.isCash || tx.macroCategory === 'Cash');
+    const assetTransactions = allTransactions.filter(tx => !tx.isCash && tx.macroCategory !== 'Cash');
 
     let cashDeposits = 0, cashWithdrawals = 0, assetPurchases = 0, assetSales = 0;
 
@@ -418,7 +341,7 @@ function Dashboard() {
       .sort((a, b) => b.value - a.value);
 
     // 10. Calculate performance data
-    const performanceData = calculateMonthlyPerformance(dateFilteredTransactions, filteredPortfolio);
+    const performanceData = calculateMonthlyPerformance(allTransactions, filteredPortfolio);
 
     // 11. Calculate allocation comparison
     let allocationComparison = [];
@@ -434,7 +357,7 @@ function Dashboard() {
     const performanceMetrics = getPerformanceSummary(filteredPortfolio, strategy);
 
     // 13. Calculate monthly returns (REAL performance excluding cash flows)
-    const monthlyReturns = calculateMonthlyReturns(dateFilteredTransactions, priceCache);
+    const monthlyReturns = calculateMonthlyReturns(allTransactions, priceCache);
     const averageMonthlyReturn = calculateAverageMonthlyReturn(monthlyReturns);
 
     console.log('✅ === DASHBOARD CALCULATED ===');
@@ -645,106 +568,14 @@ function Dashboard() {
               💡 <strong>Statistiche precise:</strong> I rendimenti mostrati escludono i nuovi depositi e acquisti, mostrando solo le variazioni di mercato reali.
             </p>
           </div>
+          <div className="mt-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2 inline-block">
+            <p className="text-xs text-green-700 flex items-center gap-1">
+              <Zap className="w-3 h-3" />
+              <strong>Aggiornamento automatico:</strong> I prezzi si aggiornano automaticamente ogni 5 minuti.
+            </p>
+          </div>
         </div>
-        {hasTransactions && (
-          <button
-            onClick={() => fetchLatestPrices()}
-            disabled={refreshing}
-            className="btn-secondary flex items-center gap-2"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Aggiorna Prezzi
-          </button>
-        )}
       </div>
-
-      {/* Date Filter Buttons */}
-      {hasTransactions && (
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-primary-600" />
-              Filtra per Periodo
-            </h3>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {/* Predefined periods */}
-            <button
-              onClick={() => setDateFilter('all')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                dateFilter === 'all'
-                  ? 'bg-primary-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Tutto
-            </button>
-            <button
-              onClick={() => setDateFilter('ytd')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                dateFilter === 'ytd'
-                  ? 'bg-primary-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              YTD
-            </button>
-            <button
-              onClick={() => setDateFilter('3m')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                dateFilter === '3m'
-                  ? 'bg-primary-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              3 Mesi
-            </button>
-            <button
-              onClick={() => setDateFilter('6m')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                dateFilter === '6m'
-                  ? 'bg-primary-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              6 Mesi
-            </button>
-            <button
-              onClick={() => setDateFilter('1y')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                dateFilter === '1y'
-                  ? 'bg-primary-600 text-white shadow-md'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              1 Anno
-            </button>
-
-            {/* Separator */}
-            {availableYears.length > 0 && (
-              <div className="w-px bg-gray-300 mx-2"></div>
-            )}
-
-            {/* Year buttons (only show if there are transactions in those years) */}
-            {availableYears.map(year => (
-              <button
-                key={year}
-                onClick={() => setDateFilter(year.toString())}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  dateFilter === year.toString()
-                    ? 'bg-primary-600 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {year}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-gray-500 mt-3">
-            Seleziona un periodo per filtrare tutte le statistiche e i grafici
-          </p>
-        </div>
-      )}
 
       {!hasTransactions ? (
         <div className="card text-center py-12">

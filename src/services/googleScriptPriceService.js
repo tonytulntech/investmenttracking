@@ -7,9 +7,9 @@
 import axios from 'axios';
 import { getCachedPrices, cachePrices } from './priceCache';
 
-// TODO: Replace with your actual Google Apps Script Web App URL
-// Get this from: Deploy > New deployment > Copy web app URL
-const GOOGLE_SCRIPT_URL = 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
+// Google Apps Script Web App URL
+// Deployed: 2025-11-10
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzMWW-Z2WtpmO7Fkwbvm_p0FCmy4UYlIpWmNnp9LMEjM6ZXePjIaDPIGM3G17LZzjpGiw/exec';
 
 // Check if URL is configured
 export function isConfigured() {

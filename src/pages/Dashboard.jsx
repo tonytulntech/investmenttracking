@@ -269,6 +269,14 @@ function Dashboard() {
     const dateFilteredTransactions = filterTransactionsByDate(allTransactions);
     const isYearFilter = !isNaN(dateFilter);
     console.log('📅 Date-filtered transactions:', dateFilteredTransactions.length, isYearFilter ? `(snapshot at end of ${dateFilter})` : `(period: ${dateFilter})`);
+    console.log('📅 Filtered transactions detail:', dateFilteredTransactions.map(tx => ({
+      date: tx.date,
+      ticker: tx.ticker,
+      type: tx.type,
+      quantity: tx.quantity,
+      price: tx.price,
+      isCash: tx.isCash || tx.macroCategory === 'Cash'
+    })));
 
     // 3. Rebuild portfolio from filtered transactions
     const holdings = {};
@@ -361,6 +369,13 @@ function Dashboard() {
     }
 
     console.log('💼 Working portfolio:', workingPortfolio.length, 'holdings');
+    console.log('💼 Working portfolio detail:', workingPortfolio.map(h => ({
+      ticker: h.ticker,
+      quantity: h.quantity,
+      avgPrice: h.avgPrice?.toFixed(2),
+      marketValue: h.marketValue?.toFixed(2),
+      isCash: h.isCash
+    })));
 
     // 6. Filter by asset class
     const filteredPortfolio = workingPortfolio.filter(holding => {
@@ -370,15 +385,23 @@ function Dashboard() {
 
     console.log('🔍 Filtered portfolio:', filteredPortfolio.length, 'holdings');
 
-    // 7. Calculate stats
+    // 7. Calculate stats (EXCLUDING Cash from "Totale Investito")
+    const investedPortfolio = filteredPortfolio.filter(p => !p.isCash);
+    const cashOnly = filteredPortfolio.filter(p => p.isCash);
+
     const totalValue = filteredPortfolio.reduce((sum, p) => sum + p.marketValue, 0);
-    const totalCost = filteredPortfolio.reduce((sum, p) => sum + p.totalCost, 0);
-    const totalPL = totalValue - totalCost;
+    const totalCost = investedPortfolio.reduce((sum, p) => sum + p.totalCost, 0); // ← EXCLUDES CASH!
+    const totalPL = totalValue - totalCost - (cashOnly[0]?.marketValue || 0); // Subtract cash from P/L
     const totalPLPercent = totalCost > 0 ? (totalPL / totalCost) * 100 : 0;
     const dayChange = filteredPortfolio.reduce((sum, p) => sum + (p.dayChange * p.quantity), 0);
     const dayChangePercent = totalValue > 0 ? (dayChange / (totalValue - dayChange)) * 100 : 0;
 
-    console.log('💵 Total Value:', totalValue, 'Total Cost:', totalCost, 'P/L:', totalPL);
+    console.log('💵 Stats:', {
+      totalValue: totalValue.toFixed(2),
+      totalCost: totalCost.toFixed(2), // ← This should NOT include cash
+      cash: (cashOnly[0]?.marketValue || 0).toFixed(2),
+      totalPL: totalPL.toFixed(2)
+    });
 
     // 8. Calculate allocation (exclude Cash)
     const investablePortfolio = filteredPortfolio.filter(p => !p.isCash);

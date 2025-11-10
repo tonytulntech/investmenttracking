@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { TrendingUp, LayoutDashboard, Wallet, FileText, Settings, Plus, Target, RefreshCcw } from 'lucide-react';
+import { TrendingUp, LayoutDashboard, Wallet, FileText, Settings, Plus, Target, RefreshCcw, BarChart3 } from 'lucide-react';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -9,12 +9,14 @@ import Transactions from './pages/Transactions';
 import SettingsPage from './pages/Settings';
 import Strategy from './pages/Strategy';
 import Rebalancing from './pages/Rebalancing';
+import PortfolioPerformance from './pages/PortfolioPerformance';
 
 function App() {
   const location = useLocation();
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+    { name: 'Performance', href: '/performance', icon: BarChart3 },
     { name: 'Portfolio', href: '/portfolio', icon: Wallet },
     { name: 'Transazioni', href: '/transactions', icon: FileText },
     { name: 'Strategia', href: '/strategy', icon: Target },
@@ -85,6 +87,7 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/performance" element={<PortfolioPerformance />} />
             <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/transactions/new" element={<Transactions />} />
@@ -98,7 +101,7 @@ function App() {
 
       {/* Mobile Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-200 safe-bottom z-50">
-        <div className="grid grid-cols-6 gap-1 p-2">
+        <div className="grid grid-cols-7 gap-1 p-2">
           {navigation.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
@@ -107,7 +110,7 @@ function App() {
                 key={item.name}
                 to={item.href}
                 className={`
-                  flex flex-col items-center gap-1 px-2 py-2 rounded-lg
+                  flex flex-col items-center gap-1 px-1 py-2 rounded-lg
                   text-xs font-medium transition-all duration-200
                   ${active
                     ? 'bg-primary-50 text-primary-700'
@@ -115,8 +118,8 @@ function App() {
                   }
                 `}
               >
-                <Icon className="w-5 h-5" />
-                <span className="truncate max-w-full text-center">{item.name}</span>
+                <Icon className="w-4 h-4" />
+                <span className="truncate max-w-full text-center text-[10px]">{item.name}</span>
               </Link>
             );
           })}

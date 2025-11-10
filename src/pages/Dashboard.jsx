@@ -11,7 +11,6 @@ const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899'
 
 function Dashboard() {
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({
     totalValue: 0,
     totalCost: 0,
@@ -51,6 +50,15 @@ function Dashboard() {
 
   useEffect(() => {
     loadData();
+
+    // Auto-refresh prices every 5 minutes
+    const intervalId = setInterval(() => {
+      console.log('🔄 Auto-refreshing prices...');
+      updatePricesAndCalculate();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    // Cleanup interval on unmount
+    return () => clearInterval(intervalId);
   }, []);
 
   // Recalculate stats when filters change
@@ -145,8 +153,6 @@ function Dashboard() {
   };
 
   const updatePricesAndCalculate = async () => {
-    setRefreshing(true);
-
     // Get portfolio from transactions
     const holdings = calculatePortfolio();
 
@@ -161,9 +167,9 @@ function Dashboard() {
         assetsCount: 0
       });
       setPortfolio([]);
+      setFullPortfolio([]);
       setAllocationData([]);
       setPerformanceData([]);
-      setRefreshing(false);
       return;
     }
 
@@ -345,9 +351,6 @@ function Dashboard() {
     // This means CAGR will be calculated from full portfolio, but filtered by asset classes
     const perfMetrics = getPerformanceSummary(filteredPortfolio, strategy);
     setPerformanceMetrics(perfMetrics);
-
-    // Stop refreshing spinner
-    setRefreshing(false);
 
     console.log('✅ Filters applied successfully!', {
       filteredPortfolioLength: filteredPortfolio.length,
@@ -535,14 +538,10 @@ function Dashboard() {
           </div>
         </div>
         {hasFullPortfolio && (
-          <button
-            onClick={() => updatePricesAndCalculate()}
-            disabled={refreshing}
-            className="btn-secondary flex items-center gap-2"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Aggiorna Prezzi
-          </button>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            Aggiornamento automatico attivo
+          </div>
         )}
       </div>
 

@@ -8,8 +8,8 @@ import axios from 'axios';
 import { getCachedPrices, cachePrices } from './priceCache';
 
 // Google Apps Script Web App URL
-// Deployed: 2025-11-10
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzMWW-Z2WtpmO7Fkwbvm_p0FCmy4UYlIpWmNnp9LMEjM6ZXePjIaDPIGM3G17LZzjpGiw/exec';
+// Deployed: 2025-11-10 18:35 - Version with historical prices support
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyfgvRFaG-NGrFsXHki7_dnZ3zaIQf3oWpT6f9WzQcQRAb8RC0L4uU59VferfN-EwORPg/exec';
 
 // Check if URL is configured
 export function isConfigured() {
@@ -126,6 +126,94 @@ export async function fetchMultiplePricesViaScript(tickers, categoriesMap = {}) 
 }
 
 /**
+ * Fetch historical monthly prices for a ticker
+ * @param {string} ticker - Stock ticker (e.g., 'VWCE.DE', 'BTC-USD')
+ * @param {string} startDate - Start date (YYYY-MM-DD format)
+ * @param {string} endDate - End date (YYYY-MM-DD format)
+ * @returns {Promise<Array>} Array of {date, price} objects
+ */
+export async function fetchHistoricalPrices(ticker, startDate, endDate) {
+  if (!isConfigured()) {
+    console.warn('⚠️ Google Apps Script URL not configured');
+    return [];
+  }
+
+  try {
+    const url = `${GOOGLE_SCRIPT_URL}?ticker=${encodeURIComponent(ticker)}&startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
+
+    console.log(`📊 Fetching historical prices for ${ticker} (${startDate} to ${endDate})...`);
+
+    const response = await axios.get(url, {
+      timeout: 30000, // 30 seconds for historical data
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    if (response.data && response.data.historicalPrices) {
+      console.log(`✓ Got ${response.data.historicalPrices.length} historical data points for ${ticker}`);
+      return response.data.historicalPrices;
+    }
+
+    console.warn(`⚠️ No historical data returned for ${ticker}`);
+    return [];
+
+  } catch (error) {
+    console.error(`Error fetching historical prices for ${ticker}:`, error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch historical prices for multiple tickers in parallel
+ * @param {Array} tickers - Array of ticker symbols
+ * @param {string} startDate - Start date (YYYY-MM-DD)
+ * @param {string} endDate - End date (YYYY-MM-DD)
+ * @returns {Promise<Object>} Object mapping ticker to historical price array
+ */
+export async function fetchMultipleHistoricalPrices(tickers, startDate, endDate) {
+  if (!isConfigured()) {
+    console.warn('⚠️ Google Apps Script URL not configured');
+    return {};
+  }
+
+  try {
+    const uniqueTickers = [...new Set(tickers)];
+
+    console.log(`📊 Fetching historical prices for ${uniqueTickers.length} tickers...`);
+
+    // Fetch all in parallel with rate limiting
+    const promises = uniqueTickers.map((ticker, index) =>
+      new Promise(resolve => {
+        // Stagger requests by 500ms each to avoid overwhelming the script
+        setTimeout(() => {
+          fetchHistoricalPrices(ticker, startDate, endDate)
+            .then(data => resolve({ ticker, data }))
+            .catch(() => resolve({ ticker, data: [] }));
+        }, index * 500);
+      })
+    );
+
+    const results = await Promise.all(promises);
+
+    // Convert to object map
+    const historicalMap = {};
+    results.forEach(({ ticker, data }) => {
+      historicalMap[ticker] = data;
+    });
+
+    const successCount = Object.values(historicalMap).filter(data => data.length > 0).length;
+    console.log(`✓ Successfully fetched historical data for ${successCount}/${uniqueTickers.length} tickers`);
+
+    return historicalMap;
+
+  } catch (error) {
+    console.error('Error fetching multiple historical prices:', error);
+    return {};
+  }
+}
+
+/**
  * Check if Google Apps Script service is configured and available
  * @returns {Promise<boolean>}
  */
@@ -147,6 +235,8 @@ export async function testGoogleScriptConnection() {
 export default {
   fetchStockPriceViaScript,
   fetchMultiplePricesViaScript,
+  fetchHistoricalPrices,
+  fetchMultipleHistoricalPrices,
   testGoogleScriptConnection,
   isConfigured
 };

@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { getTransactions, calculatePortfolio } from '../services/localStorageService';
 import { format, startOfMonth, endOfMonth, eachMonthOfInterval, parseISO, isAfter, isBefore } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { fetchMultipleHistoricalPrices } from '../services/googleScriptPriceService';
 
 function PortfolioPerformance() {
   const [loading, setLoading] = useState(true);
@@ -25,7 +26,7 @@ function PortfolioPerformance() {
     calculatePerformance();
   }, []);
 
-  const calculatePerformance = () => {
+  const calculatePerformance = async () => {
     setLoading(true);
 
     try {
@@ -53,7 +54,48 @@ function PortfolioPerformance() {
       // Get all months between first transaction and now
       const months = eachMonthOfInterval({ start: firstDate, end: lastDate });
 
-      // Calculate portfolio value for each month
+      // Get unique tickers from all transactions
+      const uniqueTickers = [...new Set(transactions
+        .filter(tx => !tx.isCash && tx.macroCategory !== 'Cash' && tx.ticker)
+        .map(tx => tx.ticker))];
+
+      console.log(`📊 Fetching historical prices for ${uniqueTickers.length} tickers...`);
+
+      // Fetch historical prices for all tickers
+      const startDate = format(firstDate, 'yyyy-MM-dd');
+      const endDate = format(lastDate, 'yyyy-MM-dd');
+      const historicalPricesMap = await fetchMultipleHistoricalPrices(uniqueTickers, startDate, endDate);
+
+      console.log(`✓ Fetched historical data for ${Object.keys(historicalPricesMap).length} tickers`);
+
+      // Helper function to get price for a specific month
+      const getPriceForMonth = (ticker, monthDate) => {
+        const monthStr = format(startOfMonth(monthDate), 'yyyy-MM');
+
+        const historicalData = historicalPricesMap[ticker];
+        if (historicalData && historicalData.length > 0) {
+          // Find price for this month
+          const priceData = historicalData.find(p => p.date.startsWith(monthStr));
+          if (priceData && priceData.price) {
+            return priceData.price;
+          }
+
+          // If exact month not found, try to find closest month
+          const sortedPrices = historicalData
+            .filter(p => p.date <= format(endOfMonth(monthDate), 'yyyy-MM-dd'))
+            .sort((a, b) => b.date.localeCompare(a.date));
+
+          if (sortedPrices.length > 0 && sortedPrices[0].price) {
+            return sortedPrices[0].price;
+          }
+        }
+
+        // Fallback to current price
+        const currentHolding = currentPortfolio.find(p => p.ticker === ticker);
+        return currentHolding ? currentHolding.currentPrice : 0;
+      };
+
+      // Calculate portfolio value for each month with REAL historical prices
       const monthlyData = months.map(monthDate => {
         const monthEnd = endOfMonth(monthDate);
 
@@ -94,7 +136,7 @@ function PortfolioPerformance() {
           }
         });
 
-        // Calculate current value by category
+        // Calculate value by category using REAL historical prices
         const categoryValues = {
           Cash: cashDeposits - cashWithdrawals,
           ETF: 0,
@@ -104,20 +146,18 @@ function PortfolioPerformance() {
           Altro: 0
         };
 
-        // For each holding, estimate value using current portfolio data
+        // For each holding, use REAL historical price for this month
         Object.entries(holdings).forEach(([ticker, holding]) => {
           if (holding.quantity > 0) {
-            const currentHolding = currentPortfolio.find(p => p.ticker === ticker);
-            if (currentHolding) {
-              // Use current price to estimate historical value
-              const estimatedValue = holding.quantity * currentHolding.currentPrice;
-              const category = holding.category || 'Altro';
+            // Get the actual historical price for this month
+            const historicalPrice = getPriceForMonth(ticker, monthDate);
+            const realValue = holding.quantity * historicalPrice;
+            const category = holding.category || 'Altro';
 
-              if (categoryValues[category] !== undefined) {
-                categoryValues[category] += estimatedValue;
-              } else {
-                categoryValues.Altro += estimatedValue;
-              }
+            if (categoryValues[category] !== undefined) {
+              categoryValues[category] += realValue;
+            } else {
+              categoryValues.Altro += realValue;
             }
           }
         });

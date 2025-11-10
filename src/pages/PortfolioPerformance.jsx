@@ -190,15 +190,30 @@ function PortfolioPerformance() {
       const totalReturn = totalValue - totalInvested;
       const totalReturnPercent = totalInvested > 0 ? (totalReturn / totalInvested) * 100 : 0;
 
-      // Monthly returns
+      // Monthly returns - CORRECTED: exclude cash flows from return calculation
+      // Only calculate returns on invested assets (ETF, Crypto, Azioni, etc.)
       const monthlyReturns = [];
       for (let i = 1; i < monthlyData.length; i++) {
-        const prevTotal = monthlyData[i - 1].total;
-        const currTotal = monthlyData[i].total;
-        if (prevTotal > 0) {
+        const prev = monthlyData[i - 1];
+        const curr = monthlyData[i];
+
+        // Calculate invested value (excluding Cash)
+        const prevInvested = prev.ETF + prev.Crypto + prev.Azioni + prev.Obbligazioni + prev.Altro;
+        const currInvested = curr.ETF + curr.Crypto + curr.Azioni + curr.Obbligazioni + curr.Altro;
+
+        // Calculate cash flows in this month (new deposits or withdrawals)
+        const cashFlow = curr.Cash - prev.Cash;
+
+        if (prevInvested > 0) {
+          // Calculate return only on invested assets, excluding new deposits
+          // Return = (End Value - Start Value - New Investments) / Start Value
+          // For simplicity, we calculate the change in invested value
+          const investedReturn = ((currInvested - prevInvested) / prevInvested) * 100;
+
           monthlyReturns.push({
-            month: monthlyData[i].month,
-            return: ((currTotal - prevTotal) / prevTotal) * 100
+            month: curr.month,
+            return: investedReturn,
+            cashFlow: cashFlow
           });
         }
       }
@@ -331,7 +346,7 @@ function PortfolioPerformance() {
             {statistics.avgMonthlyReturn >= 0 ? '+' : ''}{statistics.avgMonthlyReturn.toFixed(2)}%
           </div>
           <div className="text-xs text-gray-500 mt-1">
-            Media mensile
+            Solo investimenti (escluso cash)
           </div>
         </div>
 

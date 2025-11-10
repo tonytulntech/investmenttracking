@@ -10,7 +10,10 @@ function PortfolioPerformance() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [view, setView] = useState('ticker'); // 'ticker', 'macro', 'micro'
+  const [dateFilter, setDateFilter] = useState('all'); // 'all', 'ytd', '2024', '2023', etc.
   const [monthlyData, setMonthlyData] = useState([]);
+  const [monthlyReturns, setMonthlyReturns] = useState([]); // Array of {month, return, monthKey}
+  const [availableYears, setAvailableYears] = useState([]);
   const [statistics, setStatistics] = useState({
     totalAssets: 0,
     totalValue: 0,
@@ -26,7 +29,7 @@ function PortfolioPerformance() {
 
   useEffect(() => {
     calculatePerformance();
-  }, []);
+  }, [dateFilter]); // Recalculate when date filter changes
 
   const calculatePerformance = async () => {
     setLoading(true);
@@ -53,10 +56,36 @@ function PortfolioPerformance() {
         .sort((a, b) => new Date(a.date) - new Date(b.date));
 
       const firstDate = parseISO(sortedTransactions[0].date);
-      const lastDate = new Date();
+      const now = new Date();
 
-      // Get all months between first transaction and now
-      const months = eachMonthOfInterval({ start: firstDate, end: lastDate });
+      // Exclude current month (incomplete data) - use end of previous month
+      const lastCompleteMonth = new Date(now.getFullYear(), now.getMonth(), 0); // Last day of previous month
+      const lastDate = lastCompleteMonth;
+
+      console.log(`📅 Date range: ${format(firstDate, 'yyyy-MM-dd')} to ${format(lastDate, 'yyyy-MM-dd')} (excluding incomplete current month)`);
+
+      // Get all months between first transaction and last complete month
+      const allMonths = eachMonthOfInterval({ start: firstDate, end: lastDate });
+
+      // Calculate available years for filters
+      const years = new Set();
+      allMonths.forEach(month => {
+        years.add(month.getFullYear());
+      });
+      setAvailableYears(Array.from(years).sort((a, b) => b - a));
+
+      // Filter months based on dateFilter
+      let months = allMonths;
+      if (dateFilter !== 'all') {
+        if (dateFilter === 'ytd') {
+          const yearStart = new Date(now.getFullYear(), 0, 1);
+          months = allMonths.filter(m => m >= yearStart);
+        } else if (!isNaN(dateFilter)) {
+          // Specific year
+          const year = parseInt(dateFilter);
+          months = allMonths.filter(m => m.getFullYear() === year);
+        }
+      }
 
       // Get unique tickers
       const tickers = [...new Set(assetTransactions.map(tx => tx.ticker))];
@@ -190,7 +219,7 @@ function PortfolioPerformance() {
         const totalReturnPercent = totalInvested > 0 ? (totalReturn / totalInvested) * 100 : 0;
 
         // Calculate monthly returns (excluding first month)
-        const monthlyReturns = [];
+        const calculatedMonthlyReturns = [];
         for (let i = 1; i < monthlyGrowth.length; i++) {
           const prevMonth = monthlyGrowth[i - 1];
           const currMonth = monthlyGrowth[i];
@@ -203,23 +232,29 @@ function PortfolioPerformance() {
             const monthReturn = currMonth.total - prevMonth.total - netCashFlow;
             const monthReturnPercent = (monthReturn / prevMonth.total) * 100;
 
-            monthlyReturns.push({
+            calculatedMonthlyReturns.push({
               month: currMonth.month,
-              return: monthReturnPercent
+              monthKey: currMonth.monthKey,
+              return: monthReturnPercent,
+              value: currMonth.total,
+              invested: currMonth.invested,
+              netCashFlow
             });
           }
         }
 
-        const avgMonthlyReturn = monthlyReturns.length > 0
-          ? monthlyReturns.reduce((sum, r) => sum + r.return, 0) / monthlyReturns.length
+        setMonthlyReturns(calculatedMonthlyReturns);
+
+        const avgMonthlyReturn = calculatedMonthlyReturns.length > 0
+          ? calculatedMonthlyReturns.reduce((sum, r) => sum + r.return, 0) / calculatedMonthlyReturns.length
           : 0;
 
-        const bestMonth = monthlyReturns.length > 0
-          ? monthlyReturns.reduce((max, r) => r.return > max.return ? r : max, monthlyReturns[0])
+        const bestMonth = calculatedMonthlyReturns.length > 0
+          ? calculatedMonthlyReturns.reduce((max, r) => r.return > max.return ? r : max, calculatedMonthlyReturns[0])
           : null;
 
-        const worstMonth = monthlyReturns.length > 0
-          ? monthlyReturns.reduce((min, r) => r.return < min.return ? r : min, monthlyReturns[0])
+        const worstMonth = calculatedMonthlyReturns.length > 0
+          ? calculatedMonthlyReturns.reduce((min, r) => r.return < min.return ? r : min, calculatedMonthlyReturns[0])
           : null;
 
         // Count unique assets in final month
@@ -382,6 +417,51 @@ function PortfolioPerformance() {
         <p className="text-gray-600 mt-1">Analisi dettagliata della performance con dati storici reali (esclude cash)</p>
       </div>
 
+      {/* Date Filter */}
+      <div className="card">
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">Periodo</h3>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setDateFilter('all')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              dateFilter === 'all'
+                ? 'bg-primary-600 text-white shadow-md'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Tutto
+          </button>
+          <button
+            onClick={() => setDateFilter('ytd')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              dateFilter === 'ytd'
+                ? 'bg-primary-600 text-white shadow-md'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            YTD
+          </button>
+
+          {availableYears.length > 0 && (
+            <div className="w-px bg-gray-300 mx-2"></div>
+          )}
+
+          {availableYears.map(year => (
+            <button
+              key={year}
+              onClick={() => setDateFilter(year.toString())}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                dateFilter === year.toString()
+                  ? 'bg-primary-600 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {year}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* View Selector */}
       <div className="flex gap-2 p-1 bg-gray-100 rounded-lg w-fit">
         <button
@@ -514,6 +594,64 @@ function PortfolioPerformance() {
         </div>
       )}
 
+      {/* Explanation Note */}
+      {(statistics.bestMonth || statistics.worstMonth) && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-800">
+            <strong>ℹ️ Nota:</strong> Miglior/Peggior mese si riferisce alla <strong>performance %</strong> di quel mese
+            (quanto è cresciuto/diminuito il portafoglio), <strong>escludendo</strong> i nuovi investimenti o prelievi.
+          </p>
+        </div>
+      )}
+
+      {/* Monthly Returns Chart - Red/Green Bars */}
+      {monthlyReturns.length > 0 && (
+        <div className="card">
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">Rendimento Mensile (%)</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Performance mensile del portafoglio (esclude nuovi investimenti)
+            </p>
+          </div>
+
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={monthlyReturns}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 12 }}
+                angle={-45}
+                textAnchor="end"
+                height={80}
+              />
+              <YAxis
+                tickFormatter={(value) => `${value.toFixed(1)}%`}
+                tick={{ fontSize: 12 }}
+              />
+              <Tooltip
+                formatter={(value) => `${value.toFixed(2)}%`}
+                labelStyle={{ fontWeight: 'bold' }}
+              />
+              <Bar
+                dataKey="return"
+                name="Rendimento %"
+                fill={(entry) => {
+                  // Color based on positive/negative
+                  return entry.return >= 0 ? '#10b981' : '#ef4444';
+                }}
+              >
+                {monthlyReturns.map((entry, index) => (
+                  <Bar
+                    key={`bar-${index}`}
+                    fill={entry.return >= 0 ? '#10b981' : '#ef4444'}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
       {/* Stacked Bar Chart - Monthly Growth */}
       <div className="card">
         <div className="mb-6">
@@ -604,9 +742,9 @@ function PortfolioPerformance() {
           <div>
             <p className="font-semibold text-green-900">✅ Dati Storici Reali</p>
             <p className="text-sm text-green-700 mt-1">
-              Questa pagina utilizza prezzi storici reali recuperati da Google Finance tramite Google Apps Script.
-              I rendimenti sono calcolati con il metodo Modified Dietz, che esclude correttamente i flussi di cassa (nuovi acquisti/vendite).
-              Il cash è escluso da tutti i calcoli di performance.
+              Questa pagina utilizza <strong>prezzi storici reali</strong> recuperati da Google Finance tramite Google Apps Script.
+              I rendimenti sono calcolati con il <strong>metodo Modified Dietz</strong>, che esclude correttamente i flussi di cassa (nuovi acquisti/vendite).
+              Il <strong>mese corrente è escluso</strong> (dati incompleti). Il cash è escluso da tutti i calcoli di performance.
             </p>
           </div>
         </div>

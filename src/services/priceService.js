@@ -1,10 +1,17 @@
 /**
  * Price Service
  * Fetches real-time prices from Yahoo Finance and other sources
+ * Primary method: Google Apps Script (bypasses CORS and rate limits)
+ * Fallback: Direct Yahoo Finance API
  */
 
 import axios from 'axios';
 import { getCachedPrices, cachePrices } from './priceCache';
+import {
+  fetchStockPriceViaScript,
+  fetchMultiplePricesViaScript,
+  isConfigured as isGoogleScriptConfigured
+} from './googleScriptPriceService';
 
 // Use Vite proxy in development, direct URLs in production
 const isDevelopment = import.meta.env.DEV;
@@ -145,6 +152,18 @@ export const fetchPrice = async (ticker, category = null) => {
   // Common crypto symbols
   const cryptoSymbols = ['BTC', 'ETH', 'BNB', 'ADA', 'SOL', 'DOT', 'AVAX', 'MATIC', 'LINK', 'UNI', 'ATOM', 'XRP'];
 
+  // Try Google Apps Script first (if configured)
+  if (isGoogleScriptConfigured()) {
+    console.log(`🔄 Trying Google Apps Script for ${ticker}...`);
+    const scriptPrice = await fetchStockPriceViaScript(ticker);
+    if (scriptPrice && scriptPrice.price) {
+      console.log(`✓ Got price from Google Apps Script for ${ticker}`);
+      return scriptPrice;
+    }
+    console.log(`⚠️ Google Apps Script failed for ${ticker}, trying fallback...`);
+  }
+
+  // Fallback to direct API methods
   // If explicitly crypto or detected as crypto
   if (category === 'Crypto' || cryptoSymbols.includes(ticker.toUpperCase())) {
     const cryptoPrice = await fetchCryptoPrice(ticker);
@@ -173,6 +192,7 @@ export const fetchMultiplePrices = async (tickers, categoriesMap = {}, forceRefr
         const allCached = uniqueTickers.every(ticker => cachedPrices[ticker]);
 
         if (allCached) {
+          console.log('💾 Using fully cached prices');
           // Return cached prices
           const filteredCache = {};
           uniqueTickers.forEach(ticker => {
@@ -184,6 +204,50 @@ export const fetchMultiplePrices = async (tickers, categoriesMap = {}, forceRefr
         }
       }
     }
+
+    // Try Google Apps Script first (if configured)
+    if (isGoogleScriptConfigured()) {
+      console.log('📊 Using Google Apps Script service for multiple prices...');
+      const scriptPrices = await fetchMultiplePricesViaScript(tickers, categoriesMap);
+
+      // Check if we got all prices successfully
+      const uniqueTickers = [...new Set(tickers)];
+      const allFetched = uniqueTickers.every(ticker => scriptPrices[ticker] && scriptPrices[ticker].price);
+
+      if (allFetched) {
+        console.log('✓ Successfully fetched all prices via Google Apps Script');
+        return scriptPrices;
+      }
+
+      console.log(`⚠️ Google Apps Script returned incomplete data (${Object.keys(scriptPrices).length}/${uniqueTickers.length}), using fallback for missing tickers...`);
+
+      // For missing tickers, try fallback methods
+      const missingTickers = uniqueTickers.filter(ticker => !scriptPrices[ticker] || !scriptPrices[ticker].price);
+
+      if (missingTickers.length > 0) {
+        console.log(`🔄 Fetching ${missingTickers.length} missing tickers via fallback...`);
+
+        for (const ticker of missingTickers) {
+          // Rate limiting for fallback
+          await new Promise(resolve => setTimeout(resolve, 1500));
+
+          const priceData = await fetchPrice(ticker, categoriesMap[ticker]);
+          if (priceData && priceData.price) {
+            scriptPrices[ticker] = priceData;
+          }
+        }
+      }
+
+      // Cache and return combined results
+      if (Object.keys(scriptPrices).length > 0) {
+        cachePrices(scriptPrices);
+      }
+
+      return scriptPrices;
+    }
+
+    // Fallback to original method if Google Apps Script not configured
+    console.log('📊 Using direct API method for multiple prices...');
 
     // Rate limiting: check if enough time has passed since last call
     const now = Date.now();

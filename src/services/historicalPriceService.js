@@ -6,7 +6,7 @@
  */
 
 // HARDCODED Google Apps Script URL
-const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzMWW-Z2WtpmO7Fkwbvm_p0FCmy4UYlIpWmNnp9LMEjM6ZXePjIaDPIGM3G17LZzjpGiw/exec';
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxOnB9j5LNJrebcBTVbZhQQITv77hCdty5nv-6Oq20ahdEkt9x5R-I5Ci-8s4kQYLIX8Q/exec';
 
 /**
  * Fetch historical prices for a ticker from Google Apps Script API

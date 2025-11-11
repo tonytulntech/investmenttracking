@@ -5,6 +5,7 @@ import { getTransactions, calculatePortfolio } from '../services/localStorageSer
 import { fetchMultiplePrices } from '../services/priceService';
 import { calculateCashFlow } from '../services/cashFlowService';
 import { getPerformanceSummary, calculateMonthlyReturns, calculateAverageMonthlyReturn } from '../services/performanceService';
+import { getCachedPrices, cachePrices } from '../services/priceCache';
 import { format } from 'date-fns';
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
@@ -23,22 +24,9 @@ function Dashboard() {
   });
   const [portfolio, setPortfolio] = useState([]);
   const [priceCache, setPriceCache] = useState(() => {
-    // Initialize price cache from localStorage if available
-    try {
-      const saved = localStorage.getItem('price_cache');
-      if (saved) {
-        const { cache, timestamp } = JSON.parse(saved);
-        const age = Date.now() - timestamp;
-        // Use cache if less than 5 minutes old
-        if (age < 5 * 60 * 1000) {
-          console.log('💾 Loaded price cache from localStorage (age:', Math.round(age / 1000), 'seconds)');
-          return cache;
-        }
-      }
-    } catch (e) {
-      console.error('Error loading price cache:', e);
-    }
-    return {};
+    // Initialize price cache from localStorage using priceCache service
+    const cached = getCachedPrices();
+    return cached || {};
   }); // Cache of current prices by ticker
   const [allocationData, setAllocationData] = useState([]);
   const [subAllocationData, setSubAllocationData] = useState([]);
@@ -158,16 +146,9 @@ function Dashboard() {
     const newPriceCache = { ...priceCache, ...prices };
     setPriceCache(newPriceCache);
 
-    // Save to localStorage
-    try {
-      localStorage.setItem('price_cache', JSON.stringify({
-        cache: newPriceCache,
-        timestamp: Date.now()
-      }));
-      console.log('💾 Fetched and cached', Object.keys(prices).length, 'prices');
-    } catch (e) {
-      console.error('Error saving price cache:', e);
-    }
+    // Save to localStorage using priceCache service
+    cachePrices(newPriceCache);
+    console.log('💾 Fetched and cached', Object.keys(prices).length, 'prices');
 
     setRefreshing(false);
   };

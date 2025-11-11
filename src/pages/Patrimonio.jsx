@@ -504,6 +504,36 @@ function Patrimonio() {
     return data;
   }, [transactions, selectedYear, monthlyMarketValues]);
 
+  // DEBUG: Log chart data to diagnose missing line
+  useEffect(() => {
+    if (chartData.length > 0) {
+      console.log('🔍 CHART DATA DEBUG:');
+      console.log('Total periods:', chartData.length);
+      console.log('First 3 periods:', chartData.slice(0, 3).map(d => ({
+        month: d.month,
+        displayMonth: d.displayMonth,
+        cashBalance: d.cashBalance,
+        investmentsMarketValue: d.investmentsMarketValue,
+        patrimonioReale: d.patrimonioReale
+      })));
+      console.log('Last 3 periods:', chartData.slice(-3).map(d => ({
+        month: d.month,
+        displayMonth: d.displayMonth,
+        cashBalance: d.cashBalance,
+        investmentsMarketValue: d.investmentsMarketValue,
+        patrimonioReale: d.patrimonioReale
+      })));
+
+      // Check if all patrimonioReale values are 0 or undefined
+      const validValues = chartData.filter(d => d.patrimonioReale && d.patrimonioReale > 0);
+      console.log(`Valid patrimonio values: ${validValues.length}/${chartData.length}`);
+
+      if (validValues.length === 0) {
+        console.error('❌ NO VALID PATRIMONIO VALUES IN CHART DATA!');
+      }
+    }
+  }, [chartData]);
+
   // Helper function to get period display label
   const getPeriodDisplay = (period) => {
     if (selectedYear === 'all' && period.includes('-')) {

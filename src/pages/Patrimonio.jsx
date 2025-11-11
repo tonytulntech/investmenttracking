@@ -384,19 +384,29 @@ function Patrimonio() {
 
   // Prepare chart data
   const chartData = useMemo(() => {
-    // Generate periods from transactions
+    // Generate ALL periods from first transaction to today (not just months with transactions!)
     let periods = [];
     if (selectedYear === 'all') {
-      // Get all unique year-month periods from transactions
-      const periodsSet = new Set();
-      transactions.forEach(tx => {
-        if (tx.date) {
-          const txDate = parseISO(tx.date);
-          const monthKey = format(txDate, 'yyyy-MM');
-          periodsSet.add(monthKey);
+      // Get first and last date
+      const sortedTx = transactions
+        .filter(tx => tx.date)
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      if (sortedTx.length > 0) {
+        const firstDate = parseISO(sortedTx[0].date);
+        const lastDate = new Date(); // Today
+
+        // Generate ALL months from first to last
+        const periodsSet = new Set();
+        let currentMonth = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+
+        while (currentMonth <= lastDate) {
+          periodsSet.add(format(currentMonth, 'yyyy-MM'));
+          currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
         }
-      });
-      periods = Array.from(periodsSet).sort();
+
+        periods = Array.from(periodsSet).sort();
+      }
     } else {
       // Use all 12 months for single year view
       periods = MONTHS;

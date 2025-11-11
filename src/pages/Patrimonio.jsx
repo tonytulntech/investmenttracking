@@ -769,11 +769,12 @@ function Patrimonio() {
       </div>
 
       {/* Chart 1: Patrimonio Evolution (Simple Line - GetQuin style) */}
-      <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">📈 Evoluzione Patrimonio Totale</h3>
-        <p className="text-sm text-gray-600 mb-4">
-          Patrimonio totale (cash + investimenti a valore di mercato) nel tempo
-        </p>
+      {!loadingPrices && (
+        <div className="card">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">📈 Evoluzione Patrimonio Totale</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Patrimonio totale (cash + investimenti a valore di mercato) nel tempo
+          </p>
         <ResponsiveContainer width="100%" height={450}>
           <LineChart data={chartData}>
             <defs>
@@ -815,6 +816,7 @@ function Patrimonio() {
           </LineChart>
         </ResponsiveContainer>
       </div>
+      )}
 
       {/* Tables: Entrate, Uscite, Investimenti */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

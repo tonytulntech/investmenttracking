@@ -728,7 +728,7 @@ function Patrimonio() {
 
       {/* Filters */}
       <div className="card">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <Calendar className="w-4 h-4 inline mr-1" />
@@ -739,7 +739,7 @@ function Patrimonio() {
               onChange={(e) => setSelectedYear(e.target.value)}
               className="select"
             >
-              <option value="all">Dall'inizio</option>
+              <option value="all">Tutti gli anni</option>
               {availableYears.length === 0 ? (
                 <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
               ) : (
@@ -763,6 +763,21 @@ function Patrimonio() {
               {availableCategories.map(category => (
                 <option key={category} value={category}>{category}</option>
               ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <TrendingUp className="w-4 h-4 inline mr-1" />
+              Tipo Flusso
+            </label>
+            <select
+              value={selectedView}
+              onChange={(e) => setSelectedView(e.target.value)}
+              className="select"
+            >
+              <option value="all">Entrate vs Uscite</option>
+              <option value="income">Solo Entrate</option>
+              <option value="expense">Solo Uscite</option>
             </select>
           </div>
         </div>
@@ -818,8 +833,192 @@ function Patrimonio() {
       </div>
       )}
 
-      {/* Tables: Entrate, Uscite, Investimenti */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Section: Entrate vs Uscite per Categoria */}
+      <div className="card">
+        <h2 className="text-xl font-bold text-gray-900 mb-6">📊 Entrate vs Uscite per Investimenti</h2>
+
+        {/* Line Chart per Categoria */}
+        {(selectedView === 'income' || selectedView === 'all') && (
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold text-green-900 mb-4">💰 Entrate Mensili per Categoria</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-green-50">
+                    <th className="border border-green-200 py-2 px-3 text-left font-semibold text-green-900">Categoria</th>
+                    {MONTHS.map(month => (
+                      <th key={month} className="border border-green-200 py-2 px-2 text-center font-semibold text-green-900 min-w-[80px]">{month}</th>
+                    ))}
+                    <th className="border border-green-200 py-2 px-3 text-center font-bold text-green-900">TOTALE</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.keys(CATEGORY_COLORS).filter(cat => cat !== 'Totale').map(category => {
+                    const categoryData = processedData.income[category] || {};
+                    const rowTotal = MONTHS.reduce((sum, month) => sum + (categoryData[month] || 0), 0);
+
+                    if (rowTotal === 0 && selectedCategory !== 'all' && selectedCategory !== category) return null;
+
+                    return (
+                      <tr key={category} className="hover:bg-green-50">
+                        <td className="border border-gray-200 py-2 px-3 font-medium text-gray-700">{category}</td>
+                        {MONTHS.map(month => {
+                          const value = categoryData[month] || 0;
+                          return (
+                            <td key={month} className="border border-gray-200 py-2 px-2 text-right text-gray-600">
+                              {value > 0 ? `€${value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                            </td>
+                          );
+                        })}
+                        <td className="border border-gray-200 py-2 px-3 text-right font-bold text-green-700">
+                          €{rowTotal.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="bg-green-100 font-bold">
+                    <td className="border border-green-200 py-3 px-3 text-green-900">TOTALE</td>
+                    {MONTHS.map(month => {
+                      const monthTotal = Object.keys(processedData.income).reduce((sum, cat) => {
+                        return sum + (processedData.income[cat][month] || 0);
+                      }, 0);
+                      return (
+                        <td key={month} className="border border-green-200 py-3 px-2 text-right text-green-900">
+                          {monthTotal > 0 ? `€${monthTotal.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                        </td>
+                      );
+                    })}
+                    <td className="border border-green-200 py-3 px-3 text-right text-green-900">
+                      €{MONTHS.reduce((sum, month) => {
+                        return sum + Object.keys(processedData.income).reduce((catSum, cat) => {
+                          return catSum + (processedData.income[cat][month] || 0);
+                        }, 0);
+                      }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {(selectedView === 'expense' || selectedView === 'all') && (
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold text-red-900 mb-4">💸 Uscite Mensili per Categoria</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-red-50">
+                    <th className="border border-red-200 py-2 px-3 text-left font-semibold text-red-900">Categoria</th>
+                    {MONTHS.map(month => (
+                      <th key={month} className="border border-red-200 py-2 px-2 text-center font-semibold text-red-900 min-w-[80px]">{month}</th>
+                    ))}
+                    <th className="border border-red-200 py-2 px-3 text-center font-bold text-red-900">TOTALE</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.keys(CATEGORY_COLORS).filter(cat => cat !== 'Totale').map(category => {
+                    const categoryData = processedData.expense[category] || {};
+                    const rowTotal = MONTHS.reduce((sum, month) => sum + (categoryData[month] || 0), 0);
+
+                    if (rowTotal === 0 && selectedCategory !== 'all' && selectedCategory !== category) return null;
+
+                    return (
+                      <tr key={category} className="hover:bg-red-50">
+                        <td className="border border-gray-200 py-2 px-3 font-medium text-gray-700">{category}</td>
+                        {MONTHS.map(month => {
+                          const value = categoryData[month] || 0;
+                          return (
+                            <td key={month} className="border border-gray-200 py-2 px-2 text-right text-gray-600">
+                              {value > 0 ? `€${value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                            </td>
+                          );
+                        })}
+                        <td className="border border-gray-200 py-2 px-3 text-right font-bold text-red-700">
+                          €{rowTotal.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="bg-red-100 font-bold">
+                    <td className="border border-red-200 py-3 px-3 text-red-900">TOTALE</td>
+                    {MONTHS.map(month => {
+                      const monthTotal = Object.keys(processedData.expense).reduce((sum, cat) => {
+                        return sum + (processedData.expense[cat][month] || 0);
+                      }, 0);
+                      return (
+                        <td key={month} className="border border-red-200 py-3 px-2 text-right text-red-900">
+                          {monthTotal > 0 ? `€${monthTotal.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                        </td>
+                      );
+                    })}
+                    <td className="border border-red-200 py-3 px-3 text-right text-red-900">
+                      €{MONTHS.reduce((sum, month) => {
+                        return sum + Object.keys(processedData.expense).reduce((catSum, cat) => {
+                          return catSum + (processedData.expense[cat][month] || 0);
+                        }, 0);
+                      }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {selectedView === 'all' && (
+          <div>
+            <h3 className="text-lg font-semibold text-blue-900 mb-4">📊 Risultato Netto Mensile (Entrate - Uscite)</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-blue-50">
+                    <th className="border border-blue-200 py-2 px-3 text-left font-semibold text-blue-900">Periodo</th>
+                    {MONTHS.map(month => (
+                      <th key={month} className="border border-blue-200 py-2 px-2 text-center font-semibold text-blue-900 min-w-[80px]">{month}</th>
+                    ))}
+                    <th className="border border-blue-200 py-2 px-3 text-center font-bold text-blue-900">TOTALE</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="bg-blue-100 font-bold">
+                    <td className="border border-blue-200 py-3 px-3 text-blue-900">RISULTATO NETTO</td>
+                    {MONTHS.map(month => {
+                      const income = Object.keys(processedData.income).reduce((sum, cat) => {
+                        return sum + (processedData.income[cat][month] || 0);
+                      }, 0);
+                      const expense = Object.keys(processedData.expense).reduce((sum, cat) => {
+                        return sum + (processedData.expense[cat][month] || 0);
+                      }, 0);
+                      const net = income - expense;
+                      const textColor = net >= 0 ? 'text-green-700' : 'text-red-700';
+                      return (
+                        <td key={month} className={`border border-blue-200 py-3 px-2 text-right font-bold ${textColor}`}>
+                          {net !== 0 ? `€${net.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                        </td>
+                      );
+                    })}
+                    <td className="border border-blue-200 py-3 px-3 text-right text-blue-900">
+                      €{MONTHS.reduce((sum, month) => {
+                        const income = Object.keys(processedData.income).reduce((catSum, cat) => {
+                          return catSum + (processedData.income[cat][month] || 0);
+                        }, 0);
+                        const expense = Object.keys(processedData.expense).reduce((catSum, cat) => {
+                          return catSum + (processedData.expense[cat][month] || 0);
+                        }, 0);
+                        return sum + (income - expense);
+                      }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Old tables removed */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 hidden">
         {/* Tabella Entrate */}
         <div className="card">
           <h3 className="text-lg font-semibold text-green-900 mb-4 flex items-center gap-2">

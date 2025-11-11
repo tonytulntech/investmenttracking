@@ -584,23 +584,18 @@ function Patrimonio() {
         </div>
       </div>
 
-      {/* Chart 1: Patrimonio Evolution (GetQuin style) */}
+      {/* Chart 1: Patrimonio Evolution (Simple Line - GetQuin style) */}
       <div className="card">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">📈 Evoluzione Patrimonio Totale</h3>
-        <ResponsiveContainer width="100%" height={400}>
-          <AreaChart data={chartData}>
+        <p className="text-sm text-gray-600 mb-4">
+          Patrimonio totale (cash + investimenti a valore di mercato) nel tempo
+        </p>
+        <ResponsiveContainer width="100%" height={450}>
+          <LineChart data={chartData}>
             <defs>
-              <linearGradient id="colorPatrimonio" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+              <linearGradient id="patrimonioGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2}/>
                 <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.05}/>
-              </linearGradient>
-              <linearGradient id="colorInvestments" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.05}/>
-              </linearGradient>
-              <linearGradient id="colorCash" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0.05}/>
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -615,41 +610,25 @@ function Patrimonio() {
             <YAxis
               stroke="#6b7280"
               style={{ fontSize: '12px' }}
-              tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
+              tickFormatter={(value) => `€${(value / 1000).toFixed(1)}k`}
             />
             <Tooltip
               formatter={(value) => `€${value.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`}
               contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+              labelStyle={{ fontWeight: 'bold', marginBottom: '8px' }}
             />
             <Legend />
             <Area
               type="monotone"
-              dataKey="cashBalance"
-              name="Liquidità"
-              stroke="#10b981"
-              strokeWidth={2}
-              fill="url(#colorCash)"
-              fillOpacity={1}
-            />
-            <Area
-              type="monotone"
-              dataKey="investmentsMarketValue"
-              name="Investimenti (Mercato)"
-              stroke="#3b82f6"
-              strokeWidth={2}
-              fill="url(#colorInvestments)"
-              fillOpacity={1}
-              stackId="1"
-            />
-            <Line
-              type="monotone"
               dataKey="patrimonioReale"
               name="Patrimonio Totale"
               stroke="#8b5cf6"
-              strokeWidth={4}
-              dot={{ r: 5, fill: '#8b5cf6' }}
+              strokeWidth={3}
+              fill="url(#patrimonioGradient)"
+              dot={{ r: 4, fill: '#8b5cf6', strokeWidth: 2, stroke: '#fff' }}
+              activeDot={{ r: 6 }}
             />
-          </AreaChart>
+          </LineChart>
         </ResponsiveContainer>
       </div>
 

@@ -2,8 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Calendar } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getTransactions } from '../services/localStorageService';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, endOfMonth, isAfter } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { fetchMultipleHistoricalPrices, buildMonthlyPriceTable } from '../services/historicalPriceService';
+import { getCachedPrices } from '../services/priceCache';
 
 const MONTHS = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
 const MONTH_NUMBERS = {
@@ -32,6 +34,8 @@ function Patrimonio() {
   const [selectedView, setSelectedView] = useState('all'); // 'income', 'expense', 'investments', 'all'
   const [selectedCategory, setSelectedCategory] = useState('all'); // 'all' or specific category
   const [transactions, setTransactions] = useState([]);
+  const [loadingPrices, setLoadingPrices] = useState(true);
+  const [monthlyMarketValues, setMonthlyMarketValues] = useState({}); // { '2021-01': 1000, '2021-02': 1100, ... }
 
   useEffect(() => {
     loadTransactions();
@@ -40,6 +44,145 @@ function Patrimonio() {
   const loadTransactions = () => {
     const data = getTransactions();
     setTransactions(data);
+  };
+
+  // Calculate monthly market values for investments
+  useEffect(() => {
+    if (transactions.length === 0) {
+      setLoadingPrices(false);
+      return;
+    }
+
+    calculateMonthlyMarketValues();
+  }, [transactions]);
+
+  const calculateMonthlyMarketValues = async () => {
+    setLoadingPrices(true);
+
+    try {
+      // Filter only asset transactions (exclude Cash)
+      const assetTransactions = transactions.filter(tx => {
+        const isCash = tx.isCash || tx.macroCategory === 'Cash';
+        return !isCash;
+      });
+
+      if (assetTransactions.length === 0) {
+        setMonthlyMarketValues({});
+        setLoadingPrices(false);
+        return;
+      }
+
+      // Get date range
+      const sortedTx = assetTransactions
+        .filter(tx => tx.date)
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      const firstDate = parseISO(sortedTx[0].date);
+      const lastDate = new Date(); // Include current month
+
+      // Get unique tickers
+      const tickers = [...new Set(assetTransactions.map(tx => tx.ticker))];
+
+      // Fetch historical prices
+      const historicalPricesMap = await fetchMultipleHistoricalPrices(
+        tickers,
+        format(firstDate, 'yyyy-MM-dd'),
+        format(lastDate, 'yyyy-MM-dd')
+      );
+
+      // Build monthly price tables
+      const priceTables = {};
+      tickers.forEach(ticker => {
+        priceTables[ticker] = buildMonthlyPriceTable(historicalPricesMap[ticker] || []);
+      });
+
+      // Get current prices from cache for recent months
+      const currentPrices = getCachedPrices() || {};
+
+      // Calculate market value for each month
+      const marketValues = {};
+
+      // Get all unique year-month periods from transactions
+      const periods = new Set();
+      assetTransactions.forEach(tx => {
+        const txDate = parseISO(tx.date);
+        const monthKey = format(txDate, 'yyyy-MM');
+        periods.add(monthKey);
+      });
+
+      // Also add months from firstDate to today
+      let currentMonth = firstDate;
+      while (currentMonth <= lastDate) {
+        periods.add(format(currentMonth, 'yyyy-MM'));
+        currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+      }
+
+      // Calculate holdings and market value for each month
+      const sortedPeriods = Array.from(periods).sort();
+
+      sortedPeriods.forEach(monthKey => {
+        const monthDate = parseISO(`${monthKey}-01`);
+        const monthEnd = endOfMonth(monthDate);
+
+        // Get all transactions up to this month
+        const txUpToMonth = assetTransactions.filter(tx => {
+          const txDate = parseISO(tx.date);
+          return !isAfter(txDate, monthEnd);
+        });
+
+        // Calculate holdings
+        const holdings = {};
+        txUpToMonth.forEach(tx => {
+          if (!holdings[tx.ticker]) {
+            holdings[tx.ticker] = { quantity: 0 };
+          }
+
+          if (tx.type === 'buy') {
+            holdings[tx.ticker].quantity += tx.quantity;
+          } else if (tx.type === 'sell') {
+            holdings[tx.ticker].quantity -= tx.quantity;
+          }
+        });
+
+        // Calculate market value
+        let totalValue = 0;
+        Object.entries(holdings).forEach(([ticker, holding]) => {
+          if (holding.quantity > 0) {
+            const priceTable = priceTables[ticker] || {};
+            let price = priceTable[monthKey];
+
+            // Fallback to last known price
+            if (!price && Object.keys(priceTable).length > 0) {
+              const availableMonths = Object.keys(priceTable).sort().reverse();
+              for (const availableMonth of availableMonths) {
+                if (availableMonth <= monthKey) {
+                  price = priceTable[availableMonth];
+                  break;
+                }
+              }
+            }
+
+            // Fallback to current price for recent months
+            if (!price && currentPrices[ticker]) {
+              price = currentPrices[ticker];
+            }
+
+            if (price) {
+              totalValue += holding.quantity * price;
+            }
+          }
+        });
+
+        marketValues[monthKey] = totalValue;
+      });
+
+      setMonthlyMarketValues(marketValues);
+      setLoadingPrices(false);
+      console.log('📊 Monthly market values calculated:', marketValues);
+    } catch (error) {
+      console.error('Error calculating market values:', error);
+      setLoadingPrices(false);
+    }
   };
 
   // Get available years from transactions
@@ -203,16 +346,35 @@ function Patrimonio() {
       point.cumulativeIncome = cumulativeIncome;
       point.cumulativeExpense = cumulativeExpense;
       point.cumulativeInvestments = cumulativeInvestments;
-      // Cumulative cash balance = Income - Expense (not subtracting investments!)
-      point.cumulativeCash = cumulativeIncome - cumulativeExpense;
-      // Total patrimonio (simplified) = Cash + Investments at cost
-      point.patrimonio = point.cumulativeCash + cumulativeInvestments;
+
+      // Calculate cash balance = Income - Expense - Investments
+      // (this is the actual cash remaining, since investments consume cash)
+      point.cashBalance = cumulativeIncome - cumulativeExpense - cumulativeInvestments;
+
+      // Get market value of investments for this period
+      // For single-year view, we need to construct the full monthKey
+      let monthKey = period;
+      if (selectedYear !== 'all') {
+        // period is just 'gen', 'feb', etc. - need to add year
+        const monthIndex = MONTHS.indexOf(period);
+        if (monthIndex >= 0) {
+          const year = parseInt(selectedYear);
+          const monthNum = String(monthIndex + 1).padStart(2, '0');
+          monthKey = `${year}-${monthNum}`;
+        }
+      }
+
+      const marketValue = monthlyMarketValues[monthKey] || 0;
+      point.investmentsMarketValue = marketValue;
+
+      // Total patrimonio REALE = Cash Balance + Market Value of Investments
+      point.patrimonioReale = point.cashBalance + marketValue;
 
       return point;
     });
 
     return data;
-  }, [processedData, selectedYear]);
+  }, [processedData, selectedYear, monthlyMarketValues]);
 
   // Helper function to get period display label
   const getPeriodDisplay = (period) => {
@@ -260,15 +422,100 @@ function Patrimonio() {
     return totals;
   }, [processedData, periods]);
 
+  // Calculate current values (latest month)
+  const currentValues = useMemo(() => {
+    if (chartData.length === 0) {
+      return {
+        invested: 0,
+        cash: 0,
+        marketValue: 0,
+        patrimonio: 0,
+        gain: 0,
+        gainPercent: 0
+      };
+    }
+
+    const latest = chartData[chartData.length - 1];
+    const invested = latest.cumulativeInvestments || 0;
+    const cash = latest.cashBalance || 0;
+    const marketValue = latest.investmentsMarketValue || 0;
+    const patrimonio = latest.patrimonioReale || 0;
+    const gain = marketValue - invested;
+    const gainPercent = invested > 0 ? (gain / invested) * 100 : 0;
+
+    return {
+      invested,
+      cash,
+      marketValue,
+      patrimonio,
+      gain,
+      gainPercent
+    };
+  }, [chartData]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="page-title">Entrate vs Uscite per Investimenti</h1>
-          <p className="text-gray-600 mt-1">Analisi mensile dei flussi di cassa per categoria</p>
+          <h1 className="page-title">Patrimonio & Flussi di Cassa</h1>
+          <p className="text-gray-600 mt-1">
+            Analisi patrimonio totale reale e flussi mensili di entrate/uscite/investimenti
+          </p>
         </div>
       </div>
+
+      {/* Current Values Summary */}
+      {!loadingPrices && chartData.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="card bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-purple-700">Patrimonio Totale</span>
+              <span className="text-2xl font-bold text-purple-900 mt-1">
+                €{currentValues.patrimonio.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+          <div className="card bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-blue-700">Investimenti (Mercato)</span>
+              <span className="text-2xl font-bold text-blue-900 mt-1">
+                €{currentValues.marketValue.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+              </span>
+              <span className={`text-xs mt-1 ${currentValues.gain >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {currentValues.gain >= 0 ? '+' : ''}€{currentValues.gain.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                {' '}({currentValues.gainPercent >= 0 ? '+' : ''}{currentValues.gainPercent.toFixed(2)}%)
+              </span>
+            </div>
+          </div>
+          <div className="card bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-green-700">Liquidità Disponibile</span>
+              <span className="text-2xl font-bold text-green-900 mt-1">
+                €{currentValues.cash.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+          <div className="card bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200">
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-gray-700">Totale Investito (Costo)</span>
+              <span className="text-2xl font-bold text-gray-900 mt-1">
+                €{currentValues.invested.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Loading indicator */}
+      {loadingPrices && (
+        <div className="card bg-blue-50 border border-blue-200">
+          <div className="flex items-center gap-3">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+            <p className="text-blue-800">Caricamento prezzi storici per calcolo patrimonio reale...</p>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="card">
@@ -388,17 +635,26 @@ function Patrimonio() {
               <>
                 <Line
                   type="monotone"
-                  dataKey="net"
-                  name="Risultato Netto (Entrate - Uscite)"
-                  stroke="#1f2937"
+                  dataKey="cashBalance"
+                  name="Liquidità Disponibile"
+                  stroke="#10b981"
                   strokeWidth={2}
                   dot={{ r: 3 }}
-                  strokeDasharray="5 5"
+                  strokeDasharray="3 3"
                 />
                 <Line
                   type="monotone"
-                  dataKey="patrimonio"
-                  name="Patrimonio Totale (Cash + Investimenti)"
+                  dataKey="investmentsMarketValue"
+                  name="Valore Investimenti (Mercato)"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                  strokeDasharray="3 3"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="patrimonioReale"
+                  name="Patrimonio Totale Reale"
                   stroke="#8b5cf6"
                   strokeWidth={4}
                   dot={{ r: 5 }}

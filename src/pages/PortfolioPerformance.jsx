@@ -115,13 +115,7 @@ function PortfolioPerformance() {
 
         // DEBUG: Log price table for first ticker to see what we have
         if (ticker === 'ACWIA.MI') {
-          console.log(`📊 Price table for ${ticker}:`, {
-            '2021-01': table['2021-01'],
-            '2021-02': table['2021-02'],
-            '2025-10': table['2025-10'],
-            '2025-11': table['2025-11'],
-            totalMonths: Object.keys(table).length
-          });
+          console.log(`📊 Price table for ${ticker}: 2021-01=${table['2021-01']}, 2021-02=${table['2021-02']}, 2025-10=${table['2025-10']}, 2025-11=${table['2025-11']}, totalMonths=${Object.keys(table).length}`);
         }
       });
 
@@ -202,15 +196,7 @@ function PortfolioPerformance() {
 
             // DEBUG: Log problematic months (first month and current month)
             if (monthKey === '2021-02' || monthKey === '2025-11') {
-              console.log(`🔍 DEBUG ${monthKey} - ${holding.ticker}:`, {
-                historicalPrice,
-                currentPrice,
-                avgCost,
-                finalPrice: price,
-                usedFallback: !historicalPrice,
-                quantity: holding.quantity,
-                value
-              });
+              console.log(`🔍 DEBUG ${monthKey} - ${holding.ticker}: historicalPrice=${historicalPrice}, currentPrice=${currentPrice}, avgCost=${avgCost.toFixed(2)}, finalPrice=${price.toFixed(2)}, usedFallback=${!historicalPrice}, quantity=${holding.quantity}, value=${value.toFixed(2)}`);
             }
 
             totalValue += value;
@@ -276,14 +262,7 @@ function PortfolioPerformance() {
 
             // DEBUG: Log problematic months
             if (currMonth.monthKey === '2021-02' || currMonth.monthKey === '2025-11') {
-              console.log(`🔍 RETURN CALC ${currMonth.monthKey}:`, {
-                prevTotal: prevMonth.total,
-                currTotal: currMonth.total,
-                netCashFlow,
-                monthReturn,
-                monthReturnPercent: monthReturnPercent.toFixed(2) + '%',
-                formula: `(${currMonth.total} - ${prevMonth.total} - ${netCashFlow}) / ${prevMonth.total} = ${monthReturnPercent.toFixed(2)}%`
-              });
+              console.log(`🔍 RETURN CALC ${currMonth.monthKey}: prevTotal=${prevMonth.total.toFixed(2)}, currTotal=${currMonth.total.toFixed(2)}, netCashFlow=${netCashFlow.toFixed(2)}, monthReturn=${monthReturn.toFixed(2)}, monthReturnPercent=${monthReturnPercent.toFixed(2)}%, formula: (${currMonth.total.toFixed(2)} - ${prevMonth.total.toFixed(2)} - ${netCashFlow.toFixed(2)}) / ${prevMonth.total.toFixed(2)} = ${monthReturnPercent.toFixed(2)}%`);
             }
 
             calculatedMonthlyReturns.push({

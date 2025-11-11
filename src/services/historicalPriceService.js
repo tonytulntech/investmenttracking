@@ -1,8 +1,9 @@
 /**
  * Historical Price Service
  *
- * Fetches historical prices from Google Apps Script API
+ * Fetches historical prices and current prices from Google Apps Script API
  * Supports monthly historical data for accurate performance calculations
+ * Also provides current price fetching as primary method (faster and more reliable than CORS proxies)
  */
 
 // HARDCODED Google Apps Script URL
@@ -152,9 +153,104 @@ export function buildMonthlyPriceTable(historicalPrices) {
   return table;
 }
 
+/**
+ * Fetch CURRENT price for a ticker from Google Apps Script API
+ * This is faster and more reliable than using CORS proxies
+ *
+ * @param {string} ticker - Ticker symbol (e.g., 'ACWIA.MI', 'VWCE.DE')
+ * @returns {Promise<Object|null>} Price data or null if failed
+ */
+export async function fetchCurrentPrice(ticker) {
+  try {
+    // Request without date range to get only current price
+    const url = `${GOOGLE_APPS_SCRIPT_URL}?ticker=${encodeURIComponent(ticker)}&current=true`;
+
+    console.log(`💰 Fetching current price for ${ticker} via Google Apps Script`);
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      console.error(`API request failed: ${response.status} ${response.statusText}`);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      console.error(`❌ API returned error for ${ticker}:`, data.error);
+      return null;
+    }
+
+    // Check for current price in response
+    if (data.currentPrice) {
+      console.log(`✅ Current price for ${ticker}: ${data.currentPrice}`);
+      return {
+        ticker,
+        price: data.currentPrice,
+        timestamp: new Date().toISOString(),
+        source: 'google-apps-script'
+      };
+    }
+
+    // Fallback: use most recent historical price if available
+    if (data.historicalPrices && data.historicalPrices.length > 0) {
+      const mostRecent = data.historicalPrices[data.historicalPrices.length - 1];
+      console.log(`✅ Using most recent price for ${ticker}: ${mostRecent.price}`);
+      return {
+        ticker,
+        price: mostRecent.price,
+        timestamp: new Date().toISOString(),
+        source: 'google-apps-script'
+      };
+    }
+
+    console.error(`❌ No price data found for ${ticker}`);
+    return null;
+
+  } catch (error) {
+    console.error(`❌ Error fetching current price for ${ticker}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Fetch current prices for multiple tickers using Google Apps Script
+ * @param {Array<string>} tickers - Array of ticker symbols
+ * @returns {Promise<Object>} Object mapping ticker to price data
+ */
+export async function fetchMultipleCurrentPrices(tickers) {
+  try {
+    console.log(`💰 Fetching current prices for ${tickers.length} tickers via Google Apps Script`);
+
+    const promises = tickers.map(ticker =>
+      fetchCurrentPrice(ticker)
+        .then(priceData => ({ ticker, priceData }))
+    );
+
+    const results = await Promise.all(promises);
+
+    const pricesMap = {};
+    results.forEach(({ ticker, priceData }) => {
+      if (priceData) {
+        pricesMap[ticker] = priceData;
+      }
+    });
+
+    console.log(`✅ Fetched ${Object.keys(pricesMap).length}/${tickers.length} current prices`);
+
+    return pricesMap;
+
+  } catch (error) {
+    console.error('Error fetching multiple current prices:', error);
+    return {};
+  }
+}
+
 export default {
   fetchHistoricalPrices,
   fetchMultipleHistoricalPrices,
   getPriceForMonth,
-  buildMonthlyPriceTable
+  buildMonthlyPriceTable,
+  fetchCurrentPrice,
+  fetchMultipleCurrentPrices
 };

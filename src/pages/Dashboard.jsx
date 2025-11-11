@@ -125,8 +125,8 @@ function Dashboard() {
     }
   };
 
-  const fetchLatestPrices = async () => {
-    console.log('🔄 Fetching latest prices...');
+  const fetchLatestPrices = async (forceRefresh = false) => {
+    console.log('🔄 Fetching latest prices...', forceRefresh ? '(FORCED)' : '(auto)');
     setRefreshing(true);
 
     // Get all unique tickers from transactions
@@ -151,8 +151,8 @@ function Dashboard() {
       return;
     }
 
-    // Fetch prices
-    const prices = await fetchMultiplePrices(tickers, categoriesMap);
+    // Fetch prices (forceRefresh bypasses cache)
+    const prices = await fetchMultiplePrices(tickers, categoriesMap, forceRefresh);
 
     // Update price cache
     const newPriceCache = { ...priceCache, ...prices };
@@ -574,6 +574,24 @@ function Dashboard() {
               <strong>Aggiornamento automatico:</strong> I prezzi si aggiornano automaticamente ogni 5 minuti.
             </p>
           </div>
+        </div>
+
+        {/* Manual Refresh Button */}
+        <div>
+          <button
+            onClick={() => {
+              setRefreshing(true);
+              fetchLatestPrices(true); // Force refresh
+            }}
+            disabled={refreshing}
+            className={`btn-primary flex items-center gap-2 ${refreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Aggiornamento...' : 'Aggiorna Prezzi'}
+          </button>
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            Forza l'aggiornamento immediato
+          </p>
         </div>
       </div>
 

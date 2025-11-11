@@ -1,10 +1,14 @@
 /**
  * Price Service
- * Fetches real-time prices from Yahoo Finance and other sources
+ * Fetches real-time prices from multiple sources:
+ * 1. Google Apps Script (primary, most reliable)
+ * 2. Yahoo Finance via CORS proxy (fallback)
+ * 3. CoinGecko for crypto (fallback)
  */
 
 import axios from 'axios';
 import { getCachedPrices, cachePrices } from './priceCache';
+import { fetchMultipleCurrentPrices } from './historicalPriceService';
 
 // CORS proxy options
 const CORS_PROXIES = [
@@ -169,6 +173,11 @@ export const fetchPrice = async (ticker, category = null) => {
 
 /**
  * Fetch prices for multiple tickers in parallel
+ * Strategy:
+ * 1. Check cache first (unless force refresh)
+ * 2. Try Google Apps Script (primary, most reliable)
+ * 3. Fall back to CORS proxy for any failures
+ *
  * @param {Array} tickers - Array of ticker symbols
  * @param {Object} categoriesMap - Map of ticker to category (optional)
  * @param {boolean} forceRefresh - Force refresh bypassing cache (default: false)
@@ -200,24 +209,42 @@ export const fetchMultiplePrices = async (tickers, categoriesMap = {}, forceRefr
     // Fetch fresh prices
     const uniqueTickers = [...new Set(tickers)];
 
-    const promises = uniqueTickers.map(ticker =>
-      fetchPrice(ticker, categoriesMap[ticker])
-        .catch(err => ({
-          ticker,
-          error: err.message,
-          price: null
-        }))
-    );
+    console.log('🔄 Fetching prices - Strategy: Google Apps Script → CORS Proxy fallback');
 
-    const results = await Promise.all(promises);
+    // Step 1: Try Google Apps Script first (primary source)
+    console.log('📡 Step 1: Trying Google Apps Script for all tickers...');
+    const googlePrices = await fetchMultipleCurrentPrices(uniqueTickers);
 
-    // Convert array to object for easy lookup
-    const pricesMap = {};
-    results.forEach(result => {
-      if (result) {
-        pricesMap[result.ticker] = result;
-      }
-    });
+    // Check which tickers failed
+    const failedTickers = uniqueTickers.filter(ticker => !googlePrices[ticker]);
+
+    let pricesMap = { ...googlePrices };
+
+    // Step 2: Retry failed tickers with CORS proxy (fallback)
+    if (failedTickers.length > 0) {
+      console.log(`⚠️ ${failedTickers.length} tickers failed. Trying CORS proxy fallback...`);
+      console.log('Failed tickers:', failedTickers);
+
+      const fallbackPromises = failedTickers.map(ticker =>
+        fetchPrice(ticker, categoriesMap[ticker])
+          .catch(err => ({
+            ticker,
+            error: err.message,
+            price: null
+          }))
+      );
+
+      const fallbackResults = await Promise.all(fallbackPromises);
+
+      fallbackResults.forEach(result => {
+        if (result && result.price) {
+          pricesMap[result.ticker] = result;
+        }
+      });
+    }
+
+    const successCount = Object.keys(pricesMap).length;
+    console.log(`✅ Successfully fetched ${successCount}/${uniqueTickers.length} prices`);
 
     // Cache the results
     cachePrices(pricesMap);

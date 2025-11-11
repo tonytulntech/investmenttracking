@@ -329,7 +329,7 @@ function Transactions() {
       {/* Filters */}
       <div className="card">
         <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
+          <div className="flex-[3] relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
@@ -342,7 +342,7 @@ function Transactions() {
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="select min-w-[150px]"
+            className="select w-32 sm:w-36"
           >
             <option value="all">Tutti i tipi</option>
             <option value="buy">Acquisto</option>
@@ -351,7 +351,7 @@ function Transactions() {
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="select min-w-[150px]"
+            className="select w-32 sm:w-40"
           >
             <option value="all">Tutte le categorie</option>
             {getMacroAssetClasses().map(category => (

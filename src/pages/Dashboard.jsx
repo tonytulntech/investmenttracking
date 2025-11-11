@@ -297,19 +297,20 @@ function Dashboard() {
 
     console.log('🔍 Filtered portfolio:', filteredPortfolio.length, 'holdings');
 
-    // 7. Calculate stats
-    const totalValue = filteredPortfolio.reduce((sum, p) => sum + p.marketValue, 0);
-    const totalCost = filteredPortfolio.reduce((sum, p) => sum + p.totalCost, 0);
+    // 7. Calculate stats for INVESTED ASSETS ONLY (exclude CASH)
+    const investedAssets = filteredPortfolio.filter(p => !p.isCash);
+    const totalValue = investedAssets.reduce((sum, p) => sum + p.marketValue, 0);
+    const totalCost = investedAssets.reduce((sum, p) => sum + p.totalCost, 0);
     const totalPL = totalValue - totalCost;
     const totalPLPercent = totalCost > 0 ? (totalPL / totalCost) * 100 : 0;
-    const dayChange = filteredPortfolio.reduce((sum, p) => sum + (p.dayChange * p.quantity), 0);
+    const dayChange = investedAssets.reduce((sum, p) => sum + (p.dayChange * p.quantity), 0);
     const dayChangePercent = totalValue > 0 ? (dayChange / (totalValue - dayChange)) * 100 : 0;
 
-    console.log('💵 Total Value:', totalValue, 'Total Cost:', totalCost, 'P/L:', totalPL);
+    console.log('💵 Total Value (invested only):', totalValue, 'Total Cost:', totalCost, 'P/L:', totalPL);
 
     // 8. Calculate allocation (exclude Cash)
-    const investablePortfolio = filteredPortfolio.filter(p => !p.isCash);
-    const investableValue = investablePortfolio.reduce((sum, p) => sum + p.marketValue, 0);
+    const investablePortfolio = investedAssets; // Use the same filtered list
+    const investableValue = totalValue; // Same as totalValue now
 
     const categoryTotals = investablePortfolio.reduce((acc, p) => {
       acc[p.macroCategory] = (acc[p.macroCategory] || 0) + p.marketValue;
@@ -367,7 +368,7 @@ function Dashboard() {
 
     return {
       portfolio: filteredPortfolio,
-      stats: { totalValue, totalCost, totalPL, totalPLPercent, dayChange, dayChangePercent, assetsCount: filteredPortfolio.length },
+      stats: { totalValue, totalCost, totalPL, totalPLPercent, dayChange, dayChangePercent, assetsCount: investedAssets.length },
       allocation,
       subAllocation,
       performanceData,

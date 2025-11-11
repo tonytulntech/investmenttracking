@@ -110,12 +110,24 @@ function PortfolioPerformance() {
       // Build monthly price tables for quick lookup
       const priceTables = {};
       tickers.forEach(ticker => {
-        priceTables[ticker] = buildMonthlyPriceTable(historicalPricesMap[ticker] || []);
+        const table = buildMonthlyPriceTable(historicalPricesMap[ticker] || []);
+        priceTables[ticker] = table;
+
+        // DEBUG: Log price table for first ticker to see what we have
+        if (ticker === 'ACWIA.MI') {
+          console.log(`📊 Price table for ${ticker}:`, {
+            '2021-01': table['2021-01'],
+            '2021-02': table['2021-02'],
+            '2025-10': table['2025-10'],
+            '2025-11': table['2025-11'],
+            totalMonths: Object.keys(table).length
+          });
+        }
       });
 
       // Get current prices from cache to use as fallback for recent months
       const currentPrices = getCachedPrices() || {};
-      console.log(`💰 Loaded ${Object.keys(currentPrices).length} current prices from cache`);
+      console.log(`💰 Loaded ${Object.keys(currentPrices).length} current prices from cache`, currentPrices);
 
       console.log(`✅ Historical prices fetched. Building monthly portfolio values...`);
 
@@ -183,9 +195,23 @@ function PortfolioPerformance() {
             // 1. Use historical price if available
             // 2. Use current price from cache (for recent months)
             // 3. Last resort: use average cost
-            const currentPrice = currentPrices[holding.ticker];
-            const price = historicalPrice || currentPrice || (holding.totalCost / holding.quantity);
+            const currentPrice = currentPrices[holding.ticker]?.price;
+            const avgCost = holding.totalCost / holding.quantity;
+            const price = historicalPrice || currentPrice || avgCost;
             const value = holding.quantity * price;
+
+            // DEBUG: Log problematic months (first month and current month)
+            if (monthKey === '2021-02' || monthKey === '2025-11') {
+              console.log(`🔍 DEBUG ${monthKey} - ${holding.ticker}:`, {
+                historicalPrice,
+                currentPrice,
+                avgCost,
+                finalPrice: price,
+                usedFallback: !historicalPrice,
+                quantity: holding.quantity,
+                value
+              });
+            }
 
             totalValue += value;
 
@@ -247,6 +273,18 @@ function PortfolioPerformance() {
           if (prevMonth.total > 0) {
             const monthReturn = currMonth.total - prevMonth.total - netCashFlow;
             const monthReturnPercent = (monthReturn / prevMonth.total) * 100;
+
+            // DEBUG: Log problematic months
+            if (currMonth.monthKey === '2021-02' || currMonth.monthKey === '2025-11') {
+              console.log(`🔍 RETURN CALC ${currMonth.monthKey}:`, {
+                prevTotal: prevMonth.total,
+                currTotal: currMonth.total,
+                netCashFlow,
+                monthReturn,
+                monthReturnPercent: monthReturnPercent.toFixed(2) + '%',
+                formula: `(${currMonth.total} - ${prevMonth.total} - ${netCashFlow}) / ${prevMonth.total} = ${monthReturnPercent.toFixed(2)}%`
+              });
+            }
 
             calculatedMonthlyReturns.push({
               month: currMonth.month,

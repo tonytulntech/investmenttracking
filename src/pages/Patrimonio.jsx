@@ -595,7 +595,12 @@ function Patrimonio() {
       patrimonio,
       gain,
       gainPercent,
-      chartDataLength: chartData.length
+      chartDataLength: chartData.length,
+      latestPeriod: latest.month,
+      latestDisplayMonth: latest.displayMonth,
+      latestCashBalance: latest.cashBalance,
+      latestMarketValue: latest.investmentsMarketValue,
+      latestPatrimonio: latest.patrimonioReale
     });
 
     return {

@@ -384,12 +384,29 @@ function Patrimonio() {
 
   // Prepare chart data
   const chartData = useMemo(() => {
-    // Use periods from processedData (either year-month or just month)
-    const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+    // Generate periods from transactions
+    let periods = [];
+    if (selectedYear === 'all') {
+      // Get all unique year-month periods from transactions
+      const periodsSet = new Set();
+      transactions.forEach(tx => {
+        if (tx.date) {
+          const txDate = parseISO(tx.date);
+          const monthKey = format(txDate, 'yyyy-MM');
+          periodsSet.add(monthKey);
+        }
+      });
+      periods = Array.from(periodsSet).sort();
+    } else {
+      // Use all 12 months for single year view
+      periods = MONTHS;
+    }
 
-    let cumulativeIncome = 0;
-    let cumulativeExpense = 0;
-    let cumulativeInvestments = 0;
+    // Calculate cumulative cash flow using DASHBOARD logic
+    let cumulativeCashDeposits = 0;
+    let cumulativeCashWithdrawals = 0;
+    let cumulativeAssetPurchases = 0;
+    let cumulativeAssetSales = 0;
 
     const data = periods.map(period => {
       // Create display label for period
@@ -406,38 +423,51 @@ function Patrimonio() {
         displayMonth: displayLabel
       };
 
-      let totalIncome = 0;
-      let totalExpense = 0;
-      let totalInvestments = 0;
+      // Get transactions for this period
+      const periodStart = selectedYear === 'all' ? parseISO(`${period}-01`) : parseISO(`${selectedYear}-${String(MONTHS.indexOf(period) + 1).padStart(2, '0')}-01`);
+      const periodEnd = endOfMonth(periodStart);
 
-      Object.keys(processedData.income).forEach(category => {
-        const incomeValue = processedData.income[category][period] || 0;
-        const expenseValue = processedData.expense[category][period] || 0;
-        const investmentValue = processedData.investments[category][period] || 0;
-
-        totalIncome += incomeValue;
-        totalExpense += expenseValue;
-        totalInvestments += investmentValue;
+      const periodTransactions = transactions.filter(tx => {
+        if (!tx.date) return false;
+        const txDate = parseISO(tx.date);
+        return txDate >= periodStart && txDate <= periodEnd;
       });
 
-      point.totalIncome = totalIncome;
-      point.totalExpense = totalExpense;
-      point.totalInvestments = totalInvestments;
-      // Net Patrimonio = Income - Expense (investments don't reduce net worth!)
-      point.net = totalIncome - totalExpense;
+      // Calculate flows for this period using DASHBOARD logic
+      let cashDeposits = 0, cashWithdrawals = 0, assetPurchases = 0, assetSales = 0;
 
-      // Calculate cumulative values (for "Dall'inizio" view)
-      cumulativeIncome += totalIncome;
-      cumulativeExpense += totalExpense;
-      cumulativeInvestments += totalInvestments;
+      periodTransactions.forEach(tx => {
+        const amount = tx.quantity * tx.price;
+        const commission = tx.commission || 0;
+        const isCash = tx.isCash || tx.macroCategory === 'Cash';
 
-      point.cumulativeIncome = cumulativeIncome;
-      point.cumulativeExpense = cumulativeExpense;
-      point.cumulativeInvestments = cumulativeInvestments;
+        if (isCash) {
+          if (tx.type === 'buy') cashDeposits += amount;
+          else if (tx.type === 'sell') cashWithdrawals += amount;
+        } else {
+          if (tx.type === 'buy') assetPurchases += (amount + commission);
+          else if (tx.type === 'sell') assetSales += (amount - commission);
+        }
+      });
 
-      // Calculate cash balance = Income - Expense - Investments
-      // (this is the actual cash remaining, since investments consume cash)
-      point.cashBalance = cumulativeIncome - cumulativeExpense - cumulativeInvestments;
+      // Update cumulative values
+      cumulativeCashDeposits += cashDeposits;
+      cumulativeCashWithdrawals += cashWithdrawals;
+      cumulativeAssetPurchases += assetPurchases;
+      cumulativeAssetSales += assetSales;
+
+      // Store monthly values for bar chart
+      point.totalIncome = cashDeposits + assetSales;
+      point.totalExpense = cashWithdrawals;
+      point.totalInvestments = assetPurchases;
+
+      // Store cumulative values
+      point.cumulativeIncome = cumulativeCashDeposits + cumulativeAssetSales;
+      point.cumulativeExpense = cumulativeCashWithdrawals;
+      point.cumulativeInvestments = cumulativeAssetPurchases;
+
+      // Calculate cash balance using DASHBOARD formula
+      point.cashBalance = cumulativeCashDeposits - cumulativeCashWithdrawals - cumulativeAssetPurchases + cumulativeAssetSales;
 
       // Get market value of investments for this period
       // For single-year view, we need to construct the full monthKey
@@ -462,7 +492,7 @@ function Patrimonio() {
     });
 
     return data;
-  }, [processedData, selectedYear, monthlyMarketValues]);
+  }, [transactions, selectedYear, monthlyMarketValues]);
 
   // Helper function to get period display label
   const getPeriodDisplay = (period) => {

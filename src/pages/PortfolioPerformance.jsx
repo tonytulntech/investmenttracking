@@ -278,10 +278,12 @@ function PortfolioPerformance() {
           // Calculate net cash flow (new investments) for this month
           const netCashFlow = currMonth.invested - prevMonth.invested;
 
-          // Modified Dietz return: (endValue - startValue - netCashFlow) / startValue
+          // Time-Weighted Return: (endValue - expectedValue) / expectedValue
+          // expectedValue = startValue + netCashFlow (valore atteso senza rendimento)
           if (prevMonth.total > 0) {
-            const monthReturn = currMonth.total - prevMonth.total - netCashFlow;
-            const monthReturnPercent = (monthReturn / prevMonth.total) * 100;
+            const expectedValue = prevMonth.total + netCashFlow;
+            const monthReturn = currMonth.total - expectedValue;
+            const monthReturnPercent = expectedValue > 0 ? (monthReturn / expectedValue) * 100 : 0;
 
             // DEBUG: Enhanced debug logging for problematic months
             if (currMonth.monthKey === '2021-02' || currMonth.monthKey === '2025-11') {
@@ -289,9 +291,10 @@ function PortfolioPerformance() {
                 prevTotal: prevMonth.total.toFixed(2),
                 currTotal: currMonth.total.toFixed(2),
                 netCashFlow: netCashFlow.toFixed(2),
+                expectedValue: expectedValue.toFixed(2),
                 monthReturn: monthReturn.toFixed(2),
                 monthReturnPercent: monthReturnPercent.toFixed(2) + '%',
-                formula: `(${currMonth.total.toFixed(2)} - ${prevMonth.total.toFixed(2)} - ${netCashFlow.toFixed(2)}) / ${prevMonth.total.toFixed(2)} = ${monthReturnPercent.toFixed(2)}%`
+                formula: `(${currMonth.total.toFixed(2)} - ${expectedValue.toFixed(2)}) / ${expectedValue.toFixed(2)} = ${monthReturnPercent.toFixed(2)}%`
               });
             }
 
@@ -908,7 +911,7 @@ function PortfolioPerformance() {
             <p className="font-semibold text-green-900">✅ Dati Storici Reali</p>
             <p className="text-sm text-green-700 mt-1">
               Questa pagina utilizza <strong>prezzi storici reali</strong> recuperati da Google Finance tramite Google Apps Script.
-              I rendimenti sono calcolati con il <strong>metodo Modified Dietz</strong>, che esclude correttamente i flussi di cassa (nuovi acquisti/vendite).
+              I rendimenti sono calcolati con il <strong>metodo Time-Weighted Return</strong>, che esclude correttamente i flussi di cassa (nuovi acquisti/vendite).
               I dati sono aggiornati fino ad <strong>oggi</strong>. Il cash è escluso da tutti i calcoli di performance.
             </p>
           </div>

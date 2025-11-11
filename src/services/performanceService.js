@@ -317,7 +317,7 @@ export function getPerformanceSummary(filteredPortfolio, strategy = null) {
 }
 
 /**
- * Calculate monthly returns using Modified Dietz method
+ * Calculate monthly returns using Time-Weighted Return method
  * This method correctly handles cash flows and new purchases
  *
  * @param {Array} transactions - All transactions
@@ -416,14 +416,15 @@ export function calculateMonthlyReturns(transactions, priceCache = {}) {
     // Calculate net cash flow for the month
     const netCashFlow = monthData.cashFlows.reduce((sum, cf) => sum + cf.amount, 0);
 
-    // Modified Dietz Return = (End Value - Start Value - Net Cash Flow) / (Start Value + Weighted Cash Flow)
-    // For simplicity, we use Start Value as denominator (assumes cash flows at end of period)
+    // Time-Weighted Return = (End Value - Expected Value) / Expected Value
+    // Expected Value = Start Value + Net Cash Flow (value without any return)
     let monthReturn = 0;
     let monthReturnPercent = 0;
 
     if (startValue > 0) {
-      monthReturn = endValue - startValue - netCashFlow;
-      monthReturnPercent = (monthReturn / startValue) * 100;
+      const expectedValue = startValue + netCashFlow;
+      monthReturn = endValue - expectedValue;
+      monthReturnPercent = expectedValue > 0 ? (monthReturn / expectedValue) * 100 : 0;
     }
 
     // Calculate total invested (cumulative)

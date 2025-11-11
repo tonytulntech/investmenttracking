@@ -384,6 +384,8 @@ function Patrimonio() {
 
   // Prepare chart data
   const chartData = useMemo(() => {
+    console.log('🔄 Calculating chartData... monthlyMarketValues keys:', Object.keys(monthlyMarketValues).length, 'keys');
+
     // Generate ALL periods from first transaction to today (not just months with transactions!)
     let periods = [];
     if (selectedYear === 'all') {
@@ -494,6 +496,11 @@ function Patrimonio() {
 
       const marketValue = monthlyMarketValues[monthKey] || 0;
       point.investmentsMarketValue = marketValue;
+
+      // DEBUG: Log market value lookup for recent months
+      if (period >= '2025-09') {
+        console.log(`🔍 Period ${period}: monthKey=${monthKey}, marketValue=${marketValue}, monthlyMarketValues has key? ${monthKey in monthlyMarketValues}`);
+      }
 
       // Total patrimonio REALE = Cash Balance + Market Value of Investments
       point.patrimonioReale = point.cashBalance + marketValue;

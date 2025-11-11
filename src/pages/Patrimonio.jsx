@@ -159,7 +159,7 @@ function Patrimonio() {
 
             // For current month: prioritize current prices from cache over historical fallback
             if (!price && isCurrentMonth && currentPrices[ticker]) {
-              price = currentPrices[ticker];
+              price = currentPrices[ticker].price || currentPrices[ticker];
             }
 
             // For past months or if current price not available: fallback to last known historical price
@@ -179,7 +179,7 @@ function Patrimonio() {
 
             // Final fallback to current price if still not found
             if (!price && currentPrices[ticker]) {
-              price = currentPrices[ticker];
+              price = currentPrices[ticker].price || currentPrices[ticker];
             }
 
             if (price) {
@@ -237,7 +237,7 @@ function Patrimonio() {
 
             // For current month: prioritize current prices from cache
             if (!price && isCurrentMonthDebug && currentPrices[ticker]) {
-              price = currentPrices[ticker];
+              price = currentPrices[ticker].price || currentPrices[ticker];
               priceSource = 'current cache (prioritized for current month)';
             }
 
@@ -258,7 +258,7 @@ function Patrimonio() {
 
             // Final fallback to current cached price
             if (!price && currentPrices[ticker]) {
-              price = currentPrices[ticker];
+              price = currentPrices[ticker].price || currentPrices[ticker];
               priceSource = 'current cache (final fallback)';
             }
 

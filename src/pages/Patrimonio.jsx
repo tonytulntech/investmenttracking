@@ -388,6 +388,8 @@ function Patrimonio() {
 
     // Generate ALL periods from first transaction to today (not just months with transactions!)
     let periods = [];
+    let futurePeriods = [];
+
     if (selectedYear === 'all') {
       // Get first and last date
       const sortedTx = transactions
@@ -408,6 +410,15 @@ function Patrimonio() {
         }
 
         periods = Array.from(periodsSet).sort();
+
+        // Add 12 future months for projection
+        const futurePeriodsSet = new Set();
+        let futureMonth = new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, 1);
+        for (let i = 0; i < 12; i++) {
+          futurePeriodsSet.add(format(futureMonth, 'yyyy-MM'));
+          futureMonth = new Date(futureMonth.getFullYear(), futureMonth.getMonth() + 1, 1);
+        }
+        futurePeriods = Array.from(futurePeriodsSet).sort();
       }
     } else {
       // Use all 12 months for single year view
@@ -507,6 +518,52 @@ function Patrimonio() {
 
       return point;
     });
+
+    // Add future projection if viewing all years
+    if (selectedYear === 'all' && futurePeriods.length > 0 && data.length > 0) {
+      // Calculate averages from last 6 months
+      const recentMonths = Math.min(6, data.length);
+      const recentData = data.slice(-recentMonths);
+
+      const avgMonthlyIncome = recentData.reduce((sum, d) => sum + d.totalIncome, 0) / recentMonths;
+      const avgMonthlyExpense = recentData.reduce((sum, d) => sum + d.totalExpense, 0) / recentMonths;
+      const avgMonthlyInvestments = recentData.reduce((sum, d) => sum + d.totalInvestments, 0) / recentMonths;
+
+      // Assume 0.5% monthly growth on investments (conservative estimate)
+      const monthlyInvestmentGrowthRate = 0.005;
+
+      // Start from last real data point
+      const lastPoint = data[data.length - 1];
+      let projectedCash = lastPoint.cashBalance;
+      let projectedInvestmentValue = lastPoint.investmentsMarketValue;
+
+      futurePeriods.forEach((futurePeriod, idx) => {
+        const [year, monthNum] = futurePeriod.split('-');
+        const monthName = MONTH_NUMBERS[monthNum];
+        const displayLabel = `${monthName} ${year}`;
+
+        // Project cash flow: income - expense - investments
+        projectedCash += avgMonthlyIncome - avgMonthlyExpense - avgMonthlyInvestments;
+
+        // Project investment value: previous value + new investments + growth
+        projectedInvestmentValue = projectedInvestmentValue * (1 + monthlyInvestmentGrowthRate) + avgMonthlyInvestments;
+
+        const projectedPatrimonio = projectedCash + projectedInvestmentValue;
+
+        data.push({
+          month: futurePeriod,
+          displayMonth: displayLabel,
+          totalIncome: avgMonthlyIncome,
+          totalExpense: avgMonthlyExpense,
+          totalInvestments: avgMonthlyInvestments,
+          cashBalance: projectedCash,
+          investmentsMarketValue: projectedInvestmentValue,
+          patrimonioReale: undefined, // Real value
+          patrimonioProiezione: projectedPatrimonio, // Projected value
+          isProjection: true
+        });
+      });
+    }
 
     return data;
   }, [transactions, selectedYear, monthlyMarketValues]);
@@ -783,12 +840,13 @@ function Patrimonio() {
         </div>
       </div>
 
-      {/* Chart 1: Patrimonio Evolution (Simple Line - GetQuin style) */}
+      {/* Chart 1: Patrimonio Evolution with Projection */}
       {!loadingPrices && (
         <div className="card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">📈 Evoluzione Patrimonio Totale</h3>
           <p className="text-sm text-gray-600 mb-4">
             Patrimonio totale (cash + investimenti a valore di mercato) nel tempo
+            {selectedYear === 'all' && <span className="ml-2 text-blue-600">• Linea tratteggiata = proiezione futura (prossimi 12 mesi)</span>}
           </p>
         <ResponsiveContainer width="100%" height={450}>
           <AreaChart data={chartData}>
@@ -796,6 +854,10 @@ function Patrimonio() {
               <linearGradient id="patrimonioGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2}/>
                 <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.05}/>
+              </linearGradient>
+              <linearGradient id="proiezioneGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15}/>
+                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.03}/>
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -813,7 +875,10 @@ function Patrimonio() {
               tickFormatter={(value) => `€${(value / 1000).toFixed(1)}k`}
             />
             <Tooltip
-              formatter={(value) => `€${value.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`}
+              formatter={(value, name) => {
+                if (value === null || value === undefined) return ['-', name];
+                return [`€${value.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`, name];
+              }}
               contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
               labelStyle={{ fontWeight: 'bold', marginBottom: '8px' }}
             />
@@ -821,12 +886,25 @@ function Patrimonio() {
             <Area
               type="monotone"
               dataKey="patrimonioReale"
-              name="Patrimonio Totale"
+              name="Patrimonio Reale"
               stroke="#8b5cf6"
               strokeWidth={3}
               fill="url(#patrimonioGradient)"
               dot={{ r: 4, fill: '#8b5cf6', strokeWidth: 2, stroke: '#fff' }}
               activeDot={{ r: 6 }}
+              connectNulls={false}
+            />
+            <Area
+              type="monotone"
+              dataKey="patrimonioProiezione"
+              name="Proiezione Futura"
+              stroke="#3b82f6"
+              strokeWidth={2}
+              strokeDasharray="5 5"
+              fill="url(#proiezioneGradient)"
+              dot={false}
+              activeDot={{ r: 5 }}
+              connectNulls={true}
             />
           </AreaChart>
         </ResponsiveContainer>
@@ -1092,202 +1170,145 @@ function Patrimonio() {
         </div>
       </div>
 
-      {/* Section: Dettaglio per Categoria (Collapsible) */}
+      {/* Statistiche Patrimonio */}
       <div className="card">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">📋 Dettaglio Flussi per Categoria</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-6">📊 Statistiche Patrimonio</h2>
 
-        {/* Entrate per Categoria */}
-        {(selectedView === 'income' || selectedView === 'all') && (
-          <div className="mb-8">
-            <h3 className="text-lg font-semibold text-green-900 mb-4">💰 Entrate Mensili per Categoria</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="bg-green-50">
-                    <th className="border border-green-200 py-2 px-3 text-left font-semibold text-green-900">Categoria</th>
-                    {MONTHS.map(month => (
-                      <th key={month} className="border border-green-200 py-2 px-2 text-center font-semibold text-green-900 min-w-[80px]">{month}</th>
-                    ))}
-                    <th className="border border-green-200 py-2 px-3 text-center font-bold text-green-900">TOTALE</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.keys(CATEGORY_COLORS).filter(cat => cat !== 'Totale').map(category => {
-                    const categoryData = processedData.income[category] || {};
-                    const rowTotal = MONTHS.reduce((sum, month) => sum + (categoryData[month] || 0), 0);
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Massimo Raggiunto */}
+          {(() => {
+            const maxPoint = chartData.reduce((max, point) =>
+              point.patrimonioReale > (max?.patrimonioReale || 0) ? point : max
+            , chartData[0]);
 
-                    if (rowTotal === 0 && selectedCategory !== 'all' && selectedCategory !== category) return null;
+            return (
+              <div className="border border-green-200 rounded-lg p-4 bg-gradient-to-br from-green-50 to-green-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="w-5 h-5 text-green-600" />
+                  <h4 className="font-semibold text-green-900">Massimo Raggiunto</h4>
+                </div>
+                <p className="text-2xl font-bold text-green-700">
+                  €{maxPoint?.patrimonioReale?.toLocaleString('it-IT', { minimumFractionDigits: 2 }) || '0.00'}
+                </p>
+                <p className="text-sm text-green-600 mt-1">
+                  {maxPoint?.displayMonth || '-'}
+                </p>
+              </div>
+            );
+          })()}
 
-                    return (
-                      <tr key={category} className="hover:bg-green-50">
-                        <td className="border border-gray-200 py-2 px-3 font-medium text-gray-700">{category}</td>
-                        {MONTHS.map(month => {
-                          const value = categoryData[month] || 0;
-                          return (
-                            <td key={month} className="border border-gray-200 py-2 px-2 text-right text-gray-600">
-                              {value > 0 ? `€${value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
-                            </td>
-                          );
-                        })}
-                        <td className="border border-gray-200 py-2 px-3 text-right font-bold text-green-700">
-                          €{rowTotal.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  <tr className="bg-green-100 font-bold">
-                    <td className="border border-green-200 py-3 px-3 text-green-900">TOTALE</td>
-                    {MONTHS.map(month => {
-                      const monthTotal = Object.keys(processedData.income).reduce((sum, cat) => {
-                        return sum + (processedData.income[cat][month] || 0);
-                      }, 0);
-                      return (
-                        <td key={month} className="border border-green-200 py-3 px-2 text-right text-green-900">
-                          {monthTotal > 0 ? `€${monthTotal.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
-                        </td>
-                      );
-                    })}
-                    <td className="border border-green-200 py-3 px-3 text-right text-green-900">
-                      €{MONTHS.reduce((sum, month) => {
-                        return sum + Object.keys(processedData.income).reduce((catSum, cat) => {
-                          return catSum + (processedData.income[cat][month] || 0);
-                        }, 0);
-                      }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+          {/* Minimo Raggiunto */}
+          {(() => {
+            const minPoint = chartData.reduce((min, point) =>
+              point.patrimonioReale < (min?.patrimonioReale || Infinity) && point.patrimonioReale > 0 ? point : min
+            , chartData[0]);
 
-        {/* Uscite per Categoria */}
-        {(selectedView === 'expense' || selectedView === 'all') && (
-          <div className="mb-8">
-            <h3 className="text-lg font-semibold text-red-900 mb-4">💸 Uscite Mensili per Categoria</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="bg-red-50">
-                    <th className="border border-red-200 py-2 px-3 text-left font-semibold text-red-900">Categoria</th>
-                    {MONTHS.map(month => (
-                      <th key={month} className="border border-red-200 py-2 px-2 text-center font-semibold text-red-900 min-w-[80px]">{month}</th>
-                    ))}
-                    <th className="border border-red-200 py-2 px-3 text-center font-bold text-red-900">TOTALE</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.keys(CATEGORY_COLORS).filter(cat => cat !== 'Totale').map(category => {
-                    const categoryData = processedData.expense[category] || {};
-                    const rowTotal = MONTHS.reduce((sum, month) => sum + (categoryData[month] || 0), 0);
+            return (
+              <div className="border border-red-200 rounded-lg p-4 bg-gradient-to-br from-red-50 to-red-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingDown className="w-5 h-5 text-red-600" />
+                  <h4 className="font-semibold text-red-900">Minimo Raggiunto</h4>
+                </div>
+                <p className="text-2xl font-bold text-red-700">
+                  €{minPoint?.patrimonioReale?.toLocaleString('it-IT', { minimumFractionDigits: 2 }) || '0.00'}
+                </p>
+                <p className="text-sm text-red-600 mt-1">
+                  {minPoint?.displayMonth || '-'}
+                </p>
+              </div>
+            );
+          })()}
 
-                    if (rowTotal === 0 && selectedCategory !== 'all' && selectedCategory !== category) return null;
+          {/* Crescita Media Mensile */}
+          {(() => {
+            if (chartData.length < 2) return null;
 
-                    return (
-                      <tr key={category} className="hover:bg-red-50">
-                        <td className="border border-gray-200 py-2 px-3 font-medium text-gray-700">{category}</td>
-                        {MONTHS.map(month => {
-                          const value = categoryData[month] || 0;
-                          return (
-                            <td key={month} className="border border-gray-200 py-2 px-2 text-right text-gray-600">
-                              {value > 0 ? `€${value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
-                            </td>
-                          );
-                        })}
-                        <td className="border border-gray-200 py-2 px-3 text-right font-bold text-red-700">
-                          €{rowTotal.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  <tr className="bg-red-100 font-bold">
-                    <td className="border border-red-200 py-3 px-3 text-red-900">TOTALE</td>
-                    {MONTHS.map(month => {
-                      const monthTotal = Object.keys(processedData.expense).reduce((sum, cat) => {
-                        return sum + (processedData.expense[cat][month] || 0);
-                      }, 0);
-                      return (
-                        <td key={month} className="border border-red-200 py-3 px-2 text-right text-red-900">
-                          {monthTotal > 0 ? `€${monthTotal.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
-                        </td>
-                      );
-                    })}
-                    <td className="border border-red-200 py-3 px-3 text-right text-red-900">
-                      €{MONTHS.reduce((sum, month) => {
-                        return sum + Object.keys(processedData.expense).reduce((catSum, cat) => {
-                          return catSum + (processedData.expense[cat][month] || 0);
-                        }, 0);
-                      }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+            const firstValue = chartData.find(d => d.patrimonioReale > 0)?.patrimonioReale || 0;
+            const lastValue = chartData[chartData.length - 1]?.patrimonioReale || 0;
+            const months = chartData.length;
+            const avgMonthlyGrowth = months > 1 ? (lastValue - firstValue) / (months - 1) : 0;
 
-        {/* Investimenti per Categoria */}
-        <div className="mb-8">
-          <h3 className="text-lg font-semibold text-blue-900 mb-4">📈 Investimenti Mensili per Categoria</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="bg-blue-50">
-                  <th className="border border-blue-200 py-2 px-3 text-left font-semibold text-blue-900">Categoria</th>
-                  {MONTHS.map(month => (
-                    <th key={month} className="border border-blue-200 py-2 px-2 text-center font-semibold text-blue-900 min-w-[80px]">{month}</th>
-                  ))}
-                  <th className="border border-blue-200 py-2 px-3 text-center font-bold text-blue-900">TOTALE</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.keys(CATEGORY_COLORS).filter(cat => cat !== 'Totale').map(category => {
-                  const categoryData = processedData.investments[category] || {};
-                  const rowTotal = MONTHS.reduce((sum, month) => sum + (categoryData[month] || 0), 0);
+            return (
+              <div className="border border-blue-200 rounded-lg p-4 bg-gradient-to-br from-blue-50 to-blue-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="w-5 h-5 text-blue-600" />
+                  <h4 className="font-semibold text-blue-900">Crescita Media Mensile</h4>
+                </div>
+                <p className="text-2xl font-bold text-blue-700">
+                  {avgMonthlyGrowth >= 0 ? '+' : ''}€{avgMonthlyGrowth.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-sm text-blue-600 mt-1">
+                  Ultimi {months} mesi
+                </p>
+              </div>
+            );
+          })()}
 
-                  if (rowTotal === 0 && selectedCategory !== 'all' && selectedCategory !== category) return null;
+          {/* Tasso Risparmio Medio */}
+          {(() => {
+            const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+            const totalIncome = periods.reduce((sum, period) => {
+              return sum + Object.keys(processedData.income).reduce((catSum, cat) => {
+                return catSum + (processedData.income[cat][period] || 0);
+              }, 0);
+            }, 0);
+            const totalExpense = periods.reduce((sum, period) => {
+              return sum + Object.keys(processedData.expense).reduce((catSum, cat) => {
+                return catSum + (processedData.expense[cat][period] || 0);
+              }, 0);
+            }, 0);
+            const totalInvestments = periods.reduce((sum, period) => {
+              return sum + Object.keys(processedData.investments).reduce((catSum, cat) => {
+                return catSum + (processedData.investments[cat][period] || 0);
+              }, 0);
+            }, 0);
 
-                  return (
-                    <tr key={category} className="hover:bg-blue-50">
-                      <td className="border border-gray-200 py-2 px-3 font-medium text-gray-700">{category}</td>
-                      {MONTHS.map(month => {
-                        const value = categoryData[month] || 0;
-                        return (
-                          <td key={month} className="border border-gray-200 py-2 px-2 text-right text-gray-600">
-                            {value > 0 ? `€${value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
-                          </td>
-                        );
-                      })}
-                      <td className="border border-gray-200 py-2 px-3 text-right font-bold text-blue-700">
-                        €{rowTotal.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  );
-                })}
-                <tr className="bg-blue-100 font-bold">
-                  <td className="border border-blue-200 py-3 px-3 text-blue-900">TOTALE</td>
-                  {MONTHS.map(month => {
-                    const monthTotal = Object.keys(processedData.investments).reduce((sum, cat) => {
-                      return sum + (processedData.investments[cat][month] || 0);
-                    }, 0);
-                    return (
-                      <td key={month} className="border border-blue-200 py-3 px-2 text-right text-blue-900">
-                        {monthTotal > 0 ? `€${monthTotal.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
-                      </td>
-                    );
-                  })}
-                  <td className="border border-blue-200 py-3 px-3 text-right text-blue-900">
-                    €{MONTHS.reduce((sum, month) => {
-                      return sum + Object.keys(processedData.investments).reduce((catSum, cat) => {
-                        return catSum + (processedData.investments[cat][month] || 0);
-                      }, 0);
-                    }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+            const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0;
+            const investmentRate = totalIncome > 0 ? (totalInvestments / totalIncome) * 100 : 0;
+
+            return (
+              <div className="border border-purple-200 rounded-lg p-4 bg-gradient-to-br from-purple-50 to-purple-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <PieChartIcon className="w-5 h-5 text-purple-600" />
+                  <h4 className="font-semibold text-purple-900">Tasso Risparmio</h4>
+                </div>
+                <p className="text-2xl font-bold text-purple-700">
+                  {savingsRate.toFixed(1)}%
+                </p>
+                <p className="text-sm text-purple-600 mt-1">
+                  Investimenti: {investmentRate.toFixed(1)}%
+                </p>
+              </div>
+            );
+          })()}
         </div>
+
+        {/* Proiezione Info */}
+        {selectedYear === 'all' && (
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <h4 className="font-semibold text-blue-900 mb-2">🔮 Come funziona la Proiezione Futura?</h4>
+            <p className="text-sm text-blue-800 mb-2">
+              La proiezione viene calcolata sulla base dei tuoi comportamenti finanziari degli ultimi 6 mesi:
+            </p>
+            <ul className="text-sm text-blue-800 space-y-1 ml-4 list-disc">
+              <li><strong>Entrate medie mensili:</strong> Quanto guadagni mediamente ogni mese</li>
+              <li><strong>Uscite medie mensili:</strong> Quanto spendi mediamente ogni mese</li>
+              <li><strong>Investimenti medi mensili:</strong> Quanto investi mediamente ogni mese</li>
+              <li><strong>Crescita investimenti:</strong> Assumiamo una crescita conservativa del 0.5% mensile (~6% annuo) sul valore di mercato degli investimenti</li>
+            </ul>
+            <p className="text-sm text-blue-700 mt-3 font-medium">
+              💡 Se continui con questa strategia, tra 12 mesi il tuo patrimonio potrebbe raggiungere circa €{
+                (() => {
+                  const lastProjection = chartData.find(d => d.isProjection && d.patrimonioProiezione);
+                  if (!lastProjection) return '0.00';
+                  const projections = chartData.filter(d => d.isProjection && d.patrimonioProiezione);
+                  if (projections.length === 0) return '0.00';
+                  return projections[projections.length - 1].patrimonioProiezione.toLocaleString('it-IT', { minimumFractionDigits: 2 });
+                })()
+              }
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Old tables removed */}

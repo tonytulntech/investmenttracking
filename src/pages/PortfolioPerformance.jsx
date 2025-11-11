@@ -327,7 +327,7 @@ function PortfolioPerformance() {
         const uniqueTickers = Object.keys(lastMonth.byTicker).length;
 
         // Calculate advanced metrics using the service
-        const advancedMetrics = calculateAllMetrics(calculatedMonthlyReturns, 2); // 2% risk-free rate
+        const advancedMetrics = calculateAllMetrics(calculatedMonthlyReturns, 2, totalInvested); // 2% risk-free rate
         console.log('📊 Advanced metrics:', advancedMetrics);
 
         setStatistics({

@@ -179,11 +179,12 @@ export function calculateVolatility(returns) {
 
 /**
  * Calculate all advanced metrics at once
- * @param {Array} monthlyData - Array of monthly portfolio data with {value, return} properties
+ * @param {Array} monthlyData - Array of monthly portfolio data with {value, return, invested} properties
  * @param {number} riskFreeRate - Annual risk-free rate (default: 2%)
+ * @param {number} totalInvested - Total capital invested (optional, will use last month's invested if not provided)
  * @returns {Object} All metrics
  */
-export function calculateAllMetrics(monthlyData, riskFreeRate = 2) {
+export function calculateAllMetrics(monthlyData, riskFreeRate = 2, totalInvested = null) {
   if (!monthlyData || monthlyData.length === 0) {
     return {
       cagr: 0,
@@ -204,8 +205,11 @@ export function calculateAllMetrics(monthlyData, riskFreeRate = 2) {
   // Calculate years
   const years = monthlyData.length / 12;
 
-  // CAGR
-  const initialValue = values[0];
+  // CAGR - Use totalInvested as initial value (not first portfolio value!)
+  // This gives the true compound annual growth rate of your investment
+  const initialValue = totalInvested !== null
+    ? totalInvested
+    : (monthlyData[0].invested || values[0]);
   const finalValue = values[values.length - 1];
   const cagr = calculateCAGR(initialValue, finalValue, years);
 

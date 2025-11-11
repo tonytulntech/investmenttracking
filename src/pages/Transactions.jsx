@@ -13,6 +13,7 @@ function Transactions() {
   const [filteredTransactions, setFilteredTransactions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [formData, setFormData] = useState(getEmptyForm());
@@ -24,7 +25,7 @@ function Transactions() {
 
   useEffect(() => {
     applyFilters();
-  }, [transactions, searchTerm, filterType]);
+  }, [transactions, searchTerm, filterType, filterCategory]);
 
   function getEmptyForm() {
     return {
@@ -115,6 +116,12 @@ function Transactions() {
 
     if (filterType !== 'all') {
       filtered = filtered.filter(tx => tx.type === filterType);
+    }
+
+    if (filterCategory !== 'all') {
+      filtered = filtered.filter(tx =>
+        tx.macroCategory === filterCategory || tx.category === filterCategory
+      );
     }
 
     filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -340,6 +347,16 @@ function Transactions() {
             <option value="all">Tutti i tipi</option>
             <option value="buy">Acquisto</option>
             <option value="sell">Vendita</option>
+          </select>
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="select min-w-[150px]"
+          >
+            <option value="all">Tutte le categorie</option>
+            {Object.keys(getMacroAssetClasses()).map(category => (
+              <option key={category} value={category}>{category}</option>
+            ))}
           </select>
         </div>
       </div>

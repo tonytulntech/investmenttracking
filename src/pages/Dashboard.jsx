@@ -353,8 +353,9 @@ function Dashboard() {
       }
     }
 
-    // 12. Calculate performance metrics
-    const performanceMetrics = getPerformanceSummary(filteredPortfolio, strategy);
+    // 12. Calculate performance metrics (exclude CASH - only calculate returns on invested assets)
+    const investablePortfolioForPerformance = filteredPortfolio.filter(p => !p.isCash);
+    const performanceMetrics = getPerformanceSummary(investablePortfolioForPerformance, strategy);
 
     // 13. Calculate monthly returns (REAL performance excluding cash flows)
     const monthlyReturns = calculateMonthlyReturns(allTransactions, priceCache);

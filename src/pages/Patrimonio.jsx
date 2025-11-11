@@ -841,138 +841,183 @@ function Patrimonio() {
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="bg-gray-100">
-                <th className="border border-gray-300 py-3 px-3 text-left font-bold text-gray-900 sticky left-0 bg-gray-100 z-10">Voce</th>
-                {MONTHS.map(month => (
-                  <th key={month} className="border border-gray-300 py-3 px-2 text-center font-semibold text-gray-900 min-w-[90px]">{month}</th>
-                ))}
-                <th className="border border-gray-300 py-3 px-3 text-center font-bold text-gray-900 min-w-[120px]">TOTALE ANNO</th>
+                <th className="border border-gray-300 py-3 px-3 text-left font-bold text-gray-900 sticky left-0 bg-gray-100 z-10 min-w-[150px]">Voce</th>
+                {(() => {
+                  // Use dynamic periods based on selected year
+                  const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+
+                  return periods.map(period => {
+                    const displayLabel = selectedYear === 'all' && period.includes('-')
+                      ? (() => {
+                          const [year, monthNum] = period.split('-');
+                          const monthName = MONTH_NUMBERS[monthNum];
+                          return `${monthName} '${year.slice(-2)}`;
+                        })()
+                      : period;
+
+                    return (
+                      <th key={period} className="border border-gray-300 py-3 px-2 text-center font-semibold text-gray-900 min-w-[90px]">
+                        {displayLabel}
+                      </th>
+                    );
+                  });
+                })()}
+                <th className="border border-gray-300 py-3 px-3 text-center font-bold text-gray-900 min-w-[120px]">TOTALE</th>
               </tr>
             </thead>
             <tbody>
               {/* Entrate */}
               <tr className="bg-green-50 hover:bg-green-100">
                 <td className="border border-gray-300 py-3 px-3 font-bold text-green-900 sticky left-0 bg-green-50 z-10">💰 Entrate</td>
-                {MONTHS.map(month => {
-                  const income = Object.keys(processedData.income).reduce((sum, cat) => {
-                    return sum + (processedData.income[cat][month] || 0);
-                  }, 0);
-                  return (
-                    <td key={month} className="border border-gray-300 py-3 px-2 text-right text-green-700 font-medium">
-                      {income > 0 ? `€${income.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
-                    </td>
-                  );
-                })}
-                <td className="border border-gray-300 py-3 px-3 text-right font-bold text-green-900">
-                  €{MONTHS.reduce((sum, month) => {
-                    return sum + Object.keys(processedData.income).reduce((catSum, cat) => {
-                      return catSum + (processedData.income[cat][month] || 0);
+                {(() => {
+                  const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+                  return periods.map(period => {
+                    const income = Object.keys(processedData.income).reduce((sum, cat) => {
+                      return sum + (processedData.income[cat][period] || 0);
                     }, 0);
-                  }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                    return (
+                      <td key={period} className="border border-gray-300 py-3 px-2 text-right text-green-700 font-medium">
+                        {income > 0 ? `€${income.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                      </td>
+                    );
+                  });
+                })()}
+                <td className="border border-gray-300 py-3 px-3 text-right font-bold text-green-900">
+                  €{(() => {
+                    const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+                    return periods.reduce((sum, period) => {
+                      return sum + Object.keys(processedData.income).reduce((catSum, cat) => {
+                        return catSum + (processedData.income[cat][period] || 0);
+                      }, 0);
+                    }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 });
+                  })()}
                 </td>
               </tr>
 
               {/* Uscite */}
               <tr className="bg-red-50 hover:bg-red-100">
                 <td className="border border-gray-300 py-3 px-3 font-bold text-red-900 sticky left-0 bg-red-50 z-10">💸 Uscite</td>
-                {MONTHS.map(month => {
-                  const expense = Object.keys(processedData.expense).reduce((sum, cat) => {
-                    return sum + (processedData.expense[cat][month] || 0);
-                  }, 0);
-                  return (
-                    <td key={month} className="border border-gray-300 py-3 px-2 text-right text-red-700 font-medium">
-                      {expense > 0 ? `€${expense.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
-                    </td>
-                  );
-                })}
-                <td className="border border-gray-300 py-3 px-3 text-right font-bold text-red-900">
-                  €{MONTHS.reduce((sum, month) => {
-                    return sum + Object.keys(processedData.expense).reduce((catSum, cat) => {
-                      return catSum + (processedData.expense[cat][month] || 0);
+                {(() => {
+                  const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+                  return periods.map(period => {
+                    const expense = Object.keys(processedData.expense).reduce((sum, cat) => {
+                      return sum + (processedData.expense[cat][period] || 0);
                     }, 0);
-                  }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                    return (
+                      <td key={period} className="border border-gray-300 py-3 px-2 text-right text-red-700 font-medium">
+                        {expense > 0 ? `€${expense.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                      </td>
+                    );
+                  });
+                })()}
+                <td className="border border-gray-300 py-3 px-3 text-right font-bold text-red-900">
+                  €{(() => {
+                    const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+                    return periods.reduce((sum, period) => {
+                      return sum + Object.keys(processedData.expense).reduce((catSum, cat) => {
+                        return catSum + (processedData.expense[cat][period] || 0);
+                      }, 0);
+                    }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 });
+                  })()}
                 </td>
               </tr>
 
               {/* Investimenti */}
               <tr className="bg-blue-50 hover:bg-blue-100">
                 <td className="border border-gray-300 py-3 px-3 font-bold text-blue-900 sticky left-0 bg-blue-50 z-10">📈 Investimenti</td>
-                {MONTHS.map(month => {
-                  const investments = Object.keys(processedData.investments).reduce((sum, cat) => {
-                    return sum + (processedData.investments[cat][month] || 0);
-                  }, 0);
-                  return (
-                    <td key={month} className="border border-gray-300 py-3 px-2 text-right text-blue-700 font-medium">
-                      {investments > 0 ? `€${investments.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
-                    </td>
-                  );
-                })}
-                <td className="border border-gray-300 py-3 px-3 text-right font-bold text-blue-900">
-                  €{MONTHS.reduce((sum, month) => {
-                    return sum + Object.keys(processedData.investments).reduce((catSum, cat) => {
-                      return catSum + (processedData.investments[cat][month] || 0);
+                {(() => {
+                  const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+                  return periods.map(period => {
+                    const investments = Object.keys(processedData.investments).reduce((sum, cat) => {
+                      return sum + (processedData.investments[cat][period] || 0);
                     }, 0);
-                  }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                    return (
+                      <td key={period} className="border border-gray-300 py-3 px-2 text-right text-blue-700 font-medium">
+                        {investments > 0 ? `€${investments.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                      </td>
+                    );
+                  });
+                })()}
+                <td className="border border-gray-300 py-3 px-3 text-right font-bold text-blue-900">
+                  €{(() => {
+                    const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+                    return periods.reduce((sum, period) => {
+                      return sum + Object.keys(processedData.investments).reduce((catSum, cat) => {
+                        return catSum + (processedData.investments[cat][period] || 0);
+                      }, 0);
+                    }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 });
+                  })()}
                 </td>
               </tr>
 
               {/* Netto (Entrate - Uscite) */}
               <tr className="bg-purple-50 hover:bg-purple-100">
                 <td className="border border-gray-300 py-3 px-3 font-bold text-purple-900 sticky left-0 bg-purple-50 z-10">💵 Netto (Entrate - Uscite)</td>
-                {MONTHS.map(month => {
-                  const income = Object.keys(processedData.income).reduce((sum, cat) => {
-                    return sum + (processedData.income[cat][month] || 0);
-                  }, 0);
-                  const expense = Object.keys(processedData.expense).reduce((sum, cat) => {
-                    return sum + (processedData.expense[cat][month] || 0);
-                  }, 0);
-                  const net = income - expense;
-                  const textColor = net >= 0 ? 'text-green-700' : 'text-red-700';
-                  return (
-                    <td key={month} className={`border border-gray-300 py-3 px-2 text-right font-bold ${textColor}`}>
-                      {net !== 0 ? `€${net.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
-                    </td>
-                  );
-                })}
+                {(() => {
+                  const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+                  return periods.map(period => {
+                    const income = Object.keys(processedData.income).reduce((sum, cat) => {
+                      return sum + (processedData.income[cat][period] || 0);
+                    }, 0);
+                    const expense = Object.keys(processedData.expense).reduce((sum, cat) => {
+                      return sum + (processedData.expense[cat][period] || 0);
+                    }, 0);
+                    const net = income - expense;
+                    const textColor = net >= 0 ? 'text-green-700' : 'text-red-700';
+                    return (
+                      <td key={period} className={`border border-gray-300 py-3 px-2 text-right font-bold ${textColor}`}>
+                        {net !== 0 ? `€${net.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                      </td>
+                    );
+                  });
+                })()}
                 <td className="border border-gray-300 py-3 px-3 text-right font-bold text-purple-900">
-                  €{MONTHS.reduce((sum, month) => {
-                    const income = Object.keys(processedData.income).reduce((catSum, cat) => {
-                      return catSum + (processedData.income[cat][month] || 0);
-                    }, 0);
-                    const expense = Object.keys(processedData.expense).reduce((catSum, cat) => {
-                      return catSum + (processedData.expense[cat][month] || 0);
-                    }, 0);
-                    return sum + (income - expense);
-                  }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                  €{(() => {
+                    const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+                    return periods.reduce((sum, period) => {
+                      const income = Object.keys(processedData.income).reduce((catSum, cat) => {
+                        return catSum + (processedData.income[cat][period] || 0);
+                      }, 0);
+                      const expense = Object.keys(processedData.expense).reduce((catSum, cat) => {
+                        return catSum + (processedData.expense[cat][period] || 0);
+                      }, 0);
+                      return sum + (income - expense);
+                    }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 });
+                  })()}
                 </td>
               </tr>
 
               {/* % Investimento (Investimenti / Entrate * 100) */}
               <tr className="bg-indigo-50 hover:bg-indigo-100">
                 <td className="border border-gray-300 py-3 px-3 font-bold text-indigo-900 sticky left-0 bg-indigo-50 z-10">📊 % Investimento</td>
-                {MONTHS.map(month => {
-                  const income = Object.keys(processedData.income).reduce((sum, cat) => {
-                    return sum + (processedData.income[cat][month] || 0);
-                  }, 0);
-                  const investments = Object.keys(processedData.investments).reduce((sum, cat) => {
-                    return sum + (processedData.investments[cat][month] || 0);
-                  }, 0);
-                  const percentage = income > 0 ? (investments / income) * 100 : 0;
-                  return (
-                    <td key={month} className="border border-gray-300 py-3 px-2 text-right text-indigo-700 font-medium">
-                      {percentage > 0 ? `${percentage.toFixed(1)}%` : '-'}
-                    </td>
-                  );
-                })}
+                {(() => {
+                  const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+                  return periods.map(period => {
+                    const income = Object.keys(processedData.income).reduce((sum, cat) => {
+                      return sum + (processedData.income[cat][period] || 0);
+                    }, 0);
+                    const investments = Object.keys(processedData.investments).reduce((sum, cat) => {
+                      return sum + (processedData.investments[cat][period] || 0);
+                    }, 0);
+                    const percentage = income > 0 ? (investments / income) * 100 : 0;
+                    return (
+                      <td key={period} className="border border-gray-300 py-3 px-2 text-right text-indigo-700 font-medium">
+                        {percentage > 0 ? `${percentage.toFixed(1)}%` : '-'}
+                      </td>
+                    );
+                  });
+                })()}
                 <td className="border border-gray-300 py-3 px-3 text-right font-bold text-indigo-900">
                   {(() => {
-                    const totalIncome = MONTHS.reduce((sum, month) => {
+                    const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+                    const totalIncome = periods.reduce((sum, period) => {
                       return sum + Object.keys(processedData.income).reduce((catSum, cat) => {
-                        return catSum + (processedData.income[cat][month] || 0);
+                        return catSum + (processedData.income[cat][period] || 0);
                       }, 0);
                     }, 0);
-                    const totalInvestments = MONTHS.reduce((sum, month) => {
+                    const totalInvestments = periods.reduce((sum, period) => {
                       return sum + Object.keys(processedData.investments).reduce((catSum, cat) => {
-                        return catSum + (processedData.investments[cat][month] || 0);
+                        return catSum + (processedData.investments[cat][period] || 0);
                       }, 0);
                     }, 0);
                     const avgPercentage = totalIncome > 0 ? (totalInvestments / totalIncome) * 100 : 0;
@@ -984,30 +1029,34 @@ function Patrimonio() {
               {/* % Spesa (Uscite / Entrate * 100) */}
               <tr className="bg-orange-50 hover:bg-orange-100">
                 <td className="border border-gray-300 py-3 px-3 font-bold text-orange-900 sticky left-0 bg-orange-50 z-10">📉 % Spesa</td>
-                {MONTHS.map(month => {
-                  const income = Object.keys(processedData.income).reduce((sum, cat) => {
-                    return sum + (processedData.income[cat][month] || 0);
-                  }, 0);
-                  const expense = Object.keys(processedData.expense).reduce((sum, cat) => {
-                    return sum + (processedData.expense[cat][month] || 0);
-                  }, 0);
-                  const percentage = income > 0 ? (expense / income) * 100 : 0;
-                  return (
-                    <td key={month} className="border border-gray-300 py-3 px-2 text-right text-orange-700 font-medium">
-                      {percentage > 0 ? `${percentage.toFixed(1)}%` : '-'}
-                    </td>
-                  );
-                })}
+                {(() => {
+                  const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+                  return periods.map(period => {
+                    const income = Object.keys(processedData.income).reduce((sum, cat) => {
+                      return sum + (processedData.income[cat][period] || 0);
+                    }, 0);
+                    const expense = Object.keys(processedData.expense).reduce((sum, cat) => {
+                      return sum + (processedData.expense[cat][period] || 0);
+                    }, 0);
+                    const percentage = income > 0 ? (expense / income) * 100 : 0;
+                    return (
+                      <td key={period} className="border border-gray-300 py-3 px-2 text-right text-orange-700 font-medium">
+                        {percentage > 0 ? `${percentage.toFixed(1)}%` : '-'}
+                      </td>
+                    );
+                  });
+                })()}
                 <td className="border border-gray-300 py-3 px-3 text-right font-bold text-orange-900">
                   {(() => {
-                    const totalIncome = MONTHS.reduce((sum, month) => {
+                    const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+                    const totalIncome = periods.reduce((sum, period) => {
                       return sum + Object.keys(processedData.income).reduce((catSum, cat) => {
-                        return catSum + (processedData.income[cat][month] || 0);
+                        return catSum + (processedData.income[cat][period] || 0);
                       }, 0);
                     }, 0);
-                    const totalExpense = MONTHS.reduce((sum, month) => {
+                    const totalExpense = periods.reduce((sum, period) => {
                       return sum + Object.keys(processedData.expense).reduce((catSum, cat) => {
-                        return catSum + (processedData.expense[cat][month] || 0);
+                        return catSum + (processedData.expense[cat][period] || 0);
                       }, 0);
                     }, 0);
                     const avgPercentage = totalIncome > 0 ? (totalExpense / totalIncome) * 100 : 0;
@@ -1035,6 +1084,11 @@ function Patrimonio() {
             <span className="mx-2">•</span>
             <span>📉 % Spesa = Quanto sto spendendo sui guadagni</span>
           </p>
+          {selectedYear === 'all' && (
+            <p className="text-sm text-blue-700 mt-2">
+              💡 <strong>Nota:</strong> Scorri orizzontalmente per vedere tutti i periodi storici. La colonna "Voce" rimane fissa.
+            </p>
+          )}
         </div>
       </div>
 

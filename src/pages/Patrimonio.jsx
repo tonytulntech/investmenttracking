@@ -221,9 +221,32 @@ function Patrimonio() {
         Object.entries(finalHoldings).forEach(([ticker, holding]) => {
           if (holding.quantity > 0) {
             const priceTable = priceTables[ticker] || {};
-            const price = priceTable[lastMonth] || 'N/A';
-            const value = typeof price === 'number' ? holding.quantity * price : 0;
-            console.log(`  ${ticker}: ${holding.quantity.toFixed(4)} units @ €${price} = €${value.toFixed(2)}`);
+            let price = priceTable[lastMonth];
+            let priceSource = 'direct';
+
+            // Use same fallback logic as calculation
+            if (!price && Object.keys(priceTable).length > 0) {
+              const availableMonths = Object.keys(priceTable).sort().reverse();
+              for (const availableMonth of availableMonths) {
+                if (availableMonth <= lastMonth) {
+                  const candidatePrice = priceTable[availableMonth];
+                  if (candidatePrice && candidatePrice > 0) {
+                    price = candidatePrice;
+                    priceSource = `fallback from ${availableMonth}`;
+                    break;
+                  }
+                }
+              }
+            }
+
+            // Fallback to current cached price
+            if (!price && currentPrices[ticker]) {
+              price = currentPrices[ticker];
+              priceSource = 'current cache';
+            }
+
+            const value = price ? holding.quantity * price : 0;
+            console.log(`  ${ticker}: ${holding.quantity.toFixed(4)} units @ €${price ? price.toFixed(2) : 'N/A'} (${priceSource}) = €${value.toFixed(2)}`);
           }
         });
       }

@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Calendar } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { TrendingUp, TrendingDown, DollarSign, Calendar, PieChart as PieChartIcon } from 'lucide-react';
+import {
+  LineChart, Line, BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts';
 import { getTransactions } from '../services/localStorageService';
 import { format, parseISO, endOfMonth, isAfter } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -431,7 +434,9 @@ function Patrimonio() {
         marketValue: 0,
         patrimonio: 0,
         gain: 0,
-        gainPercent: 0
+        gainPercent: 0,
+        cumulativeIncome: 0,
+        cumulativeExpense: 0
       };
     }
 
@@ -442,6 +447,8 @@ function Patrimonio() {
     const patrimonio = latest.patrimonioReale || 0;
     const gain = marketValue - invested;
     const gainPercent = invested > 0 ? (gain / invested) * 100 : 0;
+    const cumulativeIncome = latest.cumulativeIncome || 0;
+    const cumulativeExpense = latest.cumulativeExpense || 0;
 
     return {
       invested,
@@ -449,7 +456,9 @@ function Patrimonio() {
       marketValue,
       patrimonio,
       gain,
-      gainPercent
+      gainPercent,
+      cumulativeIncome,
+      cumulativeExpense
     };
   }, [chartData]);
 
@@ -575,11 +584,25 @@ function Patrimonio() {
         </div>
       </div>
 
-      {/* Chart */}
+      {/* Chart 1: Patrimonio Evolution (GetQuin style) */}
       <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Andamento Mensile</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">📈 Evoluzione Patrimonio Totale</h3>
         <ResponsiveContainer width="100%" height={400}>
-          <LineChart data={chartData}>
+          <AreaChart data={chartData}>
+            <defs>
+              <linearGradient id="colorPatrimonio" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
+                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.05}/>
+              </linearGradient>
+              <linearGradient id="colorInvestments" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.05}/>
+              </linearGradient>
+              <linearGradient id="colorCash" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0.05}/>
+              </linearGradient>
+            </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis
               dataKey="displayMonth"
@@ -599,267 +622,115 @@ function Patrimonio() {
               contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
             />
             <Legend />
-
-            {/* Total lines (thicker) */}
-            {(selectedView === 'income' || selectedView === 'all') && (
-              <Line
-                type="monotone"
-                dataKey="totalIncome"
-                name="Totale Entrate"
-                stroke="#10b981"
-                strokeWidth={3}
-                dot={{ r: 4 }}
-              />
-            )}
-            {(selectedView === 'expense' || selectedView === 'all') && (
-              <Line
-                type="monotone"
-                dataKey="totalExpense"
-                name="Totale Uscite"
-                stroke="#ef4444"
-                strokeWidth={3}
-                dot={{ r: 4 }}
-              />
-            )}
-            {(selectedView === 'investments' || selectedView === 'all') && (
-              <Line
-                type="monotone"
-                dataKey="totalInvestments"
-                name="Totale Investimenti"
-                stroke="#3b82f6"
-                strokeWidth={3}
-                dot={{ r: 4 }}
-              />
-            )}
-            {selectedView === 'all' && (
-              <>
-                <Line
-                  type="monotone"
-                  dataKey="cashBalance"
-                  name="Liquidità Disponibile"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                  strokeDasharray="3 3"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="investmentsMarketValue"
-                  name="Valore Investimenti (Mercato)"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                  strokeDasharray="3 3"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="patrimonioReale"
-                  name="Patrimonio Totale Reale"
-                  stroke="#8b5cf6"
-                  strokeWidth={4}
-                  dot={{ r: 5 }}
-                />
-              </>
-            )}
-          </LineChart>
+            <Area
+              type="monotone"
+              dataKey="cashBalance"
+              name="Liquidità"
+              stroke="#10b981"
+              strokeWidth={2}
+              fill="url(#colorCash)"
+              fillOpacity={1}
+            />
+            <Area
+              type="monotone"
+              dataKey="investmentsMarketValue"
+              name="Investimenti (Mercato)"
+              stroke="#3b82f6"
+              strokeWidth={2}
+              fill="url(#colorInvestments)"
+              fillOpacity={1}
+              stackId="1"
+            />
+            <Line
+              type="monotone"
+              dataKey="patrimonioReale"
+              name="Patrimonio Totale"
+              stroke="#8b5cf6"
+              strokeWidth={4}
+              dot={{ r: 5, fill: '#8b5cf6' }}
+            />
+          </AreaChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Table - Income */}
-      {(selectedView === 'income' || selectedView === 'all') && (
-        <div className="card">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-5 h-5 text-success-600" />
-            <h3 className="text-lg font-semibold text-gray-900">Entrate</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-3 font-medium text-gray-700">Categoria</th>
-                  {periods.map(period => (
-                    <th key={period} className="text-right py-2 px-3 font-medium text-gray-700">
-                      {getPeriodDisplay(period)}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {Object.keys(processedData.income).sort().map(category => {
-                  const hasData = periods.some(p => (processedData.income[category][p] || 0) > 0);
-                  if (!hasData) return null;
+      {/* Chart 2: Monthly Flows (Bars) */}
+      <div className="card">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">📊 Flussi Mensili</h3>
+        <ResponsiveContainer width="100%" height={400}>
+          <BarChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis
+              dataKey="displayMonth"
+              stroke="#6b7280"
+              style={{ fontSize: '12px' }}
+              angle={selectedYear === 'all' ? -45 : 0}
+              textAnchor={selectedYear === 'all' ? 'end' : 'middle'}
+              height={selectedYear === 'all' ? 80 : 30}
+            />
+            <YAxis
+              stroke="#6b7280"
+              style={{ fontSize: '12px' }}
+              tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
+            />
+            <Tooltip
+              formatter={(value) => `€${value.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`}
+              contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+            />
+            <Legend />
+            {(selectedView === 'income' || selectedView === 'all') && (
+              <Bar dataKey="totalIncome" name="Entrate" fill="#10b981" />
+            )}
+            {(selectedView === 'expense' || selectedView === 'all') && (
+              <Bar dataKey="totalExpense" name="Uscite" fill="#ef4444" />
+            )}
+            {(selectedView === 'investments' || selectedView === 'all') && (
+              <Bar dataKey="totalInvestments" name="Investimenti" fill="#3b82f6" />
+            )}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
 
-                  return (
-                    <tr key={category} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-2 px-3 font-medium text-gray-900">{category}</td>
-                      {periods.map(period => (
-                        <td key={period} className="text-right py-2 px-3 text-success-700">
-                          {(processedData.income[category][period] || 0) > 0
-                            ? `€${processedData.income[category][period].toLocaleString('it-IT', { minimumFractionDigits: 2 })}`
-                            : '-'
-                          }
-                        </td>
-                      ))}
-                    </tr>
-                  );
-                })}
-                <tr className="border-t-2 border-gray-300 font-bold bg-success-50">
-                  <td className="py-2 px-3 text-gray-900">Totale Entrate</td>
-                  {periods.map(period => (
-                    <td key={period} className="text-right py-2 px-3 text-success-700">
-                      €{tableTotals.income[period].toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-                    </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
+      {/* Consuntivi Section */}
+      <div className="card">
+        <h3 className="text-lg font-semibold text-gray-900 mb-6">📋 Riepilogo Consuntivi</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Entrate Totali */}
+          <div className="border border-green-200 rounded-lg p-4 bg-green-50">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="w-5 h-5 text-green-600" />
+              <h4 className="font-semibold text-green-900">Entrate Totali</h4>
+            </div>
+            <p className="text-3xl font-bold text-green-700">
+              €{currentValues.cumulativeIncome?.toLocaleString('it-IT', { minimumFractionDigits: 2 }) || '0.00'}
+            </p>
+            <p className="text-sm text-green-600 mt-1">Dall'inizio</p>
+          </div>
+
+          {/* Uscite Totali */}
+          <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingDown className="w-5 h-5 text-red-600" />
+              <h4 className="font-semibold text-red-900">Uscite Totali</h4>
+            </div>
+            <p className="text-3xl font-bold text-red-700">
+              €{currentValues.cumulativeExpense?.toLocaleString('it-IT', { minimumFractionDigits: 2 }) || '0.00'}
+            </p>
+            <p className="text-sm text-red-600 mt-1">Dall'inizio</p>
+          </div>
+
+          {/* Investimenti Totali */}
+          <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+            <div className="flex items-center gap-2 mb-3">
+              <DollarSign className="w-5 h-5 text-blue-600" />
+              <h4 className="font-semibold text-blue-900">Investimenti Totali</h4>
+            </div>
+            <p className="text-3xl font-bold text-blue-700">
+              €{currentValues.invested?.toLocaleString('it-IT', { minimumFractionDigits: 2 }) || '0.00'}
+            </p>
+            <p className="text-sm text-blue-600 mt-1">Costo totale</p>
           </div>
         </div>
-      )}
-
-      {/* Table - Expenses */}
-      {(selectedView === 'expense' || selectedView === 'all') && (
-        <div className="card">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingDown className="w-5 h-5 text-danger-600" />
-            <h3 className="text-lg font-semibold text-gray-900">Uscite</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-3 font-medium text-gray-700">Categoria</th>
-                  {periods.map(period => (
-                    <th key={period} className="text-right py-2 px-3 font-medium text-gray-700">
-                      {getPeriodDisplay(period)}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {Object.keys(processedData.expense).sort().map(category => {
-                  const hasData = periods.some(p => (processedData.expense[category][p] || 0) > 0);
-                  if (!hasData) return null;
-
-                  return (
-                    <tr key={category} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-2 px-3 font-medium text-gray-900">{category}</td>
-                      {periods.map(period => (
-                        <td key={period} className="text-right py-2 px-3 text-danger-700">
-                          {(processedData.expense[category][period] || 0) > 0
-                            ? `€${processedData.expense[category][period].toLocaleString('it-IT', { minimumFractionDigits: 2 })}`
-                            : '-'
-                          }
-                        </td>
-                      ))}
-                    </tr>
-                  );
-                })}
-                <tr className="border-t-2 border-gray-300 font-bold bg-danger-50">
-                  <td className="py-2 px-3 text-gray-900">Totale Uscite</td>
-                  {periods.map(period => (
-                    <td key={period} className="text-right py-2 px-3 text-danger-700">
-                      €{tableTotals.expense[period].toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-                    </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Table - Investments */}
-      {(selectedView === 'investments' || selectedView === 'all') && (
-        <div className="card">
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-5 h-5 text-primary-600" />
-            <h3 className="text-lg font-semibold text-gray-900">Investimenti</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-3 font-medium text-gray-700">Categoria</th>
-                  {periods.map(period => (
-                    <th key={period} className="text-right py-2 px-3 font-medium text-gray-700">
-                      {getPeriodDisplay(period)}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {Object.keys(processedData.investments).sort().map(category => {
-                  const hasData = periods.some(p => (processedData.investments[category][p] || 0) > 0);
-                  if (!hasData) return null;
-
-                  return (
-                    <tr key={category} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-2 px-3 font-medium text-gray-900">{category}</td>
-                      {periods.map(period => (
-                        <td key={period} className="text-right py-2 px-3 text-primary-700">
-                          {(processedData.investments[category][period] || 0) > 0
-                            ? `€${processedData.investments[category][period].toLocaleString('it-IT', { minimumFractionDigits: 2 })}`
-                            : '-'
-                          }
-                        </td>
-                      ))}
-                    </tr>
-                  );
-                })}
-                <tr className="border-t-2 border-gray-300 font-bold bg-primary-50">
-                  <td className="py-2 px-3 text-gray-900">Totale Investimenti</td>
-                  {periods.map(period => (
-                    <td key={period} className="text-right py-2 px-3 text-primary-700">
-                      €{tableTotals.investments[period].toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-                    </td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Table - Net Result */}
-      {selectedView === 'all' && (
-        <div className="card">
-          <div className="flex items-center gap-2 mb-4">
-            <DollarSign className="w-5 h-5 text-primary-600" />
-            <h3 className="text-lg font-semibold text-gray-900">Risultato Netto</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-3 font-medium text-gray-700">Periodo</th>
-                  {periods.map(period => (
-                    <th key={period} className="text-right py-2 px-3 font-medium text-gray-700">
-                      {getPeriodDisplay(period)}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="font-bold bg-gray-50">
-                  <td className="py-2 px-3 text-gray-900">Entrate - Uscite</td>
-                  {periods.map(period => {
-                    const net = tableTotals.net[period];
-                    return (
-                      <td
-                        key={period}
-                        className={`text-right py-2 px-3 ${net >= 0 ? 'text-success-700' : 'text-danger-700'}`}
-                      >
-                        {net >= 0 ? '+' : ''}€{net.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-                      </td>
-                    );
-                  })}
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

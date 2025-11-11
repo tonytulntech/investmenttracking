@@ -40,7 +40,8 @@ function Transactions() {
       commission: '',
       currency: 'EUR',
       notes: '',
-      type: 'buy'
+      type: 'buy',
+      cashFlowType: 'income' // income (entrata) or expense (uscita) for Cash transactions
     };
   }
 
@@ -505,6 +506,39 @@ function Transactions() {
                   </button>
                 </div>
               </div>
+
+              {/* Cash Flow Type (only for Cash) */}
+              {formData.macroCategory === 'Cash' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tipo Movimento *
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, cashFlowType: 'income' })}
+                      className={`p-4 rounded-lg border-2 font-medium transition-all ${
+                        formData.cashFlowType === 'income'
+                          ? 'border-success-600 bg-success-50 text-success-700'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      💰 Entrata (Guadagno)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, cashFlowType: 'expense' })}
+                      className={`p-4 rounded-lg border-2 font-medium transition-all ${
+                        formData.cashFlowType === 'expense'
+                          ? 'border-danger-600 bg-danger-50 text-danger-700'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      💸 Uscita (Spesa)
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Ticker & Name */}
               <div className={formData.macroCategory === 'Cash' ? '' : 'grid grid-cols-2 gap-4'}>

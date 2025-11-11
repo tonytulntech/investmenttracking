@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { TrendingUp, LayoutDashboard, Wallet, FileText, Settings, Plus, Target, RefreshCcw, BarChart3 } from 'lucide-react';
+import { TrendingUp, LayoutDashboard, Wallet, FileText, Settings, Plus, Target, RefreshCcw, BarChart3, PiggyBank } from 'lucide-react';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -10,6 +10,7 @@ import Transactions from './pages/Transactions';
 import SettingsPage from './pages/Settings';
 import Strategy from './pages/Strategy';
 import Rebalancing from './pages/Rebalancing';
+import Patrimonio from './pages/Patrimonio';
 
 function App() {
   const location = useLocation();
@@ -18,6 +19,7 @@ function App() {
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Portfolio', href: '/portfolio', icon: Wallet },
     { name: 'Performance', href: '/performance', icon: BarChart3 },
+    { name: 'Patrimonio', href: '/patrimonio', icon: PiggyBank },
     { name: 'Transazioni', href: '/transactions', icon: FileText },
     { name: 'Strategia', href: '/strategy', icon: Target },
     { name: 'Ribilanciamento', href: '/rebalancing', icon: RefreshCcw },
@@ -89,6 +91,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/performance" element={<PortfolioPerformance />} />
+            <Route path="/patrimonio" element={<Patrimonio />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/transactions/new" element={<Transactions />} />
             <Route path="/strategy" element={<Strategy />} />
@@ -101,7 +104,7 @@ function App() {
 
       {/* Mobile Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-gray-200 safe-bottom z-50">
-        <div className="grid grid-cols-6 gap-1 p-2">
+        <div className="grid grid-cols-4 gap-1 p-2">
           {navigation.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);

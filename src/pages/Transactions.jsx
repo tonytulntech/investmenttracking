@@ -354,7 +354,7 @@ function Transactions() {
             className="select min-w-[150px]"
           >
             <option value="all">Tutte le categorie</option>
-            {Object.keys(getMacroAssetClasses()).map(category => (
+            {getMacroAssetClasses().map(category => (
               <option key={category} value={category}>{category}</option>
             ))}
           </select>

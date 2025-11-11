@@ -154,13 +154,17 @@ function Patrimonio() {
             const priceTable = priceTables[ticker] || {};
             let price = priceTable[monthKey];
 
-            // Fallback to last known price
+            // Fallback to last known price (skip undefined values)
             if (!price && Object.keys(priceTable).length > 0) {
               const availableMonths = Object.keys(priceTable).sort().reverse();
               for (const availableMonth of availableMonths) {
                 if (availableMonth <= monthKey) {
-                  price = priceTable[availableMonth];
-                  break;
+                  const candidatePrice = priceTable[availableMonth];
+                  // Only use this price if it's valid (not undefined/null/0)
+                  if (candidatePrice && candidatePrice > 0) {
+                    price = candidatePrice;
+                    break;
+                  }
                 }
               }
             }
@@ -182,6 +186,47 @@ function Patrimonio() {
       setMonthlyMarketValues(marketValues);
       setLoadingPrices(false);
       console.log('📊 Monthly market values calculated:', marketValues);
+
+      // Debug: Show last 3 months values
+      const sortedKeys = Object.keys(marketValues).sort();
+      if (sortedKeys.length > 0) {
+        const lastMonths = sortedKeys.slice(-3);
+        console.log('💰 Last 3 months market values:');
+        lastMonths.forEach(month => {
+          console.log(`  ${month}: €${marketValues[month].toFixed(2)}`);
+        });
+
+        // Show detailed breakdown for latest month
+        const lastMonth = sortedKeys[sortedKeys.length - 1];
+        const lastMonthDate = parseISO(`${lastMonth}-01`);
+        const lastMonthEnd = endOfMonth(lastMonthDate);
+        const txUpToLastMonth = assetTransactions.filter(tx => {
+          const txDate = parseISO(tx.date);
+          return !isAfter(txDate, lastMonthEnd);
+        });
+
+        const finalHoldings = {};
+        txUpToLastMonth.forEach(tx => {
+          if (!finalHoldings[tx.ticker]) {
+            finalHoldings[tx.ticker] = { quantity: 0, value: 0 };
+          }
+          if (tx.type === 'buy') {
+            finalHoldings[tx.ticker].quantity += tx.quantity;
+          } else if (tx.type === 'sell') {
+            finalHoldings[tx.ticker].quantity -= tx.quantity;
+          }
+        });
+
+        console.log(`\n📋 Holdings breakdown for ${lastMonth}:`);
+        Object.entries(finalHoldings).forEach(([ticker, holding]) => {
+          if (holding.quantity > 0) {
+            const priceTable = priceTables[ticker] || {};
+            const price = priceTable[lastMonth] || 'N/A';
+            const value = typeof price === 'number' ? holding.quantity * price : 0;
+            console.log(`  ${ticker}: ${holding.quantity.toFixed(4)} units @ €${price} = €${value.toFixed(2)}`);
+          }
+        });
+      }
     } catch (error) {
       console.error('Error calculating market values:', error);
       setLoadingPrices(false);

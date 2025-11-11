@@ -149,12 +149,20 @@ function Patrimonio() {
 
         // Calculate market value
         let totalValue = 0;
+        const currentMonthKey = format(new Date(), 'yyyy-MM');
+        const isCurrentMonth = monthKey === currentMonthKey;
+
         Object.entries(holdings).forEach(([ticker, holding]) => {
           if (holding.quantity > 0) {
             const priceTable = priceTables[ticker] || {};
             let price = priceTable[monthKey];
 
-            // Fallback to last known price (skip undefined values)
+            // For current month: prioritize current prices from cache over historical fallback
+            if (!price && isCurrentMonth && currentPrices[ticker]) {
+              price = currentPrices[ticker];
+            }
+
+            // For past months or if current price not available: fallback to last known historical price
             if (!price && Object.keys(priceTable).length > 0) {
               const availableMonths = Object.keys(priceTable).sort().reverse();
               for (const availableMonth of availableMonths) {
@@ -169,7 +177,7 @@ function Patrimonio() {
               }
             }
 
-            // Fallback to current price for recent months
+            // Final fallback to current price if still not found
             if (!price && currentPrices[ticker]) {
               price = currentPrices[ticker];
             }
@@ -218,11 +226,20 @@ function Patrimonio() {
         });
 
         console.log(`\n📋 Holdings breakdown for ${lastMonth}:`);
+        const currentMonthKeyDebug = format(new Date(), 'yyyy-MM');
+        const isCurrentMonthDebug = lastMonth === currentMonthKeyDebug;
+
         Object.entries(finalHoldings).forEach(([ticker, holding]) => {
           if (holding.quantity > 0) {
             const priceTable = priceTables[ticker] || {};
             let price = priceTable[lastMonth];
             let priceSource = 'direct';
+
+            // For current month: prioritize current prices from cache
+            if (!price && isCurrentMonthDebug && currentPrices[ticker]) {
+              price = currentPrices[ticker];
+              priceSource = 'current cache (prioritized for current month)';
+            }
 
             // Use same fallback logic as calculation
             if (!price && Object.keys(priceTable).length > 0) {
@@ -239,10 +256,10 @@ function Patrimonio() {
               }
             }
 
-            // Fallback to current cached price
+            // Final fallback to current cached price
             if (!price && currentPrices[ticker]) {
               price = currentPrices[ticker];
-              priceSource = 'current cache';
+              priceSource = 'current cache (final fallback)';
             }
 
             const value = price ? holding.quantity * price : 0;

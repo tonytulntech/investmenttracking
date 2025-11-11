@@ -556,14 +556,47 @@ function Patrimonio() {
     }
 
     const latest = chartData[chartData.length - 1];
-    const invested = latest.cumulativeInvestments || 0;
     const cash = latest.cashBalance || 0;
     const marketValue = latest.investmentsMarketValue || 0;
     const patrimonio = latest.patrimonioReale || 0;
+
+    // Calculate REAL cost basis (total cost of holdings, excluding sold positions)
+    // This matches Dashboard's "Totale Investito" calculation
+    const assetTransactions = transactions.filter(tx => !tx.isCash && tx.macroCategory !== 'Cash');
+    const holdings = {};
+
+    assetTransactions.forEach(tx => {
+      if (!holdings[tx.ticker]) {
+        holdings[tx.ticker] = { quantity: 0, totalCost: 0 };
+      }
+      if (tx.type === 'buy') {
+        holdings[tx.ticker].quantity += tx.quantity;
+        holdings[tx.ticker].totalCost += tx.quantity * tx.price;
+      } else if (tx.type === 'sell') {
+        holdings[tx.ticker].quantity -= tx.quantity;
+        holdings[tx.ticker].totalCost -= tx.quantity * tx.price;
+      }
+    });
+
+    // Sum up cost basis for positions still held (quantity > 0)
+    const invested = Object.values(holdings)
+      .filter(h => h.quantity > 0)
+      .reduce((sum, h) => sum + h.totalCost, 0);
+
     const gain = marketValue - invested;
     const gainPercent = invested > 0 ? (gain / invested) * 100 : 0;
     const cumulativeIncome = latest.cumulativeIncome || 0;
     const cumulativeExpense = latest.cumulativeExpense || 0;
+
+    console.log('📊 Current Values Debug:', {
+      cash,
+      invested,
+      marketValue,
+      patrimonio,
+      gain,
+      gainPercent,
+      chartDataLength: chartData.length
+    });
 
     return {
       invested,
@@ -575,7 +608,7 @@ function Patrimonio() {
       cumulativeIncome,
       cumulativeExpense
     };
-  }, [chartData]);
+  }, [chartData, transactions]);
 
   return (
     <div className="space-y-6">

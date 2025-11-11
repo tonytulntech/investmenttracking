@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Filter, RefreshCw, ArrowUpDown, Wallet } from 'lucide-react';
 import { calculatePortfolio } from '../services/localStorageService';
 import { fetchMultiplePrices } from '../services/priceService';
+import { getCachedPrices, cachePrices } from '../services/priceCache';
 import { getTER, calculateAnnualTERCost, getTERBadgeColor } from '../services/terDetectionService';
 
 function Portfolio() {
@@ -9,22 +10,9 @@ function Portfolio() {
   const [refreshing, setRefreshing] = useState(false);
   const [portfolio, setPortfolio] = useState([]);
   const [priceCache, setPriceCache] = useState(() => {
-    // Initialize price cache from localStorage if available
-    try {
-      const saved = localStorage.getItem('price_cache');
-      if (saved) {
-        const { cache, timestamp } = JSON.parse(saved);
-        const age = Date.now() - timestamp;
-        // Use cache if less than 5 minutes old
-        if (age < 5 * 60 * 1000) {
-          console.log('💾 Loaded price cache from localStorage (age:', Math.round(age / 1000), 'seconds)');
-          return cache;
-        }
-      }
-    } catch (e) {
-      console.error('Error loading price cache:', e);
-    }
-    return {};
+    // Initialize price cache from localStorage using priceCache service
+    const cached = getCachedPrices();
+    return cached || {};
   }); // Cache of current prices by ticker
   const [filteredPortfolio, setFilteredPortfolio] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -138,16 +126,9 @@ function Portfolio() {
     });
     setPriceCache(newPriceCache);
 
-    // Save to localStorage for persistence across navigation
-    try {
-      localStorage.setItem('price_cache', JSON.stringify({
-        cache: newPriceCache,
-        timestamp: Date.now()
-      }));
-      console.log('💾 Portfolio price cache updated and saved with', Object.keys(prices).length, 'prices');
-    } catch (e) {
-      console.error('Error saving price cache:', e);
-    }
+    // Save to localStorage using priceCache service
+    cachePrices(newPriceCache);
+    console.log('💾 Portfolio price cache updated and saved with', Object.keys(prices).length, 'prices');
 
     // Use helper function to calculate portfolio with prices
     const updatedPortfolio = calculatePortfolioWithPrices(holdings, newPriceCache);

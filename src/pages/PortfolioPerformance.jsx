@@ -185,18 +185,41 @@ function PortfolioPerformance() {
             const priceTable = priceTables[holding.ticker] || {};
             const historicalPrice = priceTable[monthKey];
 
-            // Fallback logic:
-            // 1. Use historical price if available
-            // 2. Use current price from cache (for recent months)
-            // 3. Last resort: use average cost
+            // NEW: Get last available historical price as better fallback
+            let lastKnownPrice = null;
+            if (!historicalPrice && Object.keys(priceTable).length > 0) {
+              const availableMonths = Object.keys(priceTable).sort().reverse(); // Sort in descending order
+              // Find the most recent month that's before or equal to current month
+              for (const availableMonth of availableMonths) {
+                if (availableMonth <= monthKey) {
+                  lastKnownPrice = priceTable[availableMonth];
+                  break;
+                }
+              }
+            }
+
+            // Improved fallback logic:
+            // 1. Use historical price if available for this exact month
+            // 2. Use current price from cache (for very recent months)
+            // 3. Use last known historical price (carry forward last available price)
+            // 4. Last resort: use average cost
             const currentPrice = currentPrices[holding.ticker]?.price;
             const avgCost = holding.totalCost / holding.quantity;
-            const price = historicalPrice || currentPrice || avgCost;
+            const price = historicalPrice || currentPrice || lastKnownPrice || avgCost;
             const value = holding.quantity * price;
 
-            // DEBUG: Log problematic months (first month and current month)
+            // DEBUG: Enhanced debug logging for problematic months
             if (monthKey === '2021-02' || monthKey === '2025-11') {
-              console.log(`🔍 DEBUG ${monthKey} - ${holding.ticker}: historicalPrice=${historicalPrice}, currentPrice=${currentPrice}, avgCost=${avgCost.toFixed(2)}, finalPrice=${price.toFixed(2)}, usedFallback=${!historicalPrice}, quantity=${holding.quantity}, value=${value.toFixed(2)}`);
+              console.log(`🔍 DEBUG ${monthKey} - ${holding.ticker}:`, {
+                historicalPrice,
+                currentPrice,
+                lastKnownPrice,
+                avgCost: avgCost.toFixed(2),
+                finalPrice: price.toFixed(2),
+                fallbackUsed: !historicalPrice ? (currentPrice ? 'currentPrice' : (lastKnownPrice ? 'lastKnownPrice' : 'avgCost')) : 'historicalPrice',
+                quantity: holding.quantity,
+                value: value.toFixed(2)
+              });
             }
 
             totalValue += value;
@@ -260,9 +283,16 @@ function PortfolioPerformance() {
             const monthReturn = currMonth.total - prevMonth.total - netCashFlow;
             const monthReturnPercent = (monthReturn / prevMonth.total) * 100;
 
-            // DEBUG: Log problematic months
+            // DEBUG: Enhanced debug logging for problematic months
             if (currMonth.monthKey === '2021-02' || currMonth.monthKey === '2025-11') {
-              console.log(`🔍 RETURN CALC ${currMonth.monthKey}: prevTotal=${prevMonth.total.toFixed(2)}, currTotal=${currMonth.total.toFixed(2)}, netCashFlow=${netCashFlow.toFixed(2)}, monthReturn=${monthReturn.toFixed(2)}, monthReturnPercent=${monthReturnPercent.toFixed(2)}%, formula: (${currMonth.total.toFixed(2)} - ${prevMonth.total.toFixed(2)} - ${netCashFlow.toFixed(2)}) / ${prevMonth.total.toFixed(2)} = ${monthReturnPercent.toFixed(2)}%`);
+              console.log(`🔍 RETURN CALC ${currMonth.monthKey}:`, {
+                prevTotal: prevMonth.total.toFixed(2),
+                currTotal: currMonth.total.toFixed(2),
+                netCashFlow: netCashFlow.toFixed(2),
+                monthReturn: monthReturn.toFixed(2),
+                monthReturnPercent: monthReturnPercent.toFixed(2) + '%',
+                formula: `(${currMonth.total.toFixed(2)} - ${prevMonth.total.toFixed(2)} - ${netCashFlow.toFixed(2)}) / ${prevMonth.total.toFixed(2)} = ${monthReturnPercent.toFixed(2)}%`
+              });
             }
 
             calculatedMonthlyReturns.push({

@@ -643,7 +643,7 @@ function Patrimonio() {
 
       {/* Filters */}
       <div className="card">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <Calendar className="w-4 h-4 inline mr-1" />
@@ -678,22 +678,6 @@ function Patrimonio() {
               {availableCategories.map(category => (
                 <option key={category} value={category}>{category}</option>
               ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <DollarSign className="w-4 h-4 inline mr-1" />
-              Visualizzazione
-            </label>
-            <select
-              value={selectedView}
-              onChange={(e) => setSelectedView(e.target.value)}
-              className="select"
-            >
-              <option value="all">Tutto (Entrate, Uscite, Investimenti)</option>
-              <option value="income">Solo Entrate</option>
-              <option value="expense">Solo Uscite</option>
-              <option value="investments">Solo Investimenti</option>
             </select>
           </div>
         </div>
@@ -747,41 +731,112 @@ function Patrimonio() {
         </ResponsiveContainer>
       </div>
 
-      {/* Chart 2: Monthly Flows (Bars) */}
-      <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">📊 Flussi Mensili</h3>
-        <ResponsiveContainer width="100%" height={400}>
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis
-              dataKey="displayMonth"
-              stroke="#6b7280"
-              style={{ fontSize: '12px' }}
-              angle={selectedYear === 'all' ? -45 : 0}
-              textAnchor={selectedYear === 'all' ? 'end' : 'middle'}
-              height={selectedYear === 'all' ? 80 : 30}
-            />
-            <YAxis
-              stroke="#6b7280"
-              style={{ fontSize: '12px' }}
-              tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
-            />
-            <Tooltip
-              formatter={(value) => `€${value.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`}
-              contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
-            />
-            <Legend />
-            {(selectedView === 'income' || selectedView === 'all') && (
-              <Bar dataKey="totalIncome" name="Entrate" fill="#10b981" />
-            )}
-            {(selectedView === 'expense' || selectedView === 'all') && (
-              <Bar dataKey="totalExpense" name="Uscite" fill="#ef4444" />
-            )}
-            {(selectedView === 'investments' || selectedView === 'all') && (
-              <Bar dataKey="totalInvestments" name="Investimenti" fill="#3b82f6" />
-            )}
-          </BarChart>
-        </ResponsiveContainer>
+      {/* Tables: Entrate, Uscite, Investimenti */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Tabella Entrate */}
+        <div className="card">
+          <h3 className="text-lg font-semibold text-green-900 mb-4 flex items-center gap-2">
+            💰 Entrate Mensili
+          </h3>
+          <div className="overflow-x-auto max-h-96 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-white">
+                <tr className="border-b border-green-200">
+                  <th className="text-left py-2 px-3 font-semibold text-green-800">Periodo</th>
+                  <th className="text-right py-2 px-3 font-semibold text-green-800">Importo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {chartData.map((row, idx) => (
+                  <tr key={idx} className="border-b border-gray-100 hover:bg-green-50">
+                    <td className="py-2 px-3 text-gray-700">{row.displayMonth}</td>
+                    <td className="py-2 px-3 text-right font-medium text-green-700">
+                      €{row.totalIncome.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                ))}
+                {chartData.length > 0 && (
+                  <tr className="bg-green-100 font-bold">
+                    <td className="py-3 px-3 text-green-900">TOTALE</td>
+                    <td className="py-3 px-3 text-right text-green-900">
+                      €{chartData.reduce((sum, row) => sum + row.totalIncome, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Tabella Uscite */}
+        <div className="card">
+          <h3 className="text-lg font-semibold text-red-900 mb-4 flex items-center gap-2">
+            💸 Uscite Mensili
+          </h3>
+          <div className="overflow-x-auto max-h-96 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-white">
+                <tr className="border-b border-red-200">
+                  <th className="text-left py-2 px-3 font-semibold text-red-800">Periodo</th>
+                  <th className="text-right py-2 px-3 font-semibold text-red-800">Importo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {chartData.map((row, idx) => (
+                  <tr key={idx} className="border-b border-gray-100 hover:bg-red-50">
+                    <td className="py-2 px-3 text-gray-700">{row.displayMonth}</td>
+                    <td className="py-2 px-3 text-right font-medium text-red-700">
+                      €{row.totalExpense.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                ))}
+                {chartData.length > 0 && (
+                  <tr className="bg-red-100 font-bold">
+                    <td className="py-3 px-3 text-red-900">TOTALE</td>
+                    <td className="py-3 px-3 text-right text-red-900">
+                      €{chartData.reduce((sum, row) => sum + row.totalExpense, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Tabella Investimenti */}
+        <div className="card">
+          <h3 className="text-lg font-semibold text-blue-900 mb-4 flex items-center gap-2">
+            📈 Investimenti Mensili
+          </h3>
+          <div className="overflow-x-auto max-h-96 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-white">
+                <tr className="border-b border-blue-200">
+                  <th className="text-left py-2 px-3 font-semibold text-blue-800">Periodo</th>
+                  <th className="text-right py-2 px-3 font-semibold text-blue-800">Importo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {chartData.map((row, idx) => (
+                  <tr key={idx} className="border-b border-gray-100 hover:bg-blue-50">
+                    <td className="py-2 px-3 text-gray-700">{row.displayMonth}</td>
+                    <td className="py-2 px-3 text-right font-medium text-blue-700">
+                      €{row.totalInvestments.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                ))}
+                {chartData.length > 0 && (
+                  <tr className="bg-blue-100 font-bold">
+                    <td className="py-3 px-3 text-blue-900">TOTALE</td>
+                    <td className="py-3 px-3 text-right text-blue-900">
+                      €{chartData.reduce((sum, row) => sum + row.totalInvestments, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {/* Consuntivi Section */}

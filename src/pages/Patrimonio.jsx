@@ -833,11 +833,216 @@ function Patrimonio() {
       </div>
       )}
 
-      {/* Section: Entrate vs Uscite per Categoria */}
+      {/* Section: Riepilogo Flussi di Cassa */}
       <div className="card">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">📊 Entrate vs Uscite per Investimenti</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-6">📊 Riepilogo Flussi di Cassa Mensili</h2>
 
-        {/* Line Chart per Categoria */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border border-gray-300 py-3 px-3 text-left font-bold text-gray-900 sticky left-0 bg-gray-100 z-10">Voce</th>
+                {MONTHS.map(month => (
+                  <th key={month} className="border border-gray-300 py-3 px-2 text-center font-semibold text-gray-900 min-w-[90px]">{month}</th>
+                ))}
+                <th className="border border-gray-300 py-3 px-3 text-center font-bold text-gray-900 min-w-[120px]">TOTALE ANNO</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Entrate */}
+              <tr className="bg-green-50 hover:bg-green-100">
+                <td className="border border-gray-300 py-3 px-3 font-bold text-green-900 sticky left-0 bg-green-50 z-10">💰 Entrate</td>
+                {MONTHS.map(month => {
+                  const income = Object.keys(processedData.income).reduce((sum, cat) => {
+                    return sum + (processedData.income[cat][month] || 0);
+                  }, 0);
+                  return (
+                    <td key={month} className="border border-gray-300 py-3 px-2 text-right text-green-700 font-medium">
+                      {income > 0 ? `€${income.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                    </td>
+                  );
+                })}
+                <td className="border border-gray-300 py-3 px-3 text-right font-bold text-green-900">
+                  €{MONTHS.reduce((sum, month) => {
+                    return sum + Object.keys(processedData.income).reduce((catSum, cat) => {
+                      return catSum + (processedData.income[cat][month] || 0);
+                    }, 0);
+                  }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                </td>
+              </tr>
+
+              {/* Uscite */}
+              <tr className="bg-red-50 hover:bg-red-100">
+                <td className="border border-gray-300 py-3 px-3 font-bold text-red-900 sticky left-0 bg-red-50 z-10">💸 Uscite</td>
+                {MONTHS.map(month => {
+                  const expense = Object.keys(processedData.expense).reduce((sum, cat) => {
+                    return sum + (processedData.expense[cat][month] || 0);
+                  }, 0);
+                  return (
+                    <td key={month} className="border border-gray-300 py-3 px-2 text-right text-red-700 font-medium">
+                      {expense > 0 ? `€${expense.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                    </td>
+                  );
+                })}
+                <td className="border border-gray-300 py-3 px-3 text-right font-bold text-red-900">
+                  €{MONTHS.reduce((sum, month) => {
+                    return sum + Object.keys(processedData.expense).reduce((catSum, cat) => {
+                      return catSum + (processedData.expense[cat][month] || 0);
+                    }, 0);
+                  }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                </td>
+              </tr>
+
+              {/* Investimenti */}
+              <tr className="bg-blue-50 hover:bg-blue-100">
+                <td className="border border-gray-300 py-3 px-3 font-bold text-blue-900 sticky left-0 bg-blue-50 z-10">📈 Investimenti</td>
+                {MONTHS.map(month => {
+                  const investments = Object.keys(processedData.investments).reduce((sum, cat) => {
+                    return sum + (processedData.investments[cat][month] || 0);
+                  }, 0);
+                  return (
+                    <td key={month} className="border border-gray-300 py-3 px-2 text-right text-blue-700 font-medium">
+                      {investments > 0 ? `€${investments.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                    </td>
+                  );
+                })}
+                <td className="border border-gray-300 py-3 px-3 text-right font-bold text-blue-900">
+                  €{MONTHS.reduce((sum, month) => {
+                    return sum + Object.keys(processedData.investments).reduce((catSum, cat) => {
+                      return catSum + (processedData.investments[cat][month] || 0);
+                    }, 0);
+                  }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                </td>
+              </tr>
+
+              {/* Netto (Entrate - Uscite) */}
+              <tr className="bg-purple-50 hover:bg-purple-100">
+                <td className="border border-gray-300 py-3 px-3 font-bold text-purple-900 sticky left-0 bg-purple-50 z-10">💵 Netto (Entrate - Uscite)</td>
+                {MONTHS.map(month => {
+                  const income = Object.keys(processedData.income).reduce((sum, cat) => {
+                    return sum + (processedData.income[cat][month] || 0);
+                  }, 0);
+                  const expense = Object.keys(processedData.expense).reduce((sum, cat) => {
+                    return sum + (processedData.expense[cat][month] || 0);
+                  }, 0);
+                  const net = income - expense;
+                  const textColor = net >= 0 ? 'text-green-700' : 'text-red-700';
+                  return (
+                    <td key={month} className={`border border-gray-300 py-3 px-2 text-right font-bold ${textColor}`}>
+                      {net !== 0 ? `€${net.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                    </td>
+                  );
+                })}
+                <td className="border border-gray-300 py-3 px-3 text-right font-bold text-purple-900">
+                  €{MONTHS.reduce((sum, month) => {
+                    const income = Object.keys(processedData.income).reduce((catSum, cat) => {
+                      return catSum + (processedData.income[cat][month] || 0);
+                    }, 0);
+                    const expense = Object.keys(processedData.expense).reduce((catSum, cat) => {
+                      return catSum + (processedData.expense[cat][month] || 0);
+                    }, 0);
+                    return sum + (income - expense);
+                  }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                </td>
+              </tr>
+
+              {/* % Investimento (Investimenti / Entrate * 100) */}
+              <tr className="bg-indigo-50 hover:bg-indigo-100">
+                <td className="border border-gray-300 py-3 px-3 font-bold text-indigo-900 sticky left-0 bg-indigo-50 z-10">📊 % Investimento</td>
+                {MONTHS.map(month => {
+                  const income = Object.keys(processedData.income).reduce((sum, cat) => {
+                    return sum + (processedData.income[cat][month] || 0);
+                  }, 0);
+                  const investments = Object.keys(processedData.investments).reduce((sum, cat) => {
+                    return sum + (processedData.investments[cat][month] || 0);
+                  }, 0);
+                  const percentage = income > 0 ? (investments / income) * 100 : 0;
+                  return (
+                    <td key={month} className="border border-gray-300 py-3 px-2 text-right text-indigo-700 font-medium">
+                      {percentage > 0 ? `${percentage.toFixed(1)}%` : '-'}
+                    </td>
+                  );
+                })}
+                <td className="border border-gray-300 py-3 px-3 text-right font-bold text-indigo-900">
+                  {(() => {
+                    const totalIncome = MONTHS.reduce((sum, month) => {
+                      return sum + Object.keys(processedData.income).reduce((catSum, cat) => {
+                        return catSum + (processedData.income[cat][month] || 0);
+                      }, 0);
+                    }, 0);
+                    const totalInvestments = MONTHS.reduce((sum, month) => {
+                      return sum + Object.keys(processedData.investments).reduce((catSum, cat) => {
+                        return catSum + (processedData.investments[cat][month] || 0);
+                      }, 0);
+                    }, 0);
+                    const avgPercentage = totalIncome > 0 ? (totalInvestments / totalIncome) * 100 : 0;
+                    return `${avgPercentage.toFixed(1)}%`;
+                  })()}
+                </td>
+              </tr>
+
+              {/* % Spesa (Uscite / Entrate * 100) */}
+              <tr className="bg-orange-50 hover:bg-orange-100">
+                <td className="border border-gray-300 py-3 px-3 font-bold text-orange-900 sticky left-0 bg-orange-50 z-10">📉 % Spesa</td>
+                {MONTHS.map(month => {
+                  const income = Object.keys(processedData.income).reduce((sum, cat) => {
+                    return sum + (processedData.income[cat][month] || 0);
+                  }, 0);
+                  const expense = Object.keys(processedData.expense).reduce((sum, cat) => {
+                    return sum + (processedData.expense[cat][month] || 0);
+                  }, 0);
+                  const percentage = income > 0 ? (expense / income) * 100 : 0;
+                  return (
+                    <td key={month} className="border border-gray-300 py-3 px-2 text-right text-orange-700 font-medium">
+                      {percentage > 0 ? `${percentage.toFixed(1)}%` : '-'}
+                    </td>
+                  );
+                })}
+                <td className="border border-gray-300 py-3 px-3 text-right font-bold text-orange-900">
+                  {(() => {
+                    const totalIncome = MONTHS.reduce((sum, month) => {
+                      return sum + Object.keys(processedData.income).reduce((catSum, cat) => {
+                        return catSum + (processedData.income[cat][month] || 0);
+                      }, 0);
+                    }, 0);
+                    const totalExpense = MONTHS.reduce((sum, month) => {
+                      return sum + Object.keys(processedData.expense).reduce((catSum, cat) => {
+                        return catSum + (processedData.expense[cat][month] || 0);
+                      }, 0);
+                    }, 0);
+                    const avgPercentage = totalIncome > 0 ? (totalExpense / totalIncome) * 100 : 0;
+                    return `${avgPercentage.toFixed(1)}%`;
+                  })()}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-sm text-gray-700">
+            <strong>Legenda:</strong>
+            <span className="ml-2">💰 Entrate = Cash in + Vendite asset</span>
+            <span className="mx-2">•</span>
+            <span>💸 Uscite = Spese reali (Cash out)</span>
+            <span className="mx-2">•</span>
+            <span>📈 Investimenti = Acquisti asset</span>
+            <span className="mx-2">•</span>
+            <span>💵 Netto = Entrate - Uscite</span>
+          </p>
+          <p className="text-sm text-gray-700 mt-1">
+            <span>📊 % Investimento = Quanto sto investendo sulle entrate</span>
+            <span className="mx-2">•</span>
+            <span>📉 % Spesa = Quanto sto spendendo sui guadagni</span>
+          </p>
+        </div>
+      </div>
+
+      {/* Section: Dettaglio per Categoria (Collapsible) */}
+      <div className="card">
+        <h2 className="text-xl font-bold text-gray-900 mb-6">📋 Dettaglio Flussi per Categoria</h2>
+
+        {/* Entrate per Categoria */}
         {(selectedView === 'income' || selectedView === 'all') && (
           <div className="mb-8">
             <h3 className="text-lg font-semibold text-green-900 mb-4">💰 Entrate Mensili per Categoria</h3>
@@ -902,6 +1107,7 @@ function Patrimonio() {
           </div>
         )}
 
+        {/* Uscite per Categoria */}
         {(selectedView === 'expense' || selectedView === 'all') && (
           <div className="mb-8">
             <h3 className="text-lg font-semibold text-red-900 mb-4">💸 Uscite Mensili per Categoria</h3>
@@ -966,55 +1172,68 @@ function Patrimonio() {
           </div>
         )}
 
-        {selectedView === 'all' && (
-          <div>
-            <h3 className="text-lg font-semibold text-blue-900 mb-4">📊 Risultato Netto Mensile (Entrate - Uscite)</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr className="bg-blue-50">
-                    <th className="border border-blue-200 py-2 px-3 text-left font-semibold text-blue-900">Periodo</th>
-                    {MONTHS.map(month => (
-                      <th key={month} className="border border-blue-200 py-2 px-2 text-center font-semibold text-blue-900 min-w-[80px]">{month}</th>
-                    ))}
-                    <th className="border border-blue-200 py-2 px-3 text-center font-bold text-blue-900">TOTALE</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="bg-blue-100 font-bold">
-                    <td className="border border-blue-200 py-3 px-3 text-blue-900">RISULTATO NETTO</td>
-                    {MONTHS.map(month => {
-                      const income = Object.keys(processedData.income).reduce((sum, cat) => {
-                        return sum + (processedData.income[cat][month] || 0);
+        {/* Investimenti per Categoria */}
+        <div className="mb-8">
+          <h3 className="text-lg font-semibold text-blue-900 mb-4">📈 Investimenti Mensili per Categoria</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-blue-50">
+                  <th className="border border-blue-200 py-2 px-3 text-left font-semibold text-blue-900">Categoria</th>
+                  {MONTHS.map(month => (
+                    <th key={month} className="border border-blue-200 py-2 px-2 text-center font-semibold text-blue-900 min-w-[80px]">{month}</th>
+                  ))}
+                  <th className="border border-blue-200 py-2 px-3 text-center font-bold text-blue-900">TOTALE</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.keys(CATEGORY_COLORS).filter(cat => cat !== 'Totale').map(category => {
+                  const categoryData = processedData.investments[category] || {};
+                  const rowTotal = MONTHS.reduce((sum, month) => sum + (categoryData[month] || 0), 0);
+
+                  if (rowTotal === 0 && selectedCategory !== 'all' && selectedCategory !== category) return null;
+
+                  return (
+                    <tr key={category} className="hover:bg-blue-50">
+                      <td className="border border-gray-200 py-2 px-3 font-medium text-gray-700">{category}</td>
+                      {MONTHS.map(month => {
+                        const value = categoryData[month] || 0;
+                        return (
+                          <td key={month} className="border border-gray-200 py-2 px-2 text-right text-gray-600">
+                            {value > 0 ? `€${value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                          </td>
+                        );
+                      })}
+                      <td className="border border-gray-200 py-2 px-3 text-right font-bold text-blue-700">
+                        €{rowTotal.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-blue-100 font-bold">
+                  <td className="border border-blue-200 py-3 px-3 text-blue-900">TOTALE</td>
+                  {MONTHS.map(month => {
+                    const monthTotal = Object.keys(processedData.investments).reduce((sum, cat) => {
+                      return sum + (processedData.investments[cat][month] || 0);
+                    }, 0);
+                    return (
+                      <td key={month} className="border border-blue-200 py-3 px-2 text-right text-blue-900">
+                        {monthTotal > 0 ? `€${monthTotal.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                      </td>
+                    );
+                  })}
+                  <td className="border border-blue-200 py-3 px-3 text-right text-blue-900">
+                    €{MONTHS.reduce((sum, month) => {
+                      return sum + Object.keys(processedData.investments).reduce((catSum, cat) => {
+                        return catSum + (processedData.investments[cat][month] || 0);
                       }, 0);
-                      const expense = Object.keys(processedData.expense).reduce((sum, cat) => {
-                        return sum + (processedData.expense[cat][month] || 0);
-                      }, 0);
-                      const net = income - expense;
-                      const textColor = net >= 0 ? 'text-green-700' : 'text-red-700';
-                      return (
-                        <td key={month} className={`border border-blue-200 py-3 px-2 text-right font-bold ${textColor}`}>
-                          {net !== 0 ? `€${net.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
-                        </td>
-                      );
-                    })}
-                    <td className="border border-blue-200 py-3 px-3 text-right text-blue-900">
-                      €{MONTHS.reduce((sum, month) => {
-                        const income = Object.keys(processedData.income).reduce((catSum, cat) => {
-                          return catSum + (processedData.income[cat][month] || 0);
-                        }, 0);
-                        const expense = Object.keys(processedData.expense).reduce((catSum, cat) => {
-                          return catSum + (processedData.expense[cat][month] || 0);
-                        }, 0);
-                        return sum + (income - expense);
-                      }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                    }, 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Old tables removed */}
@@ -1122,6 +1341,215 @@ function Patrimonio() {
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      {/* Consuntivi Asset Class - Growth Over Time */}
+      <div className="card">
+        <h2 className="text-xl font-bold text-gray-900 mb-6">📈 Consuntivi Asset Class - Crescita Patrimonio nel Tempo</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Valori consuntivi (cumulativi) del patrimonio per macro asset class a valore di mercato nel tempo
+        </p>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border border-gray-300 py-3 px-3 text-left font-bold text-gray-900 sticky left-0 bg-gray-100 z-10 min-w-[150px]">
+                  Asset Class
+                </th>
+                {(() => {
+                  // Generate periods based on selected year
+                  const periods = selectedYear === 'all'
+                    ? processedData.periods
+                    : MONTHS;
+
+                  return periods.map(period => {
+                    const displayLabel = selectedYear === 'all' && period.includes('-')
+                      ? (() => {
+                          const [year, monthNum] = period.split('-');
+                          const monthName = MONTH_NUMBERS[monthNum];
+                          return `${monthName} '${year.slice(-2)}`;
+                        })()
+                      : period;
+
+                    return (
+                      <th key={period} className="border border-gray-300 py-3 px-2 text-center font-semibold text-gray-900 min-w-[100px]">
+                        {displayLabel}
+                      </th>
+                    );
+                  });
+                })()}
+                <th className="border border-gray-300 py-3 px-3 text-center font-bold text-gray-900 min-w-[120px]">
+                  ATTUALE
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                // Calculate cumulative market values per macro category per period
+                const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+                const categoryGrowth = {};
+
+                // Initialize categories
+                Object.keys(CATEGORY_COLORS).forEach(category => {
+                  if (category !== 'Totale' && category !== 'Cash') {
+                    categoryGrowth[category] = {};
+                  }
+                });
+
+                // For each period, calculate cumulative market value per category
+                periods.forEach(period => {
+                  // Determine the full date key for this period
+                  let periodKey = period;
+                  if (selectedYear !== 'all') {
+                    const monthIndex = MONTHS.indexOf(period);
+                    if (monthIndex >= 0) {
+                      const year = parseInt(selectedYear);
+                      const monthNum = String(monthIndex + 1).padStart(2, '0');
+                      periodKey = `${year}-${monthNum}`;
+                    }
+                  }
+
+                  const periodDate = parseISO(`${periodKey}-01`);
+                  const periodEnd = endOfMonth(periodDate);
+
+                  // Get all transactions up to this period
+                  const txUpToPeriod = transactions.filter(tx => {
+                    if (!tx.date) return false;
+                    const txDate = parseISO(tx.date);
+                    const isCash = tx.isCash || tx.macroCategory === 'Cash';
+                    return !isCash && !isAfter(txDate, periodEnd);
+                  });
+
+                  // Calculate holdings per category
+                  const categoryHoldings = {};
+                  txUpToPeriod.forEach(tx => {
+                    const category = tx.macroCategory || 'Cash';
+                    if (category === 'Cash') return;
+
+                    if (!categoryHoldings[category]) {
+                      categoryHoldings[category] = {};
+                    }
+                    if (!categoryHoldings[category][tx.ticker]) {
+                      categoryHoldings[category][tx.ticker] = { quantity: 0 };
+                    }
+
+                    if (tx.type === 'buy') {
+                      categoryHoldings[category][tx.ticker].quantity += tx.quantity;
+                    } else if (tx.type === 'sell') {
+                      categoryHoldings[category][tx.ticker].quantity -= tx.quantity;
+                    }
+                  });
+
+                  // Calculate market value per category using historical prices
+                  Object.keys(categoryGrowth).forEach(category => {
+                    let categoryValue = 0;
+
+                    if (categoryHoldings[category]) {
+                      Object.entries(categoryHoldings[category]).forEach(([ticker, holding]) => {
+                        if (holding.quantity > 0) {
+                          // Try to get price from monthlyMarketValues calculation
+                          // For now, use a simplified approach: get current market value proportion
+                          const currentPrices = getCachedPrices() || {};
+                          const price = currentPrices[ticker]?.price || currentPrices[ticker] || 0;
+                          categoryValue += holding.quantity * price;
+                        }
+                      });
+                    }
+
+                    categoryGrowth[category][period] = categoryValue;
+                  });
+                });
+
+                // Render rows for each category
+                return Object.keys(CATEGORY_COLORS)
+                  .filter(cat => cat !== 'Totale' && cat !== 'Cash')
+                  .map((category, idx) => {
+                    const bgColor = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                    const categoryColor = CATEGORY_COLORS[category];
+
+                    return (
+                      <tr key={category} className={`${bgColor} hover:bg-blue-50`}>
+                        <td
+                          className="border border-gray-300 py-3 px-3 font-bold sticky left-0 z-10"
+                          style={{
+                            backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f9fafb',
+                            color: categoryColor
+                          }}
+                        >
+                          {category}
+                        </td>
+                        {periods.map(period => {
+                          const value = categoryGrowth[category]?.[period] || 0;
+                          return (
+                            <td key={period} className="border border-gray-300 py-3 px-2 text-right text-gray-700 font-medium">
+                              {value > 0 ? `€${value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                            </td>
+                          );
+                        })}
+                        <td className="border border-gray-300 py-3 px-3 text-right font-bold text-blue-900">
+                          {(() => {
+                            const latestPeriod = periods[periods.length - 1];
+                            const currentValue = categoryGrowth[category]?.[latestPeriod] || 0;
+                            return currentValue > 0
+                              ? `€${currentValue.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`
+                              : '-';
+                          })()}
+                        </td>
+                      </tr>
+                    );
+                  });
+              })()}
+
+              {/* TOTALE Row */}
+              <tr className="bg-blue-100 font-bold">
+                <td className="border border-gray-300 py-3 px-3 text-blue-900 sticky left-0 bg-blue-100 z-10">
+                  TOTALE INVESTIMENTI
+                </td>
+                {(() => {
+                  const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+
+                  return periods.map(period => {
+                    // Sum all categories for this period
+                    let periodKey = period;
+                    if (selectedYear !== 'all') {
+                      const monthIndex = MONTHS.indexOf(period);
+                      if (monthIndex >= 0) {
+                        const year = parseInt(selectedYear);
+                        const monthNum = String(monthIndex + 1).padStart(2, '0');
+                        periodKey = `${year}-${monthNum}`;
+                      }
+                    }
+
+                    const totalValue = monthlyMarketValues[periodKey] || 0;
+
+                    return (
+                      <td key={period} className="border border-gray-300 py-3 px-2 text-right text-blue-900">
+                        {totalValue > 0 ? `€${totalValue.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                      </td>
+                    );
+                  });
+                })()}
+                <td className="border border-gray-300 py-3 px-3 text-right text-blue-900">
+                  €{currentValues.marketValue.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-sm text-blue-800">
+            <strong>💡 Nota:</strong> Questa tabella mostra valori consuntivi (cumulativi) a valore di mercato.
+            Per ciascun periodo, viene mostrato il valore totale degli asset detenuti in quella macro asset class,
+            calcolato moltiplicando la quantità posseduta per il prezzo di mercato del periodo.
+            {selectedYear === 'all' && (
+              <span className="ml-2">
+                • Scorri orizzontalmente per vedere tutti i periodi storici.
+              </span>
+            )}
+          </p>
         </div>
       </div>
 

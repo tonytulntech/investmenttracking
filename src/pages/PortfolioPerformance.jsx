@@ -3,6 +3,8 @@ import { TrendingUp, TrendingDown, DollarSign, Calendar, BarChart3, Activity, Al
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, Cell } from 'recharts';
 import { getTransactions } from '../services/localStorageService';
 import { fetchMultipleHistoricalPrices, buildMonthlyPriceTable } from '../services/historicalPriceService';
+import { getCachedPrices } from '../services/priceCache';
+import { calculateAllMetrics } from '../services/advancedMetricsService';
 import { format, startOfMonth, endOfMonth, eachMonthOfInterval, parseISO, isAfter } from 'date-fns';
 import { it } from 'date-fns/locale';
 
@@ -24,7 +26,14 @@ function PortfolioPerformance() {
     bestMonth: null,
     worstMonth: null,
     startDate: null,
-    monthsTracked: 0
+    monthsTracked: 0,
+    // Advanced metrics
+    cagr: 0,
+    maxDrawdown: 0,
+    recoveryTime: 0,
+    sharpeRatio: 0,
+    sortinoRatio: 0,
+    volatility: 0
   });
 
   useEffect(() => {
@@ -78,9 +87,11 @@ function PortfolioPerformance() {
           const yearStart = new Date(now.getFullYear(), 0, 1);
           months = allMonths.filter(m => m >= yearStart);
         } else if (!isNaN(dateFilter)) {
-          // Specific year
+          // Specific year - show FROM START TO END OF SELECTED YEAR (cumulative)
           const year = parseInt(dateFilter);
-          months = allMonths.filter(m => m.getFullYear() === year);
+          const yearEnd = new Date(year, 11, 31, 23, 59, 59); // December 31st of that year
+          months = allMonths.filter(m => m <= yearEnd);
+          console.log(`📅 Filtering from start to end of ${year} (${months.length} months)`);
         }
       }
 
@@ -101,6 +112,10 @@ function PortfolioPerformance() {
       tickers.forEach(ticker => {
         priceTables[ticker] = buildMonthlyPriceTable(historicalPricesMap[ticker] || []);
       });
+
+      // Get current prices from cache to use as fallback for recent months
+      const currentPrices = getCachedPrices() || {};
+      console.log(`💰 Loaded ${Object.keys(currentPrices).length} current prices from cache`);
 
       console.log(`✅ Historical prices fetched. Building monthly portfolio values...`);
 
@@ -164,8 +179,12 @@ function PortfolioPerformance() {
             const priceTable = priceTables[holding.ticker] || {};
             const historicalPrice = priceTable[monthKey];
 
-            // If no historical price found, use average cost as fallback
-            const price = historicalPrice || (holding.totalCost / holding.quantity);
+            // Fallback logic:
+            // 1. Use historical price if available
+            // 2. Use current price from cache (for recent months)
+            // 3. Last resort: use average cost
+            const currentPrice = currentPrices[holding.ticker];
+            const price = historicalPrice || currentPrice || (holding.totalCost / holding.quantity);
             const value = holding.quantity * price;
 
             totalValue += value;
@@ -257,6 +276,10 @@ function PortfolioPerformance() {
         // Count unique assets in final month
         const uniqueTickers = Object.keys(lastMonth.byTicker).length;
 
+        // Calculate advanced metrics using the service
+        const advancedMetrics = calculateAllMetrics(calculatedMonthlyReturns, 2); // 2% risk-free rate
+        console.log('📊 Advanced metrics:', advancedMetrics);
+
         setStatistics({
           totalAssets: uniqueTickers,
           totalValue,
@@ -267,7 +290,14 @@ function PortfolioPerformance() {
           bestMonth,
           worstMonth,
           startDate: firstDate,
-          monthsTracked: monthlyGrowth.length
+          monthsTracked: monthlyGrowth.length,
+          // Advanced metrics
+          cagr: advancedMetrics.cagr,
+          maxDrawdown: advancedMetrics.maxDrawdown,
+          recoveryTime: advancedMetrics.recoveryTime,
+          sharpeRatio: advancedMetrics.sharpeRatio,
+          sortinoRatio: advancedMetrics.sortinoRatio,
+          volatility: advancedMetrics.volatility
         });
       }
 
@@ -590,6 +620,104 @@ function PortfolioPerformance() {
           )}
         </div>
       )}
+
+      {/* Advanced Statistics */}
+      <div className="mt-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">📊 Statistiche Avanzate</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* CAGR */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-600">CAGR</span>
+              <TrendingUp className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className={`text-2xl font-bold ${statistics.cagr >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
+              {statistics.cagr >= 0 ? '+' : ''}{statistics.cagr.toFixed(2)}%
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              Tasso di crescita annuale composto
+            </div>
+          </div>
+
+          {/* Maximum Drawdown */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-600">Drawdown Massimo</span>
+              <TrendingDown className="w-5 h-5 text-red-600" />
+            </div>
+            <div className="text-2xl font-bold text-red-600">
+              -{statistics.maxDrawdown.toFixed(2)}%
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              Massima perdita dal picco
+            </div>
+          </div>
+
+          {/* Recovery Time */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-600">Tempo Recupero</span>
+              <Calendar className="w-5 h-5 text-purple-600" />
+            </div>
+            <div className="text-2xl font-bold text-gray-900">
+              {statistics.recoveryTime > 0 ? `${statistics.recoveryTime} mesi` : 'N/A'}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              {statistics.recoveryTime > 0 ? 'Tempo per recuperare dal drawdown' : 'Non ancora recuperato o nessun drawdown'}
+            </div>
+          </div>
+
+          {/* Sharpe Ratio */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-600">Sharpe Ratio</span>
+              <Activity className="w-5 h-5 text-indigo-600" />
+            </div>
+            <div className={`text-2xl font-bold ${statistics.sharpeRatio >= 1 ? 'text-success-600' : statistics.sharpeRatio >= 0 ? 'text-gray-900' : 'text-danger-600'}`}>
+              {statistics.sharpeRatio.toFixed(2)}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              Rendimento aggiustato per rischio
+            </div>
+          </div>
+
+          {/* Sortino Ratio */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-600">Sortino Ratio</span>
+              <BarChart3 className="w-5 h-5 text-cyan-600" />
+            </div>
+            <div className={`text-2xl font-bold ${statistics.sortinoRatio >= 1 ? 'text-success-600' : statistics.sortinoRatio >= 0 ? 'text-gray-900' : 'text-danger-600'}`}>
+              {statistics.sortinoRatio === Infinity ? '∞' : statistics.sortinoRatio.toFixed(2)}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              Considera solo downside risk
+            </div>
+          </div>
+
+          {/* Volatility */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-600">Volatilità</span>
+              <Activity className="w-5 h-5 text-orange-600" />
+            </div>
+            <div className="text-2xl font-bold text-gray-900">
+              {statistics.volatility.toFixed(2)}%
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              Deviazione standard annualizzata
+            </div>
+          </div>
+        </div>
+
+        {/* Info banner about metrics */}
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-xs text-blue-700">
+            <strong>ℹ️ Metriche Avanzate:</strong> CAGR misura il rendimento annuale composto. Sharpe &gt; 1 è buono, &gt; 2 è eccellente.
+            Sortino si concentra sul rischio negativo. Volatilità indica quanto variano i rendimenti.
+          </p>
+        </div>
+      </div>
 
       {/* Explanation Note */}
       {(statistics.bestMonth || statistics.worstMonth) && (

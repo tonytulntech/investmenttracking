@@ -27,51 +27,62 @@ const rotateProxy = () => {
 };
 
 /**
- * Fetch stock/ETF price from Yahoo Finance
+ * Fetch stock/ETF price from Yahoo Finance with retry logic
  * @param {string} ticker - Stock ticker symbol (e.g., 'AAPL', 'VWCE.DE')
+ * @param {number} retries - Number of retry attempts (default: 2)
  * @returns {Promise<Object>} Price data
  */
-export const fetchStockPrice = async (ticker) => {
-  try {
-    const yahooURL = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
-    const response = await axios.get(getCorsProxy() + encodeURIComponent(yahooURL), {
-      timeout: 10000
-    });
+export const fetchStockPrice = async (ticker, retries = 2) => {
+  let lastError = null;
 
-    const data = response.data;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const yahooURL = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
+      const response = await axios.get(getCorsProxy() + encodeURIComponent(yahooURL), {
+        timeout: 15000 // Increased to 15 seconds
+      });
 
-    if (!data.chart || !data.chart.result || data.chart.result.length === 0) {
-      throw new Error('Invalid response from Yahoo Finance');
+      const data = response.data;
+
+      if (!data.chart || !data.chart.result || data.chart.result.length === 0) {
+        throw new Error('Invalid response from Yahoo Finance');
+      }
+
+      const result = data.chart.result[0];
+      const meta = result.meta;
+      const quote = result.indicators.quote[0];
+
+      const currentPrice = meta.regularMarketPrice || quote.close[quote.close.length - 1];
+      const previousClose = meta.previousClose || meta.chartPreviousClose;
+      const change = currentPrice - previousClose;
+      const changePercent = (change / previousClose) * 100;
+
+      return {
+        ticker,
+        price: currentPrice,
+        change: change,
+        changePercent: changePercent,
+        currency: meta.currency || 'USD',
+        timestamp: new Date().toISOString(),
+        source: 'yahoo',
+        name: meta.longName || meta.shortName || ticker
+      };
+    } catch (error) {
+      lastError = error;
+
+      // Try rotating proxy on error
+      rotateProxy();
+
+      // If not last attempt, wait before retry (exponential backoff)
+      if (attempt < retries) {
+        const waitMs = 1000 * Math.pow(2, attempt); // 1s, 2s
+        await new Promise(resolve => setTimeout(resolve, waitMs));
+      }
     }
-
-    const result = data.chart.result[0];
-    const meta = result.meta;
-    const quote = result.indicators.quote[0];
-
-    const currentPrice = meta.regularMarketPrice || quote.close[quote.close.length - 1];
-    const previousClose = meta.previousClose || meta.chartPreviousClose;
-    const change = currentPrice - previousClose;
-    const changePercent = (change / previousClose) * 100;
-
-    return {
-      ticker,
-      price: currentPrice,
-      change: change,
-      changePercent: changePercent,
-      currency: meta.currency || 'USD',
-      timestamp: new Date().toISOString(),
-      source: 'yahoo',
-      name: meta.longName || meta.shortName || ticker
-    };
-  } catch (error) {
-    console.error(`Error fetching price for ${ticker}:`, error.message);
-
-    // Try rotating proxy on error
-    rotateProxy();
-
-    // Return null to indicate failure
-    return null;
   }
+
+  console.error(`Error fetching price for ${ticker}:`, lastError?.message);
+  return null;
 };
 
 /**

@@ -791,7 +791,7 @@ function Patrimonio() {
             Patrimonio totale (cash + investimenti a valore di mercato) nel tempo
           </p>
         <ResponsiveContainer width="100%" height={450}>
-          <LineChart data={chartData}>
+          <AreaChart data={chartData}>
             <defs>
               <linearGradient id="patrimonioGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2}/>
@@ -828,7 +828,7 @@ function Patrimonio() {
               dot={{ r: 4, fill: '#8b5cf6', strokeWidth: 2, stroke: '#fff' }}
               activeDot={{ r: 6 }}
             />
-          </LineChart>
+          </AreaChart>
         </ResponsiveContainer>
       </div>
       )}

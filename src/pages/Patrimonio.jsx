@@ -1573,7 +1573,7 @@ function Patrimonio() {
                   });
               })()}
 
-              {/* TOTALE Row */}
+              {/* TOTALE INVESTIMENTI Row */}
               <tr className="bg-blue-100 font-bold">
                 <td className="border border-gray-300 py-3 px-3 text-blue-900 sticky left-0 bg-blue-100 z-10">
                   TOTALE INVESTIMENTI
@@ -1627,6 +1627,132 @@ function Patrimonio() {
                   })()}
                 </td>
               </tr>
+
+              {/* CASH Row */}
+              <tr className="bg-green-50 font-semibold">
+                <td className="border border-gray-300 py-3 px-3 text-green-900 sticky left-0 bg-green-50 z-10">
+                  💰 CASH (Liquidità)
+                </td>
+                {(() => {
+                  const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+
+                  return periods.map(period => {
+                    let periodKey = period;
+                    if (selectedYear !== 'all') {
+                      const monthIndex = MONTHS.indexOf(period);
+                      if (monthIndex >= 0) {
+                        const year = parseInt(selectedYear);
+                        const monthNum = String(monthIndex + 1).padStart(2, '0');
+                        periodKey = `${year}-${monthNum}`;
+                      }
+                    }
+
+                    // Find cash balance for this period from chartData
+                    const dataPoint = chartData.find(d => d.month === periodKey);
+                    const cashValue = dataPoint?.cashBalance || 0;
+
+                    return (
+                      <td key={period} className="border border-gray-300 py-3 px-2 text-right text-green-700">
+                        {cashValue !== 0 ? `€${cashValue.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                      </td>
+                    );
+                  });
+                })()}
+                <td className="border border-gray-300 py-3 px-3 text-right text-green-900">
+                  €{(currentValues.cash || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                </td>
+              </tr>
+
+              {/* PATRIMONIO TOTALE Row */}
+              <tr className="bg-purple-100 font-bold">
+                <td className="border border-gray-300 py-3 px-3 text-purple-900 sticky left-0 bg-purple-100 z-10">
+                  💎 PATRIMONIO TOTALE
+                </td>
+                {(() => {
+                  const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+
+                  return periods.map(period => {
+                    let periodKey = period;
+                    if (selectedYear !== 'all') {
+                      const monthIndex = MONTHS.indexOf(period);
+                      if (monthIndex >= 0) {
+                        const year = parseInt(selectedYear);
+                        const monthNum = String(monthIndex + 1).padStart(2, '0');
+                        periodKey = `${year}-${monthNum}`;
+                      }
+                    }
+
+                    const investmentsValue = monthlyMarketValues[periodKey] || 0;
+                    const dataPoint = chartData.find(d => d.month === periodKey);
+                    const cashValue = dataPoint?.cashBalance || 0;
+                    const totalWealth = investmentsValue + cashValue;
+
+                    return (
+                      <td key={period} className="border border-gray-300 py-3 px-2 text-right text-purple-900 font-bold">
+                        {totalWealth > 0 ? `€${totalWealth.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
+                      </td>
+                    );
+                  });
+                })()}
+                <td className="border border-gray-300 py-3 px-3 text-right text-purple-900">
+                  €{(currentValues.patrimonio || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                </td>
+              </tr>
+
+              {/* % CRESCITA Row */}
+              <tr className="bg-yellow-50 font-semibold">
+                <td className="border border-gray-300 py-3 px-3 text-yellow-900 sticky left-0 bg-yellow-50 z-10">
+                  📊 % Crescita vs Mese Prec.
+                </td>
+                {(() => {
+                  const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+
+                  return periods.map((period, index) => {
+                    if (index === 0) {
+                      return (
+                        <td key={period} className="border border-gray-300 py-3 px-2 text-center text-gray-500 text-xs">
+                          -
+                        </td>
+                      );
+                    }
+
+                    let periodKey = period;
+                    let prevPeriodKey = periods[index - 1];
+
+                    if (selectedYear !== 'all') {
+                      const monthIndex = MONTHS.indexOf(period);
+                      const prevMonthIndex = MONTHS.indexOf(periods[index - 1]);
+                      if (monthIndex >= 0 && prevMonthIndex >= 0) {
+                        const year = parseInt(selectedYear);
+                        periodKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+                        prevPeriodKey = `${year}-${String(prevMonthIndex + 1).padStart(2, '0')}`;
+                      }
+                    }
+
+                    const currInv = monthlyMarketValues[periodKey] || 0;
+                    const currData = chartData.find(d => d.month === periodKey);
+                    const currCash = currData?.cashBalance || 0;
+                    const currTotal = currInv + currCash;
+
+                    const prevInv = monthlyMarketValues[prevPeriodKey] || 0;
+                    const prevData = chartData.find(d => d.month === prevPeriodKey);
+                    const prevCash = prevData?.cashBalance || 0;
+                    const prevTotal = prevInv + prevCash;
+
+                    const growth = prevTotal > 0 ? ((currTotal - prevTotal) / prevTotal) * 100 : 0;
+                    const isPositive = growth >= 0;
+
+                    return (
+                      <td key={period} className={`border border-gray-300 py-3 px-2 text-right font-semibold ${isPositive ? 'text-green-700' : 'text-red-700'}`}>
+                        {currTotal > 0 ? `${isPositive ? '+' : ''}${growth.toFixed(1)}%` : '-'}
+                      </td>
+                    );
+                  });
+                })()}
+                <td className="border border-gray-300 py-3 px-3 text-center text-gray-500 text-xs">
+                  -
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -1636,8 +1762,13 @@ function Patrimonio() {
             <strong>💡 Nota:</strong> Questa tabella mostra valori consuntivi (cumulativi) a valore di mercato.
             Per ciascun periodo, viene mostrato il valore totale degli asset detenuti in quella macro asset class,
             calcolato moltiplicando la quantità posseduta per il prezzo di mercato del periodo.
+          </p>
+          <p className="text-sm text-blue-800 mt-2">
+            • <strong>CASH (Liquidità)</strong>: Liquidità disponibile dopo aver sottratto gli investimenti dai depositi<br/>
+            • <strong>PATRIMONIO TOTALE</strong>: Somma di investimenti + liquidità = ricchezza totale<br/>
+            • <strong>% Crescita vs Mese Prec.</strong>: Variazione percentuale del patrimonio totale rispetto al mese precedente (include depositi, prelievi e rendimenti)
             {selectedYear === 'all' && (
-              <span className="ml-2">
+              <span className="block mt-1">
                 • Scorri orizzontalmente per vedere tutti i periodi storici.
               </span>
             )}

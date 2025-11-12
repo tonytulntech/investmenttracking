@@ -822,6 +822,106 @@ function PortfolioPerformance() {
         </div>
       )}
 
+      {/* Monthly Performance Table */}
+      {monthlyReturns.length > 0 && (
+        <div className="card">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">📊 Dettaglio Crescita Mensile del Patrimonio</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Valore totale portafoglio e variazione percentuale mese su mese
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-100 border-b-2 border-gray-300">
+                  <th className="py-3 px-4 text-left font-semibold text-gray-900">Mese</th>
+                  <th className="py-3 px-4 text-right font-semibold text-gray-900">Valore Portafoglio</th>
+                  <th className="py-3 px-4 text-right font-semibold text-gray-900">Variazione vs Mese Precedente</th>
+                  <th className="py-3 px-4 text-right font-semibold text-gray-900">Rendimento Mensile %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyReturns.map((monthData, index) => {
+                  const prevMonthValue = index > 0 ? monthlyReturns[index - 1].totalValue : monthData.startValue;
+                  const valueChange = monthData.totalValue - prevMonthValue;
+                  const valueChangePercent = prevMonthValue > 0 ? (valueChange / prevMonthValue) * 100 : 0;
+                  const isPositive = valueChange >= 0;
+                  const isReturnPositive = monthData.monthReturnPercent >= 0;
+
+                  return (
+                    <tr key={monthData.month} className="border-b border-gray-200 hover:bg-gray-50">
+                      <td className="py-3 px-4 font-medium text-gray-900">
+                        {monthData.month}
+                      </td>
+                      <td className="py-3 px-4 text-right font-semibold text-gray-900">
+                        €{monthData.totalValue.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </td>
+                      <td className={`py-3 px-4 text-right font-semibold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                        {isPositive ? '+' : ''}€{valueChange.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        <span className="text-xs ml-2">
+                          ({isPositive ? '+' : ''}{valueChangePercent.toFixed(2)}%)
+                        </span>
+                      </td>
+                      <td className={`py-3 px-4 text-right font-semibold ${isReturnPositive ? 'text-green-600' : 'text-red-600'}`}>
+                        {isReturnPositive ? '+' : ''}{monthData.monthReturnPercent.toFixed(2)}%
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="bg-blue-50 border-t-2 border-blue-300">
+                  <td className="py-3 px-4 font-bold text-blue-900">TOTALE</td>
+                  <td className="py-3 px-4 text-right font-bold text-blue-900">
+                    €{monthlyReturns[monthlyReturns.length - 1].totalValue.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </td>
+                  <td className="py-3 px-4 text-right font-bold text-blue-900">
+                    {(() => {
+                      const firstValue = monthlyReturns[0].startValue;
+                      const lastValue = monthlyReturns[monthlyReturns.length - 1].totalValue;
+                      const totalChange = lastValue - firstValue;
+                      const totalChangePercent = firstValue > 0 ? (totalChange / firstValue) * 100 : 0;
+                      const isPositive = totalChange >= 0;
+                      return (
+                        <>
+                          <span className={isPositive ? 'text-green-600' : 'text-red-600'}>
+                            {isPositive ? '+' : ''}€{totalChange.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </span>
+                          <span className={`text-xs ml-2 ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                            ({isPositive ? '+' : ''}{totalChangePercent.toFixed(2)}%)
+                          </span>
+                        </>
+                      );
+                    })()}
+                  </td>
+                  <td className="py-3 px-4 text-right font-bold text-blue-900">
+                    {(() => {
+                      const avgReturn = monthlyReturns.reduce((sum, m) => sum + m.monthReturnPercent, 0) / monthlyReturns.length;
+                      const isPositive = avgReturn >= 0;
+                      return (
+                        <span className={isPositive ? 'text-green-600' : 'text-red-600'}>
+                          Avg: {isPositive ? '+' : ''}{avgReturn.toFixed(2)}%
+                        </span>
+                      );
+                    })()}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-xs text-blue-800">
+              <strong>ℹ️ Legenda:</strong>
+              <span className="ml-2"><strong>Variazione vs Mese Precedente</strong> = Differenza totale valore portafoglio rispetto al mese prima (include depositi, prelievi e rendimenti).</span>
+              <span className="ml-2"><strong>Rendimento Mensile %</strong> = Performance pura escludendo cash flows (Time-Weighted Return).</span>
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Stacked Bar Chart - Monthly Growth */}
       <div className="card">
         <div className="mb-6">

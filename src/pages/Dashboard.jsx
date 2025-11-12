@@ -197,12 +197,20 @@ function Dashboard() {
         };
       }
 
+      // Include commissions in cost basis calculation (matches Patrimonio logic)
+      const commission = tx.commission || 0;
+      const costWithCommission = (quantity * price) + (type === 'buy' ? commission : 0);
+
       if (type === 'buy') {
         holdings[ticker].quantity += quantity;
-        holdings[ticker].totalCost += quantity * price;
+        holdings[ticker].totalCost += costWithCommission;
       } else if (type === 'sell') {
+        // When selling, reduce cost proportionally using average cost (FIFO)
+        const avgCostPerUnit = holdings[ticker].quantity > 0
+          ? holdings[ticker].totalCost / holdings[ticker].quantity
+          : 0;
         holdings[ticker].quantity -= quantity;
-        holdings[ticker].totalCost -= quantity * price;
+        holdings[ticker].totalCost -= quantity * avgCostPerUnit;
       }
     });
 

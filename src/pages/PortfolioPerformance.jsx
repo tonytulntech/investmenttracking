@@ -844,11 +844,11 @@ function PortfolioPerformance() {
               </thead>
               <tbody>
                 {monthlyReturns.map((monthData, index) => {
-                  const prevMonthValue = index > 0 ? monthlyReturns[index - 1].totalValue : monthData.startValue;
-                  const valueChange = monthData.totalValue - prevMonthValue;
+                  const prevMonthValue = index > 0 ? monthlyReturns[index - 1].value : (monthData.value - monthData.netCashFlow);
+                  const valueChange = monthData.value - prevMonthValue;
                   const valueChangePercent = prevMonthValue > 0 ? (valueChange / prevMonthValue) * 100 : 0;
                   const isPositive = valueChange >= 0;
-                  const isReturnPositive = monthData.monthReturnPercent >= 0;
+                  const isReturnPositive = monthData.return >= 0;
 
                   return (
                     <tr key={monthData.month} className="border-b border-gray-200 hover:bg-gray-50">
@@ -856,7 +856,7 @@ function PortfolioPerformance() {
                         {monthData.month}
                       </td>
                       <td className="py-3 px-4 text-right font-semibold text-gray-900">
-                        €{monthData.totalValue.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        €{monthData.value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </td>
                       <td className={`py-3 px-4 text-right font-semibold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
                         {isPositive ? '+' : ''}€{valueChange.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
@@ -865,7 +865,7 @@ function PortfolioPerformance() {
                         </span>
                       </td>
                       <td className={`py-3 px-4 text-right font-semibold ${isReturnPositive ? 'text-green-600' : 'text-red-600'}`}>
-                        {isReturnPositive ? '+' : ''}{monthData.monthReturnPercent.toFixed(2)}%
+                        {isReturnPositive ? '+' : ''}{monthData.return.toFixed(2)}%
                       </td>
                     </tr>
                   );
@@ -875,12 +875,12 @@ function PortfolioPerformance() {
                 <tr className="bg-blue-50 border-t-2 border-blue-300">
                   <td className="py-3 px-4 font-bold text-blue-900">TOTALE</td>
                   <td className="py-3 px-4 text-right font-bold text-blue-900">
-                    €{monthlyReturns[monthlyReturns.length - 1].totalValue.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    €{monthlyReturns[monthlyReturns.length - 1].value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                   </td>
                   <td className="py-3 px-4 text-right font-bold text-blue-900">
                     {(() => {
-                      const firstValue = monthlyReturns[0].startValue;
-                      const lastValue = monthlyReturns[monthlyReturns.length - 1].totalValue;
+                      const firstValue = monthlyReturns[0].value - monthlyReturns[0].netCashFlow;
+                      const lastValue = monthlyReturns[monthlyReturns.length - 1].value;
                       const totalChange = lastValue - firstValue;
                       const totalChangePercent = firstValue > 0 ? (totalChange / firstValue) * 100 : 0;
                       const isPositive = totalChange >= 0;
@@ -898,7 +898,7 @@ function PortfolioPerformance() {
                   </td>
                   <td className="py-3 px-4 text-right font-bold text-blue-900">
                     {(() => {
-                      const avgReturn = monthlyReturns.reduce((sum, m) => sum + m.monthReturnPercent, 0) / monthlyReturns.length;
+                      const avgReturn = monthlyReturns.reduce((sum, m) => sum + m.return, 0) / monthlyReturns.length;
                       const isPositive = avgReturn >= 0;
                       return (
                         <span className={isPositive ? 'text-green-600' : 'text-red-600'}>

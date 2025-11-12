@@ -216,25 +216,93 @@ function Strategy() {
   const totalAllocation = Object.values(strategyData.assetAllocation).reduce((sum, val) => sum + val, 0);
   const isAllocationValid = totalMicroAllocation === 100;
 
-  // Calculate expected return based on risk level and allocation
-  const calculateExpectedReturn = () => {
-    const { assetAllocation, riskLevel } = strategyData;
+  // Determine asset type from MICRO category name
+  const getAssetTypeFromMicro = (microName) => {
+    const lower = microName.toLowerCase();
 
-    // Base returns by asset class (annual %)
+    // Azionari (stocks)
+    if (lower.includes('azionario') || lower.includes('azioni') || lower.includes('equity') ||
+        lower.includes('large cap') || lower.includes('mid cap') || lower.includes('small cap') ||
+        lower.includes('growth') || lower.includes('value') || lower.includes('dividend') ||
+        lower.includes('qualità') || lower.includes('momentum') || lower.includes('size') ||
+        lower.includes('beta basso') || lower.includes('multi-factor') || lower.includes('factor')) {
+      return 'Azionario';
+    }
+
+    // Obbligazioni (bonds)
+    if (lower.includes('obbligaz') || lower.includes('bond') || lower.includes('governativ') ||
+        lower.includes('corporate') || lower.includes('high yield') || lower.includes('inflation-linked') ||
+        lower.includes('treasury') || lower.includes('btp') || lower.includes('bund')) {
+      return 'Obbligazioni';
+    }
+
+    // Materie Prime (commodities)
+    if (lower.includes('oro') || lower.includes('argento') || lower.includes('petrolio') ||
+        lower.includes('gas') || lower.includes('metalli') || lower.includes('agricol') ||
+        lower.includes('gold') || lower.includes('silver') || lower.includes('oil')) {
+      return 'Materie Prime';
+    }
+
+    // Crypto
+    if (lower.includes('crypto') || lower.includes('bitcoin') || lower.includes('ethereum') ||
+        lower.includes('stablecoin') || lower.includes('defi')) {
+      return 'Crypto';
+    }
+
+    // Real Estate
+    if (lower.includes('reit') || lower.includes('immobiliare') || lower.includes('real estate')) {
+      return 'Immobiliare';
+    }
+
+    // Cash/Monetary
+    if (lower.includes('cash') || lower.includes('liquidità') || lower.includes('monetar') ||
+        lower.includes('conto corrente') || lower.includes('deposito')) {
+      return 'Liquidità';
+    }
+
+    // Default: Altro
+    return 'Altro';
+  };
+
+  // Calculate expected return based on MICRO allocation and risk level
+  const calculateExpectedReturn = () => {
+    const { microAllocation, riskLevel } = strategyData;
+
+    // Base returns by REAL asset type (annual %)
     const baseReturns = {
-      'Azioni': 8,
+      'Azionario': 8,
       'Obbligazioni': 3,
       'Materie Prime': 5,
-      'Crypto': 15, // High volatility
+      'Crypto': 15,
+      'Immobiliare': 7,
       'Liquidità': 0.5,
       'Altro': 4
     };
 
-    // Calculate weighted average return
+    // Calculate weighted average return based on MICRO allocation
     let weightedReturn = 0;
-    Object.entries(assetAllocation).forEach(([asset, percentage]) => {
-      weightedReturn += (baseReturns[asset] || 0) * (percentage / 100);
+    Object.entries(microAllocation).forEach(([microCat, percentage]) => {
+      const assetType = getAssetTypeFromMicro(microCat);
+      const baseReturn = baseReturns[assetType] || baseReturns['Altro'];
+      weightedReturn += baseReturn * (percentage / 100);
     });
+
+    // If no micro allocation, fallback to macro allocation (backward compatibility)
+    if (Object.keys(microAllocation).length === 0) {
+      const { assetAllocation } = strategyData;
+      const macroReturns = {
+        'Azioni': 8,
+        'ETF': 8, // Default ETF to stocks
+        'Obbligazioni': 3,
+        'Materie Prime': 5,
+        'Crypto': 15,
+        'Liquidità': 0.5,
+        'Altro': 4
+      };
+      Object.entries(assetAllocation).forEach(([asset, percentage]) => {
+        weightedReturn += (macroReturns[asset] || macroReturns['Altro']) * (percentage / 100);
+      });
+    }
 
     // Adjust for risk level (risk 0-100% scales return ±100%)
     // Risk 90 = +80% return, Risk 50 = 0% adjustment, Risk 10 = -80% return
@@ -813,6 +881,71 @@ function Strategy() {
               </div>
             </div>
           )}
+
+          {/* Pie Charts - Allocation Visualization */}
+          {isAllocationValid && Object.keys(strategyData.microAllocation).length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* MICRO Allocation Pie Chart */}
+              <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  🎯 Composizione MICRO Asset Allocation Obiettivo
+                </h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={Object.entries(strategyData.microAllocation)
+                        .filter(([_, val]) => val > 0)
+                        .map(([name, value]) => ({ name, value }))}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, value }) => `${name}: ${value.toFixed(1)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {Object.entries(strategyData.microAllocation)
+                        .filter(([_, val]) => val > 0)
+                        .map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => `${value.toFixed(1)}%`} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* MACRO Allocation Pie Chart */}
+              <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  📊 Composizione MACRO (Auto-calcolata)
+                </h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={Object.entries(strategyData.assetAllocation)
+                        .filter(([_, val]) => val > 0)
+                        .map(([name, value]) => ({ name, value }))}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, value }) => `${name}: ${value.toFixed(1)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {Object.entries(strategyData.assetAllocation)
+                        .filter(([_, val]) => val > 0)
+                        .map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => `${value.toFixed(1)}%`} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -822,9 +955,23 @@ function Strategy() {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Proiezione Crescita Patrimoniale
           </h3>
-          <p className="text-sm text-gray-600 mb-4">
-            Rendimento atteso annuo: <strong>{calculateExpectedReturn().toFixed(2)}%</strong> (basato sulla tua allocazione e livello di rischio)
-          </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <p className="text-sm text-blue-900 mb-2">
+              <strong>📈 Rendimento atteso annuo: {calculateExpectedReturn().toFixed(2)}%</strong>
+            </p>
+            <p className="text-xs text-blue-800">
+              💡 Il rendimento è calcolato analizzando le tue <strong>MICRO categorie</strong> (es: se inserisci "Qualità Azionario Mondo",
+              il sistema riconosce che è azionario e applica il rendimento dell'8% base). Viene poi aggiustato in base al tuo <strong>livello di rischio</strong>.
+              {Object.keys(strategyData.microAllocation).length > 0 && (
+                <span className="block mt-1">
+                  Composizione riconosciuta: {Object.entries(strategyData.microAllocation).map(([micro, pct]) => {
+                    const type = getAssetTypeFromMicro(micro);
+                    return `${type} ${pct.toFixed(0)}%`;
+                  }).join(', ')}
+                </span>
+              )}
+            </p>
+          </div>
 
           {goalAnalysis && goalAnalysis.achieved && goalAnalysis.goalReachedCalendarYear && (
             <div className="bg-success-50 border border-success-200 rounded-lg p-4 mb-4 flex items-center gap-3">

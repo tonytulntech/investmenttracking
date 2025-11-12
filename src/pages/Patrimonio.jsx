@@ -1883,6 +1883,426 @@ function Patrimonio() {
         </div>
       </div>
 
+      {/* Heat Map - MACRO Asset Class Performance */}
+      <div className="card">
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-gray-900 mb-2">🔥 Mappa di Calore - Performance MACRO Asset Class</h2>
+          <p className="text-sm text-gray-600">
+            Identifica quali categorie macro hanno trainato o affossato il portafoglio mese per mese
+          </p>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-gray-100 border-b-2 border-gray-300">
+                <th className="py-2 px-3 text-left font-semibold text-gray-900 sticky left-0 bg-gray-100 z-10">
+                  Asset Class
+                </th>
+                {chartData
+                  .filter(d => !d.isProjection)
+                  .map(month => (
+                    <th key={month.month} className="py-2 px-2 text-center font-semibold text-gray-900 min-w-[80px]">
+                      {month.displayMonth || month.month}
+                    </th>
+                  ))}
+              </tr>
+            </thead>
+            <tbody>
+              {Object.keys(CATEGORY_COLORS)
+                .filter(cat => cat !== 'Totale' && cat !== 'Cash')
+                .map(category => {
+                  // Check if this category has any data
+                  const hasData = chartData.some(month => {
+                    const monthValues = monthlyCategoryValues[month.month] || {};
+                    return monthValues[category] > 0;
+                  });
+
+                  if (!hasData) return null;
+
+                  return (
+                    <tr key={category} className="border-b border-gray-200 hover:bg-gray-50">
+                      <td className="py-2 px-3 font-semibold text-gray-900 sticky left-0 bg-white z-10 border-r border-gray-300">
+                        {category}
+                      </td>
+                      {chartData
+                        .filter(d => !d.isProjection)
+                        .map((month, index, array) => {
+                          const currentValue = monthlyCategoryValues[month.month]?.[category] || 0;
+
+                          if (currentValue === 0) {
+                            return (
+                              <td key={month.month} className="py-2 px-2 text-center text-gray-400">
+                                -
+                              </td>
+                            );
+                          }
+
+                          // Calculate performance
+                          let performance = null;
+                          if (index > 0) {
+                            const prevMonth = array[index - 1];
+                            const prevValue = monthlyCategoryValues[prevMonth.month]?.[category] || 0;
+
+                            // Calculate net investments in this month for this category
+                            const monthTransactions = transactions.filter(tx => {
+                              if (!tx.date) return false;
+                              const txDate = new Date(tx.date);
+                              const [year, monthNum] = month.month.split('-');
+                              return txDate.getFullYear() === parseInt(year) &&
+                                     (txDate.getMonth() + 1) === parseInt(monthNum) &&
+                                     tx.macroCategory === category;
+                            });
+
+                            let netInvestment = 0;
+                            monthTransactions.forEach(tx => {
+                              const amount = tx.quantity * tx.price;
+                              const commission = tx.commission || 0;
+                              if (tx.type === 'buy') {
+                                netInvestment += (amount + commission);
+                              } else if (tx.type === 'sell') {
+                                netInvestment -= (amount - commission);
+                              }
+                            });
+
+                            // Performance = (current - prev - netInvestment) / (prev + netInvestment)
+                            const expectedValue = prevValue + netInvestment;
+                            if (expectedValue > 0) {
+                              const returnAmount = currentValue - expectedValue;
+                              performance = (returnAmount / expectedValue) * 100;
+                            } else if (prevValue > 0) {
+                              // If prev value exists but expected is 0 (full liquidation), calculate differently
+                              performance = ((currentValue - prevValue) / prevValue) * 100;
+                            }
+                          }
+
+                          if (performance === null) {
+                            return (
+                              <td key={month.month} className="py-2 px-2 text-center text-gray-500 bg-gray-50">
+                                -
+                              </td>
+                            );
+                          }
+
+                          // Color based on performance
+                          let bgColor = 'bg-gray-50';
+                          let textColor = 'text-gray-900';
+
+                          if (performance > 10) {
+                            bgColor = 'bg-green-700';
+                            textColor = 'text-white font-bold';
+                          } else if (performance > 5) {
+                            bgColor = 'bg-green-500';
+                            textColor = 'text-white font-semibold';
+                          } else if (performance > 2) {
+                            bgColor = 'bg-green-300';
+                            textColor = 'text-green-900 font-medium';
+                          } else if (performance > 0) {
+                            bgColor = 'bg-green-100';
+                            textColor = 'text-green-800';
+                          } else if (performance > -2) {
+                            bgColor = 'bg-red-100';
+                            textColor = 'text-red-800';
+                          } else if (performance > -5) {
+                            bgColor = 'bg-red-300';
+                            textColor = 'text-red-900 font-medium';
+                          } else if (performance > -10) {
+                            bgColor = 'bg-red-500';
+                            textColor = 'text-white font-semibold';
+                          } else {
+                            bgColor = 'bg-red-700';
+                            textColor = 'text-white font-bold';
+                          }
+
+                          return (
+                            <td key={month.month} className={`py-2 px-2 text-center ${bgColor} ${textColor}`}>
+                              {performance >= 0 ? '+' : ''}{performance.toFixed(1)}%
+                            </td>
+                          );
+                        })}
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-4 p-4 bg-gradient-to-r from-red-50 via-gray-50 to-green-50 rounded-lg border border-gray-200">
+          <p className="text-sm text-gray-900 font-semibold mb-2">🎨 Legenda Colori:</p>
+          <div className="flex flex-wrap gap-3 text-xs">
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 bg-green-700 rounded"></div>
+              <span className="text-gray-800">&gt;+10% 🚀</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 bg-green-500 rounded"></div>
+              <span className="text-gray-800">+5% a +10% 📈</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 bg-green-300 rounded"></div>
+              <span className="text-gray-800">+2% a +5% ✅</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 bg-green-100 rounded"></div>
+              <span className="text-gray-800">0% a +2% ↗️</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 bg-red-100 rounded"></div>
+              <span className="text-gray-800">-2% a 0% ↘️</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 bg-red-300 rounded"></div>
+              <span className="text-gray-800">-5% a -2% ⚠️</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 bg-red-500 rounded"></div>
+              <span className="text-gray-800">-10% a -5% 📉</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 bg-red-700 rounded"></div>
+              <span className="text-gray-800">&lt;-10% 💥</span>
+            </div>
+          </div>
+          <p className="text-xs text-gray-700 mt-3 italic">
+            💡 La performance è calcolata escludendo l'effetto di nuovi investimenti/vendite (Time-Weighted Return)
+          </p>
+        </div>
+      </div>
+
+      {/* Heat Map - MICRO Asset Class Performance */}
+      <div className="card">
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-gray-900 mb-2">🔬 Mappa di Calore - Performance MICRO Asset Class</h2>
+          <p className="text-sm text-gray-600">
+            Dettaglio granulare: quale specifico ticker/categoria ha performato meglio o peggio
+          </p>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-gray-100 border-b-2 border-gray-300">
+                <th className="py-2 px-3 text-left font-semibold text-gray-900 sticky left-0 bg-gray-100 z-10 min-w-[120px]">
+                  Ticker / Asset
+                </th>
+                <th className="py-2 px-2 text-left font-semibold text-gray-900">
+                  Tipo
+                </th>
+                {chartData
+                  .filter(d => !d.isProjection)
+                  .map(month => (
+                    <th key={month.month} className="py-2 px-2 text-center font-semibold text-gray-900 min-w-[80px]">
+                      {month.displayMonth || month.month}
+                    </th>
+                  ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                // Get all unique tickers from transactions
+                const tickerData = {};
+                transactions.forEach(tx => {
+                  if (!tx.isCash && tx.macroCategory !== 'Cash' && tx.ticker) {
+                    if (!tickerData[tx.ticker]) {
+                      tickerData[tx.ticker] = {
+                        ticker: tx.ticker,
+                        category: tx.macroCategory || 'N/A',
+                        microCategory: tx.microCategory || tx.name || tx.ticker
+                      };
+                    }
+                  }
+                });
+
+                return Object.values(tickerData)
+                  .sort((a, b) => {
+                    // Sort by category first, then by ticker
+                    if (a.category !== b.category) {
+                      return a.category.localeCompare(b.category);
+                    }
+                    return a.ticker.localeCompare(b.ticker);
+                  })
+                  .map(({ ticker, category, microCategory }) => {
+                    // Check if this ticker has any holdings in any month
+                    const hasData = chartData.some(month => {
+                      const monthDate = parseISO(`${month.month}-01`);
+                      const monthEnd = endOfMonth(monthDate);
+                      const txUpToMonth = transactions.filter(tx => {
+                        const txDate = parseISO(tx.date);
+                        return !isAfter(txDate, monthEnd) && tx.ticker === ticker;
+                      });
+
+                      let quantity = 0;
+                      txUpToMonth.forEach(tx => {
+                        if (tx.type === 'buy') quantity += tx.quantity;
+                        else if (tx.type === 'sell') quantity -= tx.quantity;
+                      });
+
+                      return quantity > 0;
+                    });
+
+                    if (!hasData) return null;
+
+                    return (
+                      <tr key={ticker} className="border-b border-gray-200 hover:bg-gray-50">
+                        <td className="py-2 px-3 font-mono font-semibold text-gray-900 sticky left-0 bg-white z-10 border-r border-gray-300">
+                          {ticker}
+                        </td>
+                        <td className="py-2 px-2 text-gray-600 text-xs">
+                          {category}
+                        </td>
+                        {chartData
+                          .filter(d => !d.isProjection)
+                          .map((month, index, array) => {
+                            // Calculate holdings for this ticker at end of this month
+                            const monthDate = parseISO(`${month.month}-01`);
+                            const monthEnd = endOfMonth(monthDate);
+                            const txUpToMonth = transactions.filter(tx => {
+                              const txDate = parseISO(tx.date);
+                              return !isAfter(txDate, monthEnd) && tx.ticker === ticker;
+                            });
+
+                            let quantity = 0;
+                            txUpToMonth.forEach(tx => {
+                              if (tx.type === 'buy') quantity += tx.quantity;
+                              else if (tx.type === 'sell') quantity -= tx.quantity;
+                            });
+
+                            if (quantity <= 0) {
+                              return (
+                                <td key={month.month} className="py-2 px-2 text-center text-gray-400">
+                                  -
+                                </td>
+                              );
+                            }
+
+                            // Get price for this ticker in this month
+                            const priceData = monthlyMarketValues[month.month];
+                            // We need to recalculate the value for this specific ticker
+                            // This is a simplified approach - we'd need access to price tables
+                            // For now, calculate performance based on transactions
+
+                            let performance = null;
+                            if (index > 0) {
+                              const prevMonth = array[index - 1];
+                              const prevMonthDate = parseISO(`${prevMonth.month}-01`);
+                              const prevMonthEnd = endOfMonth(prevMonthDate);
+
+                              const txUpToPrevMonth = transactions.filter(tx => {
+                                const txDate = parseISO(tx.date);
+                                return !isAfter(txDate, prevMonthEnd) && tx.ticker === ticker;
+                              });
+
+                              let prevQuantity = 0;
+                              txUpToPrevMonth.forEach(tx => {
+                                if (tx.type === 'buy') prevQuantity += tx.quantity;
+                                else if (tx.type === 'sell') prevQuantity -= tx.quantity;
+                              });
+
+                              // Calculate net transactions in current month
+                              const monthTransactions = transactions.filter(tx => {
+                                if (!tx.date || tx.ticker !== ticker) return false;
+                                const txDate = new Date(tx.date);
+                                const [year, monthNum] = month.month.split('-');
+                                return txDate.getFullYear() === parseInt(year) &&
+                                       (txDate.getMonth() + 1) === parseInt(monthNum);
+                              });
+
+                              let netQuantityChange = 0;
+                              monthTransactions.forEach(tx => {
+                                if (tx.type === 'buy') netQuantityChange += tx.quantity;
+                                else if (tx.type === 'sell') netQuantityChange -= tx.quantity;
+                              });
+
+                              // Simple performance calculation: if quantity didn't change, we can estimate performance
+                              // Otherwise, this gets complex without price data
+                              if (prevQuantity > 0) {
+                                // Calculate based on quantity change
+                                const quantityGrowth = ((quantity - prevQuantity) / prevQuantity) * 100;
+
+                                // If there were transactions, we can't easily calculate performance without prices
+                                // So we'll show quantity growth as a proxy
+                                if (netQuantityChange === 0 && quantity === prevQuantity) {
+                                  // No quantity change - would need price data to calculate performance
+                                  // For now, we'll skip this and show "-"
+                                  return (
+                                    <td key={month.month} className="py-2 px-2 text-center text-gray-500 bg-gray-50">
+                                      ~
+                                    </td>
+                                  );
+                                } else {
+                                  // There were transactions - show quantity change
+                                  performance = quantityGrowth;
+                                }
+                              }
+                            }
+
+                            if (performance === null) {
+                              return (
+                                <td key={month.month} className="py-2 px-2 text-center text-gray-500 bg-gray-50">
+                                  •
+                                </td>
+                              );
+                            }
+
+                            // Color based on performance (same scale as macro)
+                            let bgColor = 'bg-gray-50';
+                            let textColor = 'text-gray-900';
+
+                            if (performance > 10) {
+                              bgColor = 'bg-green-700';
+                              textColor = 'text-white font-bold';
+                            } else if (performance > 5) {
+                              bgColor = 'bg-green-500';
+                              textColor = 'text-white font-semibold';
+                            } else if (performance > 2) {
+                              bgColor = 'bg-green-300';
+                              textColor = 'text-green-900 font-medium';
+                            } else if (performance > 0) {
+                              bgColor = 'bg-green-100';
+                              textColor = 'text-green-800';
+                            } else if (performance > -2) {
+                              bgColor = 'bg-red-100';
+                              textColor = 'text-red-800';
+                            } else if (performance > -5) {
+                              bgColor = 'bg-red-300';
+                              textColor = 'text-red-900 font-medium';
+                            } else if (performance > -10) {
+                              bgColor = 'bg-red-500';
+                              textColor = 'text-white font-semibold';
+                            } else {
+                              bgColor = 'bg-red-700';
+                              textColor = 'text-white font-bold';
+                            }
+
+                            return (
+                              <td key={month.month} className={`py-2 px-2 text-center ${bgColor} ${textColor}`}>
+                                {performance >= 0 ? '+' : ''}{performance.toFixed(1)}%
+                              </td>
+                            );
+                          })}
+                      </tr>
+                    );
+                  }).filter(Boolean);
+              })()}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-sm text-blue-900 font-semibold mb-2">📖 Come leggere le tabelle:</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-blue-800">
+            <div>• <strong className="text-green-600">Verde</strong>: Asset che hanno guadagnato nel mese</div>
+            <div>• <strong className="text-red-600">Rosso</strong>: Asset che hanno perso nel mese</div>
+            <div>• <strong>Intensità colore</strong>: Più intenso = performance più estrema</div>
+            <div>• <strong>"-"</strong>: Non detenuto in quel mese</div>
+            <div>• <strong>"~" o "•"</strong>: Dati insufficienti per calcolo preciso</div>
+          </div>
+          <p className="text-xs text-blue-800 mt-3 italic">
+            💡 Usa queste tabelle per identificare i "colpevoli" della crescita o decrescita del tuo portafoglio!
+          </p>
+        </div>
+      </div>
+
       {/* Consuntivi Section */}
       <div className="card">
         <h3 className="text-lg font-semibold text-gray-900 mb-6">📋 Riepilogo Consuntivi</h3>

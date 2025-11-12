@@ -1892,7 +1892,16 @@ function Patrimonio() {
           </p>
         </div>
 
-        <div className="overflow-x-auto">
+        {loadingPrices || Object.keys(monthlyCategoryValues).length === 0 ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+              <p className="text-gray-600">Caricamento dati storici per calcolare le performance...</p>
+              <p className="text-sm text-gray-500 mt-2">Questo può richiedere alcuni secondi</p>
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-gray-100 border-b-2 border-gray-300">
@@ -2067,6 +2076,7 @@ function Patrimonio() {
             💡 La performance è calcolata escludendo l'effetto di nuovi investimenti/vendite (Time-Weighted Return)
           </p>
         </div>
+        )}
       </div>
 
       {/* Heat Map - MICRO Asset Class Performance */}
@@ -2078,7 +2088,16 @@ function Patrimonio() {
           </p>
         </div>
 
-        <div className="overflow-x-auto">
+        {loadingPrices || Object.keys(monthlyCategoryValues).length === 0 ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+              <p className="text-gray-600">Caricamento dati storici per calcolare le performance...</p>
+              <p className="text-sm text-gray-500 mt-2">Questo può richiedere alcuni secondi</p>
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-gray-100 border-b-2 border-gray-300">
@@ -2301,6 +2320,7 @@ function Patrimonio() {
             💡 Usa queste tabelle per identificare i "colpevoli" della crescita o decrescita del tuo portafoglio!
           </p>
         </div>
+        )}
       </div>
 
       {/* Consuntivi Section */}

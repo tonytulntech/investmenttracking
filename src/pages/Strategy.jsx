@@ -1,9 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { Target, TrendingUp, DollarSign, Calendar, AlertCircle, TrendingDown, Clock, Zap, Plus, X, Layers } from 'lucide-react';
+import { Target, TrendingUp, DollarSign, Calendar, AlertCircle, TrendingDown, Clock, Zap, Plus, X, Layers, Settings } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line, ComposedChart, PieChart, Pie, Cell } from 'recharts';
 import { ASSET_CLASSES } from '../config/assetClasses';
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
+
+// Helper functions for custom categories in localStorage
+const loadCustomCategories = () => {
+  try {
+    const saved = localStorage.getItem('customAssetCategories');
+    return saved ? JSON.parse(saved) : {};
+  } catch (error) {
+    console.error('Error loading custom categories:', error);
+    return {};
+  }
+};
+
+const saveCustomCategories = (customCategories) => {
+  try {
+    localStorage.setItem('customAssetCategories', JSON.stringify(customCategories));
+  } catch (error) {
+    console.error('Error saving custom categories:', error);
+  }
+};
 
 function Strategy() {
   const [strategyData, setStrategyData] = useState({
@@ -24,19 +43,80 @@ function Strategy() {
   const [showAddMicro, setShowAddMicro] = useState(false);
   const [selectedMacro, setSelectedMacro] = useState('');
   const [selectedMicro, setSelectedMicro] = useState('');
+  const [customCategories, setCustomCategories] = useState(loadCustomCategories());
+  const [showCustomCategoryModal, setShowCustomCategoryModal] = useState(false);
+  const [newCustomMacro, setNewCustomMacro] = useState('');
+  const [newCustomMicro, setNewCustomMicro] = useState('');
 
-  // Get all available MICRO categories grouped by MACRO
+  // Load custom categories on mount
+  useEffect(() => {
+    setCustomCategories(loadCustomCategories());
+  }, []);
+
+  // Get all available MICRO categories grouped by MACRO (including custom)
   const getAllMicroCategories = () => {
     const result = {};
+
+    // Add standard categories from config
     Object.entries(ASSET_CLASSES).forEach(([macro, data]) => {
       result[macro] = Object.keys(data.microCategories);
     });
+
+    // Add custom categories
+    Object.entries(customCategories).forEach(([macro, micros]) => {
+      if (!result[macro]) {
+        result[macro] = [];
+      }
+      result[macro] = [...result[macro], ...micros];
+    });
+
     return result;
   };
 
   const microCategoriesByMacro = getAllMicroCategories();
 
-  // Calculate MACRO allocation from MICRO
+  // Add custom category
+  const handleAddCustomCategory = () => {
+    if (!newCustomMacro || !newCustomMicro) {
+      alert('Inserisci sia la Macro che la Micro categoria');
+      return;
+    }
+
+    const updatedCustom = { ...customCategories };
+    if (!updatedCustom[newCustomMacro]) {
+      updatedCustom[newCustomMacro] = [];
+    }
+
+    // Check if micro already exists
+    if (updatedCustom[newCustomMacro].includes(newCustomMicro)) {
+      alert('Questa micro categoria esiste già');
+      return;
+    }
+
+    updatedCustom[newCustomMacro].push(newCustomMicro);
+    setCustomCategories(updatedCustom);
+    saveCustomCategories(updatedCustom);
+
+    setNewCustomMacro('');
+    setNewCustomMicro('');
+    setShowCustomCategoryModal(false);
+    alert('Categoria personalizzata aggiunta con successo!');
+  };
+
+  // Delete custom category
+  const handleDeleteCustomCategory = (macro, micro) => {
+    const updatedCustom = { ...customCategories };
+    if (updatedCustom[macro]) {
+      updatedCustom[macro] = updatedCustom[macro].filter(m => m !== micro);
+      if (updatedCustom[macro].length === 0) {
+        delete updatedCustom[macro];
+      }
+    }
+    setCustomCategories(updatedCustom);
+    saveCustomCategories(updatedCustom);
+  };
+
+  // Calculate MACRO allocation from MICRO (including custom categories)
   const calculateMacroFromMicro = (microAlloc) => {
     const macroAlloc = {};
 
@@ -44,11 +124,22 @@ function Strategy() {
     Object.entries(microAlloc).forEach(([microCat, percentage]) => {
       // Find which MACRO this MICRO belongs to
       let foundMacro = null;
+
+      // First check standard categories
       Object.entries(ASSET_CLASSES).forEach(([macro, data]) => {
         if (Object.keys(data.microCategories).includes(microCat)) {
           foundMacro = macro;
         }
       });
+
+      // Then check custom categories
+      if (!foundMacro) {
+        Object.entries(customCategories).forEach(([macro, micros]) => {
+          if (micros.includes(microCat)) {
+            foundMacro = macro;
+          }
+        });
+      }
 
       if (foundMacro) {
         macroAlloc[foundMacro] = (macroAlloc[foundMacro] || 0) + percentage;
@@ -453,13 +544,23 @@ function Strategy() {
               Definisci la tua allocazione target per sotto-categorie specifiche
             </p>
           </div>
-          <button
-            onClick={() => setShowAddMicro(!showAddMicro)}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Aggiungi Categoria
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowCustomCategoryModal(!showCustomCategoryModal)}
+              className="btn-secondary flex items-center gap-2"
+              title="Gestisci categorie personalizzate"
+            >
+              <Settings className="w-4 h-4" />
+              Categorie Custom
+            </button>
+            <button
+              onClick={() => setShowAddMicro(!showAddMicro)}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Aggiungi Categoria
+            </button>
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -488,8 +589,11 @@ function Strategy() {
                     className="input"
                   >
                     <option value="">-- Seleziona MACRO --</option>
-                    {Object.keys(ASSET_CLASSES).map(macro => (
-                      <option key={macro} value={macro}>{macro}</option>
+                    {Object.keys(microCategoriesByMacro).map(macro => (
+                      <option key={macro} value={macro}>
+                        {macro}
+                        {customCategories[macro] ? ' (con custom)' : ''}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -529,6 +633,100 @@ function Strategy() {
                   Annulla
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Custom Category Management Modal */}
+          {showCustomCategoryModal && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <h3 className="font-semibold text-green-900 mb-3 flex items-center gap-2">
+                <Settings className="w-5 h-5" />
+                Gestisci Categorie Personalizzate
+              </h3>
+
+              {/* Add New Custom Category */}
+              <div className="bg-white rounded-lg p-4 mb-4">
+                <p className="text-sm font-medium text-gray-700 mb-3">Aggiungi Nuova Categoria Custom</p>
+                <div className="grid grid-cols-2 gap-4 mb-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      MACRO Categoria (nuova o esistente)
+                    </label>
+                    <input
+                      type="text"
+                      value={newCustomMacro}
+                      onChange={(e) => setNewCustomMacro(e.target.value)}
+                      placeholder="es: ETF, Azioni, ecc."
+                      className="input"
+                      list="existing-macros"
+                    />
+                    <datalist id="existing-macros">
+                      {Object.keys(ASSET_CLASSES).map(macro => (
+                        <option key={macro} value={macro} />
+                      ))}
+                    </datalist>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      MICRO Categoria (nome)
+                    </label>
+                    <input
+                      type="text"
+                      value={newCustomMicro}
+                      onChange={(e) => setNewCustomMicro(e.target.value)}
+                      placeholder="es: Momentum Azionario Asia"
+                      className="input"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleAddCustomCategory}
+                    className="btn-primary"
+                  >
+                    <Plus className="w-4 h-4 inline mr-1" />
+                    Aggiungi Custom
+                  </button>
+                </div>
+              </div>
+
+              {/* List Existing Custom Categories */}
+              {Object.keys(customCategories).length > 0 && (
+                <div className="bg-white rounded-lg p-4 mb-4">
+                  <p className="text-sm font-medium text-gray-700 mb-3">Categorie Custom Esistenti</p>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {Object.entries(customCategories).map(([macro, micros]) => (
+                      <div key={macro} className="border-l-4 border-green-500 pl-3">
+                        <p className="font-medium text-gray-900">{macro}</p>
+                        <div className="space-y-1 mt-1">
+                          {micros.map(micro => (
+                            <div key={micro} className="flex items-center justify-between text-sm bg-gray-50 rounded px-2 py-1">
+                              <span className="text-gray-700">{micro}</span>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`Eliminare "${micro}" da "${macro}"?`)) {
+                                    handleDeleteCustomCategory(macro, micro);
+                                  }
+                                }}
+                                className="text-red-600 hover:text-red-800"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={() => setShowCustomCategoryModal(false)}
+                className="btn-secondary w-full"
+              >
+                Chiudi
+              </button>
             </div>
           )}
 

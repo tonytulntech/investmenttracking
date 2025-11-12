@@ -675,10 +675,13 @@ function Patrimonio() {
       };
     }
 
-    const latest = chartData[chartData.length - 1];
+    // Get the last REAL data point (not projected)
+    const realData = chartData.filter(d => !d.isProjection);
+    const latest = realData.length > 0 ? realData[realData.length - 1] : chartData[chartData.length - 1];
+
     const cash = latest.cashBalance || 0;
     const marketValue = latest.investmentsMarketValue || 0;
-    const patrimonio = marketValue + cash; // Total wealth = investments + cash
+    const patrimonio = latest.patrimonioReale || 0; // Use real patrimonio from chart data
 
     // Calculate REAL cost basis (total cost of holdings, excluding sold positions)
     // This matches Dashboard's "Totale Investito" calculation

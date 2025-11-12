@@ -145,8 +145,9 @@ function Strategy() {
       weightedReturn += (baseReturns[asset] || 0) * (percentage / 100);
     });
 
-    // Adjust for risk level (risk 0-100% scales return ±20%)
-    const riskAdjustment = ((riskLevel - 50) / 50) * 0.2;
+    // Adjust for risk level (risk 0-100% scales return ±100%)
+    // Risk 90 = +80% return, Risk 50 = 0% adjustment, Risk 10 = -80% return
+    const riskAdjustment = ((riskLevel - 50) / 50) * 1.0;
     const finalReturn = weightedReturn * (1 + riskAdjustment);
 
     return Math.max(0, finalReturn); // Never negative

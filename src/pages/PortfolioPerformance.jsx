@@ -66,11 +66,12 @@ function PortfolioPerformance() {
 
       const firstDate = parseISO(sortedTransactions[0].date);
       const now = new Date();
-      const lastDate = now; // Include current month with partial data
+      // Use end of current month to ensure we include the full current month
+      const lastDate = endOfMonth(now);
 
       console.log(`📅 Date range: ${format(firstDate, 'yyyy-MM-dd')} to ${format(lastDate, 'yyyy-MM-dd')} (including current month)`);
 
-      // Get all months between first transaction and now
+      // Get all months between first transaction and now (including current month)
       const allMonths = eachMonthOfInterval({ start: firstDate, end: lastDate });
 
       // Calculate available years for filters
@@ -121,9 +122,10 @@ function PortfolioPerformance() {
 
       // Get current prices from cache to use as fallback for recent months
       const currentPrices = getCachedPrices() || {};
-      console.log(`💰 Loaded ${Object.keys(currentPrices).length} current prices from cache`, currentPrices);
+      console.log(`💰 Loaded ${Object.keys(currentPrices).length} current prices from cache for fallback`, currentPrices);
 
       console.log(`✅ Historical prices fetched. Building monthly portfolio values...`);
+      console.log(`📅 Processing ${months.length} months:`, months.map(m => format(m, 'yyyy-MM')).join(', '));
 
       // Calculate portfolio value for each month using REAL historical prices
       const monthlyGrowth = [];

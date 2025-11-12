@@ -369,19 +369,23 @@ function Patrimonio() {
       }
 
       // Logic:
-      // - Income: Cash with cashFlowType='income' + asset sales (sell)
-      // - Expense: Cash with cashFlowType='expense' (real expenses)
+      // - Income: Cash deposits (buy) + cashFlowType='income' + asset sales (sell)
+      // - Expense: Cash withdrawals (sell) + cashFlowType='expense'
       // - Investments: Asset purchases (buy) - NOT expenses, they convert cash to assets!
 
-      if (category === 'Cash' && tx.cashFlowType) {
-        // Cash transactions use cashFlowType
-        if (tx.cashFlowType === 'income') {
+      const isCashTransaction = tx.isCash || category === 'Cash';
+
+      if (isCashTransaction) {
+        // Cash transactions
+        if (tx.cashFlowType === 'income' || tx.type === 'buy') {
+          // Income: cash deposits or income flows
           data.income[category][periodKey] += amount;
-        } else if (tx.cashFlowType === 'expense') {
+        } else if (tx.cashFlowType === 'expense' || tx.type === 'sell') {
+          // Expense: cash withdrawals or expense flows
           data.expense[category][periodKey] += amount;
         }
       } else {
-        // Asset transactions
+        // Asset transactions (non-Cash)
         if (tx.type === 'buy') {
           // Investments: buying assets (NOT expenses!)
           data.investments[category][periodKey] += amount;

@@ -678,7 +678,7 @@ function Patrimonio() {
     const latest = chartData[chartData.length - 1];
     const cash = latest.cashBalance || 0;
     const marketValue = latest.investmentsMarketValue || 0;
-    const patrimonio = latest.patrimonioReale || 0;
+    const patrimonio = marketValue + cash; // Total wealth = investments + cash
 
     // Calculate REAL cost basis (total cost of holdings, excluding sold positions)
     // This matches Dashboard's "Totale Investito" calculation

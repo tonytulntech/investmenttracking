@@ -682,6 +682,7 @@ function Patrimonio() {
 
     // Calculate REAL cost basis (total cost of holdings, excluding sold positions)
     // This matches Dashboard's "Totale Investito" calculation
+    // IMPORTANT: Must include commissions in the cost!
     const assetTransactions = transactions.filter(tx => !tx.isCash && tx.macroCategory !== 'Cash');
     const holdings = {};
 
@@ -689,12 +690,20 @@ function Patrimonio() {
       if (!holdings[tx.ticker]) {
         holdings[tx.ticker] = { quantity: 0, totalCost: 0 };
       }
+
+      const commission = tx.commission || 0;
+      const costWithCommission = (tx.quantity * tx.price) + (tx.type === 'buy' ? commission : 0);
+
       if (tx.type === 'buy') {
         holdings[tx.ticker].quantity += tx.quantity;
-        holdings[tx.ticker].totalCost += tx.quantity * tx.price;
+        holdings[tx.ticker].totalCost += costWithCommission;
       } else if (tx.type === 'sell') {
+        // When selling, reduce cost proportionally (FIFO average cost)
+        const avgCostPerUnit = holdings[tx.ticker].quantity > 0
+          ? holdings[tx.ticker].totalCost / holdings[tx.ticker].quantity
+          : 0;
         holdings[tx.ticker].quantity -= tx.quantity;
-        holdings[tx.ticker].totalCost -= tx.quantity * tx.price;
+        holdings[tx.ticker].totalCost -= tx.quantity * avgCostPerUnit;
       }
     });
 
@@ -722,6 +731,15 @@ function Patrimonio() {
       latestMarketValue: latest.investmentsMarketValue,
       latestPatrimonio: latest.patrimonioReale
     });
+
+    // Debug holdings details
+    console.log('💰 Holdings Cost Basis Breakdown:');
+    Object.entries(holdings)
+      .filter(([_, h]) => h.quantity > 0)
+      .forEach(([ticker, h]) => {
+        console.log(`  ${ticker}: ${h.quantity.toFixed(4)} units, totalCost: €${h.totalCost.toFixed(2)}, avgCost: €${(h.totalCost / h.quantity).toFixed(2)}/unit`);
+      });
+    console.log(`  TOTAL INVESTED (with commissions): €${invested.toFixed(2)}`);
 
     return {
       invested,

@@ -40,6 +40,7 @@ function Patrimonio() {
   const [loadingPrices, setLoadingPrices] = useState(true);
   const [monthlyMarketValues, setMonthlyMarketValues] = useState({}); // { '2021-01': 1000, '2021-02': 1100, ... }
   const [monthlyCategoryValues, setMonthlyCategoryValues] = useState({}); // { '2021-01': { 'ETF': 500, 'ETC': 300, ... }, ... }
+  const [monthlyTickerValues, setMonthlyTickerValues] = useState({}); // { '2021-01': { 'BTC-EUR': 1000, 'ETH-EUR': 500, ... }, ... }
 
   useEffect(() => {
     loadTransactions();
@@ -106,6 +107,7 @@ function Patrimonio() {
       // Calculate market value for each month
       const marketValues = {};
       const categoryValues = {}; // { '2021-01': { 'ETF': 500, 'ETC': 300, ... }, ... }
+      const tickerValues = {}; // { '2021-01': { 'BTC-EUR': 1000, 'ETH-EUR': 500, ... }, ... }
 
       // Get all unique year-month periods from transactions
       const periods = new Set();
@@ -151,9 +153,10 @@ function Patrimonio() {
           }
         });
 
-        // Calculate market value (total and per category)
+        // Calculate market value (total, per category, and per ticker)
         let totalValue = 0;
         const categoryValuesForMonth = {};
+        const tickerValuesForMonth = {};
         const currentMonthKey = format(new Date(), 'yyyy-MM');
         const isCurrentMonth = monthKey === currentMonthKey;
 
@@ -197,19 +200,25 @@ function Patrimonio() {
                 categoryValuesForMonth[category] = 0;
               }
               categoryValuesForMonth[category] += value;
+
+              // Add to ticker value
+              tickerValuesForMonth[ticker] = value;
             }
           }
         });
 
         marketValues[monthKey] = totalValue;
         categoryValues[monthKey] = categoryValuesForMonth;
+        tickerValues[monthKey] = tickerValuesForMonth;
       });
 
       setMonthlyMarketValues(marketValues);
       setMonthlyCategoryValues(categoryValues);
+      setMonthlyTickerValues(tickerValues);
       setLoadingPrices(false);
       console.log('📊 Monthly market values calculated:', marketValues);
       console.log('📊 Monthly category values calculated:', categoryValues);
+      console.log('📊 Monthly ticker values calculated:', tickerValues);
 
       // Debug: Show last 3 months values
       const sortedKeys = Object.keys(marketValues).sort();
@@ -2144,22 +2153,10 @@ function Patrimonio() {
                     return a.ticker.localeCompare(b.ticker);
                   })
                   .map(({ ticker, category, microCategory }) => {
-                    // Check if this ticker has any holdings in any month
+                    // Check if this ticker has any data in any month
                     const hasData = chartData.some(month => {
-                      const monthDate = parseISO(`${month.month}-01`);
-                      const monthEnd = endOfMonth(monthDate);
-                      const txUpToMonth = transactions.filter(tx => {
-                        const txDate = parseISO(tx.date);
-                        return !isAfter(txDate, monthEnd) && tx.ticker === ticker;
-                      });
-
-                      let quantity = 0;
-                      txUpToMonth.forEach(tx => {
-                        if (tx.type === 'buy') quantity += tx.quantity;
-                        else if (tx.type === 'sell') quantity -= tx.quantity;
-                      });
-
-                      return quantity > 0;
+                      const monthValues = monthlyTickerValues[month.month] || {};
+                      return monthValues[ticker] > 0;
                     });
 
                     if (!hasData) return null;
@@ -2175,21 +2172,10 @@ function Patrimonio() {
                         {chartData
                           .filter(d => !d.isProjection)
                           .map((month, index, array) => {
-                            // Calculate holdings for this ticker at end of this month
-                            const monthDate = parseISO(`${month.month}-01`);
-                            const monthEnd = endOfMonth(monthDate);
-                            const txUpToMonth = transactions.filter(tx => {
-                              const txDate = parseISO(tx.date);
-                              return !isAfter(txDate, monthEnd) && tx.ticker === ticker;
-                            });
+                            // Get current value for this ticker
+                            const currentValue = monthlyTickerValues[month.month]?.[ticker] || 0;
 
-                            let quantity = 0;
-                            txUpToMonth.forEach(tx => {
-                              if (tx.type === 'buy') quantity += tx.quantity;
-                              else if (tx.type === 'sell') quantity -= tx.quantity;
-                            });
-
-                            if (quantity <= 0) {
+                            if (currentValue === 0) {
                               return (
                                 <td key={month.month} className="py-2 px-2 text-center text-gray-400">
                                   -
@@ -2197,30 +2183,13 @@ function Patrimonio() {
                               );
                             }
 
-                            // Get price for this ticker in this month
-                            const priceData = monthlyMarketValues[month.month];
-                            // We need to recalculate the value for this specific ticker
-                            // This is a simplified approach - we'd need access to price tables
-                            // For now, calculate performance based on transactions
-
+                            // Calculate performance (Time-Weighted Return)
                             let performance = null;
                             if (index > 0) {
                               const prevMonth = array[index - 1];
-                              const prevMonthDate = parseISO(`${prevMonth.month}-01`);
-                              const prevMonthEnd = endOfMonth(prevMonthDate);
+                              const prevValue = monthlyTickerValues[prevMonth.month]?.[ticker] || 0;
 
-                              const txUpToPrevMonth = transactions.filter(tx => {
-                                const txDate = parseISO(tx.date);
-                                return !isAfter(txDate, prevMonthEnd) && tx.ticker === ticker;
-                              });
-
-                              let prevQuantity = 0;
-                              txUpToPrevMonth.forEach(tx => {
-                                if (tx.type === 'buy') prevQuantity += tx.quantity;
-                                else if (tx.type === 'sell') prevQuantity -= tx.quantity;
-                              });
-
-                              // Calculate net transactions in current month
+                              // Calculate net investments in this month for this ticker
                               const monthTransactions = transactions.filter(tx => {
                                 if (!tx.date || tx.ticker !== ticker) return false;
                                 const txDate = new Date(tx.date);
@@ -2229,32 +2198,25 @@ function Patrimonio() {
                                        (txDate.getMonth() + 1) === parseInt(monthNum);
                               });
 
-                              let netQuantityChange = 0;
+                              let netInvestment = 0;
                               monthTransactions.forEach(tx => {
-                                if (tx.type === 'buy') netQuantityChange += tx.quantity;
-                                else if (tx.type === 'sell') netQuantityChange -= tx.quantity;
+                                const amount = tx.quantity * tx.price;
+                                const commission = tx.commission || 0;
+                                if (tx.type === 'buy') {
+                                  netInvestment += (amount + commission);
+                                } else if (tx.type === 'sell') {
+                                  netInvestment -= (amount - commission);
+                                }
                               });
 
-                              // Simple performance calculation: if quantity didn't change, we can estimate performance
-                              // Otherwise, this gets complex without price data
-                              if (prevQuantity > 0) {
-                                // Calculate based on quantity change
-                                const quantityGrowth = ((quantity - prevQuantity) / prevQuantity) * 100;
-
-                                // If there were transactions, we can't easily calculate performance without prices
-                                // So we'll show quantity growth as a proxy
-                                if (netQuantityChange === 0 && quantity === prevQuantity) {
-                                  // No quantity change - would need price data to calculate performance
-                                  // For now, we'll skip this and show "-"
-                                  return (
-                                    <td key={month.month} className="py-2 px-2 text-center text-gray-500 bg-gray-50">
-                                      ~
-                                    </td>
-                                  );
-                                } else {
-                                  // There were transactions - show quantity change
-                                  performance = quantityGrowth;
-                                }
+                              // Performance = (current - prev - netInvestment) / (prev + netInvestment)
+                              const expectedValue = prevValue + netInvestment;
+                              if (expectedValue > 0) {
+                                const returnAmount = currentValue - expectedValue;
+                                performance = (returnAmount / expectedValue) * 100;
+                              } else if (prevValue > 0) {
+                                // If prev value exists but expected is 0 (full liquidation), calculate differently
+                                performance = ((currentValue - prevValue) / prevValue) * 100;
                               }
                             }
 

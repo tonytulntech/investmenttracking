@@ -1596,7 +1596,28 @@ function Patrimonio() {
                   });
                 })()}
                 <td className="border border-gray-300 py-3 px-3 text-right text-blue-900">
-                  €{currentValues.marketValue.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                  {(() => {
+                    // Get the latest period key (same logic as category rows)
+                    const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
+                    let latestPeriodKey = periods[periods.length - 1];
+                    if (selectedYear !== 'all') {
+                      const monthIndex = MONTHS.indexOf(latestPeriodKey);
+                      if (monthIndex >= 0) {
+                        const year = parseInt(selectedYear);
+                        const monthNum = String(monthIndex + 1).padStart(2, '0');
+                        latestPeriodKey = `${year}-${monthNum}`;
+                      }
+                    }
+
+                    // Sum all category values (excluding Totale and Cash)
+                    const totalValue = Object.keys(CATEGORY_COLORS)
+                      .filter(cat => cat !== 'Totale' && cat !== 'Cash')
+                      .reduce((sum, category) => {
+                        return sum + (monthlyCategoryValues[latestPeriodKey]?.[category] || 0);
+                      }, 0);
+
+                    return `€${totalValue.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`;
+                  })()}
                 </td>
               </tr>
             </tbody>

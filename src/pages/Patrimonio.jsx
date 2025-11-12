@@ -1826,10 +1826,12 @@ function Patrimonio() {
               {chartData
                 .filter(d => !d.isProjection)
                 .map((month, index, array) => {
-                  const startValue = month.cashBalance + (monthlyMarketValues[month.month] || 0);
-                  const endValue = month.patrimonioReale || startValue;
+                  // Patrimonio inizio = patrimonio fine del mese precedente
+                  const startValue = index > 0 ? (array[index - 1].patrimonioReale || 0) : 0;
+                  // Patrimonio fine = patrimonio reale del mese corrente
+                  const endValue = month.patrimonioReale || 0;
 
-                  // Calculate cash flows for this month
+                  // Calculate cash flows for this month (only deposits/withdrawals, not investments)
                   const monthTransactions = transactions.filter(tx => {
                     if (!tx.date) return false;
                     const txDate = new Date(tx.date);
@@ -1852,7 +1854,7 @@ function Patrimonio() {
                     // Investments don't count as cash flow - they just move money from cash to investments
                   });
 
-                  // Calculate return
+                  // Calculate return (Time-Weighted)
                   const expectedValue = startValue + cashFlows;
                   const returnAmount = endValue - expectedValue;
                   const returnPercent = expectedValue > 0 ? (returnAmount / expectedValue) * 100 : 0;

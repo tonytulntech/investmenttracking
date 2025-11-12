@@ -40,6 +40,7 @@ function Patrimonio() {
   const [loadingPrices, setLoadingPrices] = useState(true);
   const [monthlyMarketValues, setMonthlyMarketValues] = useState({}); // { '2021-01': 1000, '2021-02': 1100, ... }
   const [monthlyCategoryValues, setMonthlyCategoryValues] = useState({}); // { '2021-01': { 'ETF': 500, 'ETC': 300, ... }, ... }
+  const [monthlyMicroCategoryValues, setMonthlyMicroCategoryValues] = useState({}); // { '2021-01': { 'Azionario Mondiale': 500, 'Azionario USA': 300, ... }, ... }
   const [monthlyTickerValues, setMonthlyTickerValues] = useState({}); // { '2021-01': { 'BTC-EUR': 1000, 'ETH-EUR': 500, ... }, ... }
 
   useEffect(() => {
@@ -107,6 +108,7 @@ function Patrimonio() {
       // Calculate market value for each month
       const marketValues = {};
       const categoryValues = {}; // { '2021-01': { 'ETF': 500, 'ETC': 300, ... }, ... }
+      const microCategoryValues = {}; // { '2021-01': { 'Azionario Mondiale': 500, 'Azionario USA': 300, ... }, ... }
       const tickerValues = {}; // { '2021-01': { 'BTC-EUR': 1000, 'ETH-EUR': 500, ... }, ... }
 
       // Get all unique year-month periods from transactions
@@ -139,11 +141,13 @@ function Patrimonio() {
 
         // Calculate holdings with category information
         const holdings = {};
-        const tickerToCategory = {}; // Map ticker to category
+        const tickerToCategory = {}; // Map ticker to macro category
+        const tickerToMicroCategory = {}; // Map ticker to micro category
         txUpToMonth.forEach(tx => {
           if (!holdings[tx.ticker]) {
             holdings[tx.ticker] = { quantity: 0 };
             tickerToCategory[tx.ticker] = tx.macroCategory || 'Cash';
+            tickerToMicroCategory[tx.ticker] = tx.microCategory || tx.macroCategory || 'N/A';
           }
 
           if (tx.type === 'buy') {
@@ -153,9 +157,10 @@ function Patrimonio() {
           }
         });
 
-        // Calculate market value (total, per category, and per ticker)
+        // Calculate market value (total, per category, per micro category, and per ticker)
         let totalValue = 0;
         const categoryValuesForMonth = {};
+        const microCategoryValuesForMonth = {};
         const tickerValuesForMonth = {};
         const currentMonthKey = format(new Date(), 'yyyy-MM');
         const isCurrentMonth = monthKey === currentMonthKey;
@@ -194,12 +199,19 @@ function Patrimonio() {
               const value = holding.quantity * price;
               totalValue += value;
 
-              // Add to category value
+              // Add to category value (MACRO)
               const category = tickerToCategory[ticker] || 'Cash';
               if (!categoryValuesForMonth[category]) {
                 categoryValuesForMonth[category] = 0;
               }
               categoryValuesForMonth[category] += value;
+
+              // Add to micro category value
+              const microCategory = tickerToMicroCategory[ticker] || 'N/A';
+              if (!microCategoryValuesForMonth[microCategory]) {
+                microCategoryValuesForMonth[microCategory] = 0;
+              }
+              microCategoryValuesForMonth[microCategory] += value;
 
               // Add to ticker value
               tickerValuesForMonth[ticker] = value;
@@ -209,15 +221,18 @@ function Patrimonio() {
 
         marketValues[monthKey] = totalValue;
         categoryValues[monthKey] = categoryValuesForMonth;
+        microCategoryValues[monthKey] = microCategoryValuesForMonth;
         tickerValues[monthKey] = tickerValuesForMonth;
       });
 
       setMonthlyMarketValues(marketValues);
       setMonthlyCategoryValues(categoryValues);
+      setMonthlyMicroCategoryValues(microCategoryValues);
       setMonthlyTickerValues(tickerValues);
       setLoadingPrices(false);
       console.log('📊 Monthly market values calculated:', marketValues);
       console.log('📊 Monthly category values calculated:', categoryValues);
+      console.log('📊 Monthly micro category values calculated:', microCategoryValues);
       console.log('📊 Monthly ticker values calculated:', tickerValues);
 
       // Debug: Show last 3 months values
@@ -2093,9 +2108,184 @@ function Patrimonio() {
       {/* Heat Map - MICRO Asset Class Performance */}
       <div className="card">
         <div className="mb-4">
-          <h2 className="text-xl font-bold text-gray-900 mb-2">🔬 Mappa di Calore - Performance MICRO Asset Class</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">📊 Mappa di Calore - Performance MICRO Asset Class</h2>
           <p className="text-sm text-gray-600">
-            Dettaglio granulare: quale specifico ticker/categoria ha performato meglio o peggio
+            Performance dettagliata per micro categoria (Azionario Mondiale, Azionario USA, Obbligazioni Gov, etc.)
+          </p>
+        </div>
+
+        {loadingPrices || Object.keys(monthlyMicroCategoryValues).length === 0 ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+              <p className="text-gray-600">Caricamento dati storici per calcolare le performance...</p>
+              <p className="text-sm text-gray-500 mt-2">Questo può richiedere alcuni secondi</p>
+            </div>
+          </div>
+        ) : (
+          <>
+          <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-gray-100 border-b-2 border-gray-300">
+                <th className="py-2 px-3 text-left font-semibold text-gray-900 sticky left-0 bg-gray-100 z-10 min-w-[150px]">
+                  Micro Asset Class
+                </th>
+                {chartData
+                  .filter(d => !d.isProjection)
+                  .map(month => (
+                    <th key={month.month} className="py-2 px-2 text-center font-semibold text-gray-900 min-w-[80px]">
+                      {month.displayMonth || month.month}
+                    </th>
+                  ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                // Get all unique micro categories
+                const allMicroCategories = new Set();
+                Object.values(monthlyMicroCategoryValues).forEach(monthValues => {
+                  Object.keys(monthValues).forEach(microCat => {
+                    if (microCat !== 'N/A' && monthValues[microCat] > 0) {
+                      allMicroCategories.add(microCat);
+                    }
+                  });
+                });
+
+                return Array.from(allMicroCategories)
+                  .sort()
+                  .map(microCategory => {
+                    return (
+                      <tr key={microCategory} className="border-b border-gray-200 hover:bg-gray-50">
+                        <td className="py-2 px-3 font-semibold text-gray-900 sticky left-0 bg-white z-10 border-r border-gray-300">
+                          {microCategory}
+                        </td>
+                        {chartData
+                          .filter(d => !d.isProjection)
+                          .map((month, index, array) => {
+                            const currentValue = monthlyMicroCategoryValues[month.month]?.[microCategory] || 0;
+
+                            if (currentValue === 0) {
+                              return (
+                                <td key={month.month} className="py-2 px-2 text-center text-gray-400">
+                                  -
+                                </td>
+                              );
+                            }
+
+                            // Calculate performance
+                            let performance = null;
+                            if (index > 0) {
+                              const prevMonth = array[index - 1];
+                              const prevValue = monthlyMicroCategoryValues[prevMonth.month]?.[microCategory] || 0;
+
+                              // Calculate net investments in this month for this micro category
+                              const monthTransactions = transactions.filter(tx => {
+                                if (!tx.date) return false;
+                                const txDate = new Date(tx.date);
+                                const [year, monthNum] = month.month.split('-');
+                                const txMicroCat = tx.microCategory || tx.macroCategory || 'N/A';
+                                return txDate.getFullYear() === parseInt(year) &&
+                                       (txDate.getMonth() + 1) === parseInt(monthNum) &&
+                                       txMicroCat === microCategory;
+                              });
+
+                              let netInvestment = 0;
+                              monthTransactions.forEach(tx => {
+                                const amount = tx.quantity * tx.price;
+                                const commission = tx.commission || 0;
+                                if (tx.type === 'buy') {
+                                  netInvestment += (amount + commission);
+                                } else if (tx.type === 'sell') {
+                                  netInvestment -= (amount - commission);
+                                }
+                              });
+
+                              // Performance = (current - prev - netInvestment) / (prev + netInvestment)
+                              const expectedValue = prevValue + netInvestment;
+                              if (expectedValue > 0) {
+                                const returnAmount = currentValue - expectedValue;
+                                performance = (returnAmount / expectedValue) * 100;
+                              } else if (prevValue > 0) {
+                                // If prev value exists but expected is 0 (full liquidation), calculate differently
+                                performance = ((currentValue - prevValue) / prevValue) * 100;
+                              }
+                            }
+
+                            if (performance === null) {
+                              return (
+                                <td key={month.month} className="py-2 px-2 text-center text-gray-500 bg-gray-50">
+                                  -
+                                </td>
+                              );
+                            }
+
+                            // Color based on performance
+                            let bgColor = 'bg-gray-50';
+                            let textColor = 'text-gray-900';
+
+                            if (performance > 10) {
+                              bgColor = 'bg-green-700';
+                              textColor = 'text-white font-bold';
+                            } else if (performance > 5) {
+                              bgColor = 'bg-green-500';
+                              textColor = 'text-white font-semibold';
+                            } else if (performance > 2) {
+                              bgColor = 'bg-green-300';
+                              textColor = 'text-green-900 font-medium';
+                            } else if (performance > 0) {
+                              bgColor = 'bg-green-100';
+                              textColor = 'text-green-800';
+                            } else if (performance > -2) {
+                              bgColor = 'bg-red-100';
+                              textColor = 'text-red-800';
+                            } else if (performance > -5) {
+                              bgColor = 'bg-red-300';
+                              textColor = 'text-red-900 font-medium';
+                            } else if (performance > -10) {
+                              bgColor = 'bg-red-500';
+                              textColor = 'text-white font-semibold';
+                            } else {
+                              bgColor = 'bg-red-700';
+                              textColor = 'text-white font-bold';
+                            }
+
+                            return (
+                              <td key={month.month} className={`py-2 px-2 text-center ${bgColor} ${textColor}`}>
+                                {performance >= 0 ? '+' : ''}{performance.toFixed(1)}%
+                              </td>
+                            );
+                          })}
+                      </tr>
+                    );
+                  });
+              })()}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-sm text-blue-900 font-semibold mb-2">📖 Come leggere la tabella:</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-blue-800">
+            <div>• <strong className="text-green-600">Verde</strong>: Micro categorie che hanno guadagnato nel mese</div>
+            <div>• <strong className="text-red-600">Rosso</strong>: Micro categorie che hanno perso nel mese</div>
+            <div>• <strong>Intensità colore</strong>: Più intenso = performance più estrema</div>
+            <div>• <strong>"-"</strong>: Non detenuto in quel mese</div>
+          </div>
+          <p className="text-xs text-blue-800 mt-3 italic">
+            💡 Es: "Azionario Mondiale" include tutti i tuoi investimenti azionari globali (SWDA, ACWIA, etc.)
+          </p>
+        </div>
+        </>
+        )}
+      </div>
+
+      {/* Heat Map - TICKER Performance */}
+      <div className="card">
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-gray-900 mb-2">🔬 Mappa di Calore - Performance per TICKER</h2>
+          <p className="text-sm text-gray-600">
+            Dettaglio granulare: quale specifico ticker ha performato meglio o peggio
           </p>
         </div>
 

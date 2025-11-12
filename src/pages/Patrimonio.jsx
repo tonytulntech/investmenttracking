@@ -1901,6 +1901,7 @@ function Patrimonio() {
             </div>
           </div>
         ) : (
+          <>
           <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
@@ -2076,6 +2077,7 @@ function Patrimonio() {
             💡 La performance è calcolata escludendo l'effetto di nuovi investimenti/vendite (Time-Weighted Return)
           </p>
         </div>
+        </>
         )}
       </div>
 
@@ -2097,6 +2099,7 @@ function Patrimonio() {
             </div>
           </div>
         ) : (
+          <>
           <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
@@ -2320,6 +2323,7 @@ function Patrimonio() {
             💡 Usa queste tabelle per identificare i "colpevoli" della crescita o decrescita del tuo portafoglio!
           </p>
         </div>
+        </>
         )}
       </div>
 

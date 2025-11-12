@@ -216,6 +216,31 @@ function Strategy() {
   const totalAllocation = Object.values(strategyData.assetAllocation).reduce((sum, val) => sum + val, 0);
   const isAllocationValid = totalMicroAllocation === 100;
 
+  // Abbreviate long category names for chart display
+  const abbreviateCategoryName = (name) => {
+    return name
+      .replace('Azionario', 'Az.')
+      .replace('Obbligazioni', 'Obb.')
+      .replace('Corporate Investment Grade', 'Corp. IG')
+      .replace('Investment Grade', 'IG')
+      .replace('High Yield', 'HY')
+      .replace('Governative', 'Gov.')
+      .replace('Governativi', 'Gov.')
+      .replace('Aggregate', 'Agg.')
+      .replace('Inflation-Linked', 'Infl-L.')
+      .replace('Emergenti', 'Emerg.')
+      .replace('Europa', 'EU')
+      .replace('Mondo', 'World')
+      .replace('(Small Cap)', 'SC')
+      .replace('Small Cap', 'SC')
+      .replace('Large Cap', 'LC')
+      .replace('Mid Cap', 'MC')
+      .replace('Multi-Factor', 'Multi-F')
+      .replace('Beta Basso', 'Low Beta')
+      .replace('Qualità', 'Qual.')
+      .replace('Materie Prime', 'Mat. Prime');
+  };
+
   // Determine asset type from MICRO category name
   const getAssetTypeFromMicro = (microName) => {
     const lower = microName.toLowerCase();
@@ -890,17 +915,22 @@ function Strategy() {
                 <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   🎯 Composizione MICRO Asset Allocation Obiettivo
                 </h3>
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={350}>
                   <PieChart>
                     <Pie
                       data={Object.entries(strategyData.microAllocation)
                         .filter(([_, val]) => val > 0)
-                        .map(([name, value]) => ({ name, value }))}
+                        .map(([name, value]) => ({
+                          name,
+                          fullName: name,
+                          shortName: abbreviateCategoryName(name),
+                          value
+                        }))}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, value }) => `${name}: ${value.toFixed(1)}%`}
-                      outerRadius={80}
+                      label={({ shortName, value }) => value >= 5 ? `${shortName}\n${value.toFixed(0)}%` : ''}
+                      outerRadius={90}
                       fill="#8884d8"
                       dataKey="value"
                     >
@@ -910,7 +940,13 @@ function Strategy() {
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                     </Pie>
-                    <Tooltip formatter={(value) => `${value.toFixed(1)}%`} />
+                    <Tooltip
+                      formatter={(value, name, props) => [`${value.toFixed(1)}%`, props.payload.fullName]}
+                    />
+                    <Legend
+                      formatter={(value, entry) => entry.payload.fullName}
+                      wrapperStyle={{ fontSize: '11px' }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -920,17 +956,21 @@ function Strategy() {
                 <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   📊 Composizione MACRO (Auto-calcolata)
                 </h3>
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={350}>
                   <PieChart>
                     <Pie
                       data={Object.entries(strategyData.assetAllocation)
                         .filter(([_, val]) => val > 0)
-                        .map(([name, value]) => ({ name, value }))}
+                        .map(([name, value]) => ({
+                          name,
+                          fullName: name,
+                          value
+                        }))}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, value }) => `${name}: ${value.toFixed(1)}%`}
-                      outerRadius={80}
+                      label={({ name, value }) => value >= 5 ? `${name}\n${value.toFixed(0)}%` : ''}
+                      outerRadius={90}
                       fill="#8884d8"
                       dataKey="value"
                     >
@@ -940,7 +980,13 @@ function Strategy() {
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                     </Pie>
-                    <Tooltip formatter={(value) => `${value.toFixed(1)}%`} />
+                    <Tooltip
+                      formatter={(value, name, props) => [`${value.toFixed(1)}%`, props.payload.fullName]}
+                    />
+                    <Legend
+                      formatter={(value, entry) => entry.payload.fullName}
+                      wrapperStyle={{ fontSize: '11px' }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               </div>

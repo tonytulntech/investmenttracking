@@ -1776,6 +1776,113 @@ function Patrimonio() {
         </div>
       </div>
 
+      {/* Monthly Growth Analysis - Breakdown */}
+      <div className="card">
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-gray-900 mb-2">🔍 Analisi Crescita Mensile - Scomposizione</h2>
+          <p className="text-sm text-gray-600">
+            Dettaglio di cosa ha causato la crescita del patrimonio ogni mese: depositi vs rendimenti
+          </p>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-100 border-b-2 border-gray-300">
+                <th className="py-3 px-4 text-left font-semibold text-gray-900">Mese</th>
+                <th className="py-3 px-4 text-right font-semibold text-gray-900">Patrimonio Inizio</th>
+                <th className="py-3 px-4 text-right font-semibold text-gray-900">Depositi/Prelievi</th>
+                <th className="py-3 px-4 text-right font-semibold text-gray-900">Rendimento €</th>
+                <th className="py-3 px-4 text-right font-semibold text-gray-900">Rendimento %</th>
+                <th className="py-3 px-4 text-right font-semibold text-gray-900">Patrimonio Fine</th>
+                <th className="py-3 px-4 text-right font-semibold text-gray-900">Crescita Totale %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {chartData
+                .filter(d => !d.isProjection)
+                .map((month, index, array) => {
+                  const startValue = month.cashBalance + (monthlyMarketValues[month.month] || 0);
+                  const endValue = month.patrimonioReale || startValue;
+
+                  // Calculate cash flows for this month
+                  const monthTransactions = transactions.filter(tx => {
+                    if (!tx.date) return false;
+                    const txDate = new Date(tx.date);
+                    const [year, monthNum] = month.month.split('-');
+                    return txDate.getFullYear() === parseInt(year) &&
+                           (txDate.getMonth() + 1) === parseInt(monthNum);
+                  });
+
+                  let cashFlows = 0;
+                  monthTransactions.forEach(tx => {
+                    const amount = tx.quantity * tx.price;
+                    const commission = tx.commission || 0;
+                    const isCash = tx.isCash || tx.macroCategory === 'Cash';
+
+                    if (isCash && tx.type === 'buy') {
+                      cashFlows += amount; // Deposit
+                    } else if (isCash && tx.type === 'sell') {
+                      cashFlows -= amount; // Withdrawal
+                    }
+                    // Investments don't count as cash flow - they just move money from cash to investments
+                  });
+
+                  // Calculate return
+                  const expectedValue = startValue + cashFlows;
+                  const returnAmount = endValue - expectedValue;
+                  const returnPercent = expectedValue > 0 ? (returnAmount / expectedValue) * 100 : 0;
+
+                  // Calculate total growth vs start
+                  const totalGrowth = startValue > 0 ? ((endValue - startValue) / startValue) * 100 : 0;
+
+                  const isReturnPositive = returnAmount >= 0;
+                  const isTotalGrowthPositive = totalGrowth >= 0;
+
+                  return (
+                    <tr key={month.month} className="border-b border-gray-200 hover:bg-gray-50">
+                      <td className="py-3 px-4 font-medium text-gray-900">
+                        {month.displayMonth || month.month}
+                      </td>
+                      <td className="py-3 px-4 text-right text-gray-900">
+                        €{startValue.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </td>
+                      <td className={`py-3 px-4 text-right font-semibold ${cashFlows >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                        {cashFlows >= 0 ? '+' : ''}€{cashFlows.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </td>
+                      <td className={`py-3 px-4 text-right font-semibold ${isReturnPositive ? 'text-green-600' : 'text-red-600'}`}>
+                        {isReturnPositive ? '+' : ''}€{returnAmount.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </td>
+                      <td className={`py-3 px-4 text-right font-semibold ${isReturnPositive ? 'text-green-600' : 'text-red-600'}`}>
+                        {isReturnPositive ? '+' : ''}{returnPercent.toFixed(2)}%
+                      </td>
+                      <td className="py-3 px-4 text-right font-bold text-gray-900">
+                        €{endValue.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </td>
+                      <td className={`py-3 px-4 text-right font-bold ${isTotalGrowthPositive ? 'text-green-700' : 'text-red-700'}`}>
+                        {isTotalGrowthPositive ? '+' : ''}{totalGrowth.toFixed(1)}%
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-sm text-blue-900 font-semibold mb-2">📖 Come leggere la tabella:</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-blue-800">
+            <div>• <strong>Patrimonio Inizio/Fine</strong>: Valore totale (investimenti + cash)</div>
+            <div>• <strong className="text-blue-600">Depositi/Prelievi</strong>: Soldi che hai messo o tolto (blu = deposito, arancio = prelievo)</div>
+            <div>• <strong className="text-green-600">Rendimento €/%</strong>: Guadagno/perdita pura degli investimenti (verde = guadagno, rosso = perdita)</div>
+            <div>• <strong>Crescita Totale %</strong>: Quanto è cresciuto il patrimonio nel mese (depositi + rendimenti)</div>
+          </div>
+          <p className="text-xs text-blue-800 mt-3 italic">
+            💡 Formula: Patrimonio Fine = Patrimonio Inizio + Depositi/Prelievi + Rendimento
+          </p>
+        </div>
+      </div>
+
       {/* Consuntivi Section */}
       <div className="card">
         <h3 className="text-lg font-semibold text-gray-900 mb-6">📋 Riepilogo Consuntivi</h3>

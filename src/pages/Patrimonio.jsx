@@ -39,6 +39,7 @@ function Patrimonio() {
   const [transactions, setTransactions] = useState([]);
   const [loadingPrices, setLoadingPrices] = useState(true);
   const [monthlyMarketValues, setMonthlyMarketValues] = useState({}); // { '2021-01': 1000, '2021-02': 1100, ... }
+  const [monthlyCategoryValues, setMonthlyCategoryValues] = useState({}); // { '2021-01': { 'ETF': 500, 'ETC': 300, ... }, ... }
 
   useEffect(() => {
     loadTransactions();
@@ -104,6 +105,7 @@ function Patrimonio() {
 
       // Calculate market value for each month
       const marketValues = {};
+      const categoryValues = {}; // { '2021-01': { 'ETF': 500, 'ETC': 300, ... }, ... }
 
       // Get all unique year-month periods from transactions
       const periods = new Set();
@@ -133,11 +135,13 @@ function Patrimonio() {
           return !isAfter(txDate, monthEnd);
         });
 
-        // Calculate holdings
+        // Calculate holdings with category information
         const holdings = {};
+        const tickerToCategory = {}; // Map ticker to category
         txUpToMonth.forEach(tx => {
           if (!holdings[tx.ticker]) {
             holdings[tx.ticker] = { quantity: 0 };
+            tickerToCategory[tx.ticker] = tx.macroCategory || 'Cash';
           }
 
           if (tx.type === 'buy') {
@@ -147,8 +151,9 @@ function Patrimonio() {
           }
         });
 
-        // Calculate market value
+        // Calculate market value (total and per category)
         let totalValue = 0;
+        const categoryValuesForMonth = {};
         const currentMonthKey = format(new Date(), 'yyyy-MM');
         const isCurrentMonth = monthKey === currentMonthKey;
 
@@ -183,17 +188,28 @@ function Patrimonio() {
             }
 
             if (price) {
-              totalValue += holding.quantity * price;
+              const value = holding.quantity * price;
+              totalValue += value;
+
+              // Add to category value
+              const category = tickerToCategory[ticker] || 'Cash';
+              if (!categoryValuesForMonth[category]) {
+                categoryValuesForMonth[category] = 0;
+              }
+              categoryValuesForMonth[category] += value;
             }
           }
         });
 
         marketValues[monthKey] = totalValue;
+        categoryValues[monthKey] = categoryValuesForMonth;
       });
 
       setMonthlyMarketValues(marketValues);
+      setMonthlyCategoryValues(categoryValues);
       setLoadingPrices(false);
       console.log('📊 Monthly market values calculated:', marketValues);
+      console.log('📊 Monthly category values calculated:', categoryValues);
 
       // Debug: Show last 3 months values
       const sortedKeys = Object.keys(marketValues).sort();
@@ -1177,9 +1193,11 @@ function Patrimonio() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Massimo Raggiunto */}
           {(() => {
-            const maxPoint = chartData.reduce((max, point) =>
+            // Filter out projections - only use real data
+            const realData = chartData.filter(d => !d.isProjection && d.patrimonioReale > 0);
+            const maxPoint = realData.reduce((max, point) =>
               point.patrimonioReale > (max?.patrimonioReale || 0) ? point : max
-            , chartData[0]);
+            , realData[0]);
 
             return (
               <div className="border border-green-200 rounded-lg p-4 bg-gradient-to-br from-green-50 to-green-100">
@@ -1199,9 +1217,11 @@ function Patrimonio() {
 
           {/* Minimo Raggiunto */}
           {(() => {
-            const minPoint = chartData.reduce((min, point) =>
+            // Filter out projections - only use real data
+            const realData = chartData.filter(d => !d.isProjection && d.patrimonioReale > 0);
+            const minPoint = realData.reduce((min, point) =>
               point.patrimonioReale < (min?.patrimonioReale || Infinity) && point.patrimonioReale > 0 ? point : min
-            , chartData[0]);
+            , realData[0]);
 
             return (
               <div className="border border-red-200 rounded-lg p-4 bg-gradient-to-br from-red-50 to-red-100">
@@ -1221,11 +1241,13 @@ function Patrimonio() {
 
           {/* Crescita Media Mensile */}
           {(() => {
-            if (chartData.length < 2) return null;
+            // Filter out projections - only use real data
+            const realData = chartData.filter(d => !d.isProjection && d.patrimonioReale > 0);
+            if (realData.length < 2) return null;
 
-            const firstValue = chartData.find(d => d.patrimonioReale > 0)?.patrimonioReale || 0;
-            const lastValue = chartData[chartData.length - 1]?.patrimonioReale || 0;
-            const months = chartData.length;
+            const firstValue = realData[0].patrimonioReale;
+            const lastValue = realData[realData.length - 1].patrimonioReale;
+            const months = realData.length;
             const avgMonthlyGrowth = months > 1 ? (lastValue - firstValue) / (months - 1) : 0;
 
             return (
@@ -1462,80 +1484,8 @@ function Patrimonio() {
             </thead>
             <tbody>
               {(() => {
-                // Calculate cumulative market values per macro category per period
+                // Use precalculated monthly category values from state
                 const periods = selectedYear === 'all' ? processedData.periods : MONTHS;
-                const categoryGrowth = {};
-
-                // Initialize categories
-                Object.keys(CATEGORY_COLORS).forEach(category => {
-                  if (category !== 'Totale' && category !== 'Cash') {
-                    categoryGrowth[category] = {};
-                  }
-                });
-
-                // For each period, calculate cumulative market value per category
-                periods.forEach(period => {
-                  // Determine the full date key for this period
-                  let periodKey = period;
-                  if (selectedYear !== 'all') {
-                    const monthIndex = MONTHS.indexOf(period);
-                    if (monthIndex >= 0) {
-                      const year = parseInt(selectedYear);
-                      const monthNum = String(monthIndex + 1).padStart(2, '0');
-                      periodKey = `${year}-${monthNum}`;
-                    }
-                  }
-
-                  const periodDate = parseISO(`${periodKey}-01`);
-                  const periodEnd = endOfMonth(periodDate);
-
-                  // Get all transactions up to this period
-                  const txUpToPeriod = transactions.filter(tx => {
-                    if (!tx.date) return false;
-                    const txDate = parseISO(tx.date);
-                    const isCash = tx.isCash || tx.macroCategory === 'Cash';
-                    return !isCash && !isAfter(txDate, periodEnd);
-                  });
-
-                  // Calculate holdings per category
-                  const categoryHoldings = {};
-                  txUpToPeriod.forEach(tx => {
-                    const category = tx.macroCategory || 'Cash';
-                    if (category === 'Cash') return;
-
-                    if (!categoryHoldings[category]) {
-                      categoryHoldings[category] = {};
-                    }
-                    if (!categoryHoldings[category][tx.ticker]) {
-                      categoryHoldings[category][tx.ticker] = { quantity: 0 };
-                    }
-
-                    if (tx.type === 'buy') {
-                      categoryHoldings[category][tx.ticker].quantity += tx.quantity;
-                    } else if (tx.type === 'sell') {
-                      categoryHoldings[category][tx.ticker].quantity -= tx.quantity;
-                    }
-                  });
-
-                  // Calculate market value per category using historical prices
-                  Object.keys(categoryGrowth).forEach(category => {
-                    let categoryValue = 0;
-
-                    if (categoryHoldings[category]) {
-                      Object.entries(categoryHoldings[category]).forEach(([ticker, holding]) => {
-                        if (holding.quantity > 0) {
-                          // Try to get price from monthlyMarketValues calculation
-                          // For now, use a simplified approach: get current market value proportion
-                          const currentPrices = getCachedPrices() || {};
-                          const price = currentPrices[ticker]?.price || currentPrices[ticker] || 0;
-                          categoryValue += holding.quantity * price;
-                        }
-                      });
-                    }
-
-                    categoryGrowth[category][period] = categoryValue;
-                  });
-                });
 
                 // Render rows for each category
                 return Object.keys(CATEGORY_COLORS)
@@ -1556,7 +1506,18 @@ function Patrimonio() {
                           {category}
                         </td>
                         {periods.map(period => {
-                          const value = categoryGrowth[category]?.[period] || 0;
+                          // Determine the full date key for this period
+                          let periodKey = period;
+                          if (selectedYear !== 'all') {
+                            const monthIndex = MONTHS.indexOf(period);
+                            if (monthIndex >= 0) {
+                              const year = parseInt(selectedYear);
+                              const monthNum = String(monthIndex + 1).padStart(2, '0');
+                              periodKey = `${year}-${monthNum}`;
+                            }
+                          }
+
+                          const value = monthlyCategoryValues[periodKey]?.[category] || 0;
                           return (
                             <td key={period} className="border border-gray-300 py-3 px-2 text-right text-gray-700 font-medium">
                               {value > 0 ? `€${value.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '-'}
@@ -1565,8 +1526,18 @@ function Patrimonio() {
                         })}
                         <td className="border border-gray-300 py-3 px-3 text-right font-bold text-blue-900">
                           {(() => {
-                            const latestPeriod = periods[periods.length - 1];
-                            const currentValue = categoryGrowth[category]?.[latestPeriod] || 0;
+                            // Get the latest period key
+                            let latestPeriodKey = periods[periods.length - 1];
+                            if (selectedYear !== 'all') {
+                              const monthIndex = MONTHS.indexOf(latestPeriodKey);
+                              if (monthIndex >= 0) {
+                                const year = parseInt(selectedYear);
+                                const monthNum = String(monthIndex + 1).padStart(2, '0');
+                                latestPeriodKey = `${year}-${monthNum}`;
+                              }
+                            }
+
+                            const currentValue = monthlyCategoryValues[latestPeriodKey]?.[category] || 0;
                             return currentValue > 0
                               ? `€${currentValue.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`
                               : '-';

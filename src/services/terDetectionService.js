@@ -3,7 +3,15 @@
  *
  * Detects and provides TER information for common ETFs and investment instruments.
  * TER represents the annual cost of holding an ETF as a percentage of assets.
+ *
+ * TER Sources (in order of preference):
+ * 1. Cache (terCache) - Fast, stored in localStorage
+ * 2. Google Apps Script API - Automatic fetching from Yahoo Finance
+ * 3. Hardcoded database - Fallback for common ETFs
  */
+
+import { getCachedTER, cacheTER } from './terCache';
+import { fetchTER } from './historicalPriceService';
 
 // Database of common ETF TERs (in %)
 const TER_DATABASE = {
@@ -143,19 +151,75 @@ const TER_DATABASE = {
 };
 
 /**
- * Get TER for a ticker symbol
+ * Get TER for a ticker symbol (synchronous - uses cache and hardcoded database only)
  * @param {string} ticker - The ticker symbol
  * @returns {number|null} - TER percentage or null if not found
  */
 export function getTER(ticker) {
   if (!ticker) return null;
 
-  // Normalize ticker (remove exchange suffixes)
+  // 1. Try cache first (fast)
+  const cached = getCachedTER(ticker);
+  if (cached && cached.ter !== null) {
+    return cached.ter;
+  }
+
+  // 2. Fallback to hardcoded database
   const normalizedTicker = ticker.toUpperCase()
     .replace(/\.DE$|\.L$|\.MI$|\.PA$|\.AS$|\.SW$/g, '')
     .trim();
 
   return TER_DATABASE[normalizedTicker] || null;
+}
+
+/**
+ * Get TER for a ticker symbol with API fetch (asynchronous)
+ * Tries cache first, then fetches from API if needed, then falls back to hardcoded database
+ * @param {string} ticker - The ticker symbol
+ * @param {boolean} forceRefresh - Force refresh from API even if cached
+ * @returns {Promise<number|null>} - TER percentage or null if not found
+ */
+export async function getTERWithAPI(ticker, forceRefresh = false) {
+  if (!ticker) return null;
+
+  // 1. Try cache first (unless forceRefresh)
+  if (!forceRefresh) {
+    const cached = getCachedTER(ticker);
+    if (cached && cached.ter !== null) {
+      console.log(`💾 Using cached TER for ${ticker}: ${cached.ter}%`);
+      return cached.ter;
+    }
+  }
+
+  // 2. Try fetching from API
+  try {
+    const terData = await fetchTER(ticker);
+    if (terData && terData.ter !== null) {
+      // Cache the result
+      cacheTER(ticker, terData);
+      return terData.ter;
+    }
+  } catch (error) {
+    console.warn(`Failed to fetch TER from API for ${ticker}:`, error);
+  }
+
+  // 3. Fallback to hardcoded database
+  const normalizedTicker = ticker.toUpperCase()
+    .replace(/\.DE$|\.L$|\.MI$|\.PA$|\.AS$|\.SW$/g, '')
+    .trim();
+
+  const hardcodedTER = TER_DATABASE[normalizedTicker] || null;
+
+  // Cache even hardcoded values for consistency
+  if (hardcodedTER !== null) {
+    cacheTER(ticker, {
+      ter: hardcodedTER,
+      source: 'hardcoded-database',
+      lastUpdated: new Date().toISOString()
+    });
+  }
+
+  return hardcodedTER;
 }
 
 /**
@@ -197,7 +261,7 @@ export function getTERBadgeColor(ter) {
 }
 
 /**
- * Batch get TERs for multiple tickers
+ * Batch get TERs for multiple tickers (synchronous - cache + hardcoded only)
  * @param {Array<string>} tickers - Array of ticker symbols
  * @returns {Object} - Map of ticker to TER
  */
@@ -209,10 +273,34 @@ export function getBatchTER(tickers) {
   return result;
 }
 
+/**
+ * Batch fetch TERs for multiple tickers with API (asynchronous)
+ * @param {Array<string>} tickers - Array of ticker symbols
+ * @param {boolean} forceRefresh - Force refresh from API even if cached
+ * @returns {Promise<Object>} - Map of ticker to TER
+ */
+export async function getBatchTERWithAPI(tickers, forceRefresh = false) {
+  const promises = tickers.map(ticker =>
+    getTERWithAPI(ticker, forceRefresh)
+      .then(ter => ({ ticker, ter }))
+  );
+
+  const results = await Promise.all(promises);
+
+  const terMap = {};
+  results.forEach(({ ticker, ter }) => {
+    terMap[ticker] = ter;
+  });
+
+  return terMap;
+}
+
 export default {
   getTER,
+  getTERWithAPI,
   calculateAnnualTERCost,
   getTERCategory,
   getTERBadgeColor,
-  getBatchTER
+  getBatchTER,
+  getBatchTERWithAPI
 };

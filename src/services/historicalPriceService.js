@@ -246,11 +246,89 @@ export async function fetchMultipleCurrentPrices(tickers) {
   }
 }
 
+/**
+ * Fetch TER (Total Expense Ratio) for a ticker from Google Apps Script API
+ * @param {string} ticker - Ticker symbol (e.g., 'VWCE.DE')
+ * @returns {Promise<Object|null>} TER data object or null if not found
+ */
+export async function fetchTER(ticker) {
+  try {
+    const url = `${GOOGLE_APPS_SCRIPT_URL}?ticker=${encodeURIComponent(ticker)}&ter=true`;
+
+    console.log(`📊 Fetching TER for ${ticker} via Google Apps Script`);
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      console.error(`API request failed: ${response.status} ${response.statusText}`);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+      console.warn(`⚠️ TER not found for ${ticker}:`, data.error);
+      return null;
+    }
+
+    if (data.ter !== null && data.ter !== undefined) {
+      console.log(`✅ Received TER for ${ticker}: ${data.ter}% (source: ${data.source})`);
+      return {
+        ticker: data.ticker,
+        ter: data.ter,
+        source: data.source,
+        lastUpdated: data.lastUpdated
+      };
+    }
+
+    return null;
+
+  } catch (error) {
+    console.error(`❌ Error fetching TER for ${ticker}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Fetch TERs for multiple tickers
+ * @param {Array<string>} tickers - Array of ticker symbols
+ * @returns {Promise<Object>} Object mapping ticker to TER data
+ */
+export async function fetchMultipleTERs(tickers) {
+  try {
+    console.log(`📊 Fetching TERs for ${tickers.length} tickers`);
+
+    const promises = tickers.map(ticker =>
+      fetchTER(ticker)
+        .then(terData => ({ ticker, terData }))
+    );
+
+    const results = await Promise.all(promises);
+
+    const terMap = {};
+    results.forEach(({ ticker, terData }) => {
+      if (terData && terData.ter !== null) {
+        terMap[ticker] = terData;
+      }
+    });
+
+    console.log(`✅ Fetched ${Object.keys(terMap).length}/${tickers.length} TERs`);
+
+    return terMap;
+
+  } catch (error) {
+    console.error('Error fetching multiple TERs:', error);
+    return {};
+  }
+}
+
 export default {
   fetchHistoricalPrices,
   fetchMultipleHistoricalPrices,
   getPriceForMonth,
   buildMonthlyPriceTable,
   fetchCurrentPrice,
-  fetchMultipleCurrentPrices
+  fetchMultipleCurrentPrices,
+  fetchTER,
+  fetchMultipleTERs
 };

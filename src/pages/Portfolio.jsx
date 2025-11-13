@@ -3,7 +3,7 @@ import { Search, Filter, RefreshCw, ArrowUpDown, Wallet } from 'lucide-react';
 import { calculatePortfolio } from '../services/localStorageService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { getCachedPrices, cachePrices } from '../services/priceCache';
-import { getTER, calculateAnnualTERCost, getTERBadgeColor } from '../services/terDetectionService';
+import { getTER, calculateAnnualTERCost, getTERBadgeColor, getBatchTERWithAPI } from '../services/terDetectionService';
 
 function Portfolio() {
   const [loading, setLoading] = useState(true);
@@ -135,6 +135,74 @@ function Portfolio() {
 
     setPortfolio(updatedPortfolio);
     setRefreshing(false);
+
+    // Fetch TERs in background (don't wait for it)
+    if (tickers.length > 0) {
+      updateTERsInBackground(holdings, newPriceCache, tickers);
+    }
+  };
+
+  const updateTERsInBackground = async (holdings, prices, tickers) => {
+    try {
+      console.log('📊 Fetching TERs in background for', tickers.length, 'tickers...');
+
+      // Fetch TERs from API (with cache)
+      const terMap = await getBatchTERWithAPI(tickers);
+
+      const fetchedCount = Object.values(terMap).filter(ter => ter !== null).length;
+      console.log(`✅ Fetched ${fetchedCount}/${tickers.length} TERs from API`);
+
+      // Recalculate portfolio with updated TERs
+      const updatedPortfolio = holdings.map(holding => {
+        if (holding.isCash) {
+          const marketValue = holding.totalCost;
+          return {
+            ...holding,
+            currentPrice: 1,
+            marketValue,
+            totalCost: marketValue,
+            unrealizedPL: 0,
+            roi: 0,
+            dayChange: 0,
+            dayChangePercent: 0,
+            ter: null,
+            annualTERCost: 0
+          };
+        }
+
+        const priceData = prices[holding.ticker];
+        const currentPrice = priceData?.price || holding.avgPrice;
+        const marketValue = currentPrice * holding.quantity;
+        const totalCost = holding.avgPrice * holding.quantity;
+        const unrealizedPL = marketValue - totalCost;
+        const roi = totalCost > 0 ? (unrealizedPL / totalCost) * 100 : 0;
+
+        // Use freshly fetched TER (falls back to cache/hardcoded if not found)
+        const ter = terMap[holding.ticker] !== undefined ? terMap[holding.ticker] : getTER(holding.ticker);
+        const annualTERCost = ter ? calculateAnnualTERCost(marketValue, ter) : 0;
+
+        return {
+          ...holding,
+          currentPrice,
+          marketValue,
+          totalCost,
+          unrealizedPL,
+          roi,
+          dayChange: priceData?.change || 0,
+          dayChangePercent: priceData?.changePercent || 0,
+          ter,
+          annualTERCost
+        };
+      });
+
+      // Update portfolio with new TER data
+      setPortfolio(updatedPortfolio);
+      console.log('🔄 Portfolio updated with fresh TER data');
+
+    } catch (error) {
+      console.error('Error fetching TERs in background:', error);
+      // Don't show error to user - just use cached/hardcoded TERs
+    }
   };
 
   const applyFiltersAndSort = () => {

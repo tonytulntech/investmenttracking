@@ -3,9 +3,9 @@
  * Fetches real-time prices from multiple sources:
  * 1. CoinGecko (for cryptocurrencies) - fast, reliable, no API key needed
  * 2. Google Apps Script (for stocks/ETFs) - primary source
+ * 3. Yahoo Finance CORS proxy (silent fallback for failed requests)
  *
- * CORS proxy fallback has been removed to eliminate slow page loads and error spam.
- * If Google Apps Script fails, prices simply won't update (cache is used instead).
+ * Fallback strategy: Only retry failed tickers, suppress CORS error spam
  */
 
 import axios from 'axios';
@@ -14,62 +14,54 @@ import { fetchMultipleCurrentPrices } from './historicalPriceService';
 import { isCrypto } from './coinGecko';
 
 /**
- * Fetch stock/ETF price from Yahoo Finance with retry logic
+ * Fetch stock/ETF price from Yahoo Finance via CORS proxy (silent fallback)
  * @param {string} ticker - Stock ticker symbol (e.g., 'AAPL', 'VWCE.DE')
- * @param {number} retries - Number of retry attempts (default: 2)
- * @returns {Promise<Object>} Price data
+ * @param {boolean} silent - Suppress error logging (default: true for fallback)
+ * @returns {Promise<Object|null>} Price data or null
  */
-export const fetchStockPrice = async (ticker, retries = 2) => {
-  let lastError = null;
+export const fetchStockPrice = async (ticker, silent = true) => {
+  try {
+    const yahooURL = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
 
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const yahooURL = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
-      const response = await axios.get(getCorsProxy() + encodeURIComponent(yahooURL), {
-        timeout: 15000 // Increased to 15 seconds
-      });
+    // Try corsproxy.io (more reliable than allorigins.win)
+    const corsProxy = 'https://corsproxy.io/?';
 
-      const data = response.data;
+    const response = await axios.get(corsProxy + encodeURIComponent(yahooURL), {
+      timeout: 8000 // 8 second timeout
+    });
 
-      if (!data.chart || !data.chart.result || data.chart.result.length === 0) {
-        throw new Error('Invalid response from Yahoo Finance');
-      }
+    const data = response.data;
 
-      const result = data.chart.result[0];
-      const meta = result.meta;
-      const quote = result.indicators.quote[0];
-
-      const currentPrice = meta.regularMarketPrice || quote.close[quote.close.length - 1];
-      const previousClose = meta.previousClose || meta.chartPreviousClose;
-      const change = currentPrice - previousClose;
-      const changePercent = (change / previousClose) * 100;
-
-      return {
-        ticker,
-        price: currentPrice,
-        change: change,
-        changePercent: changePercent,
-        currency: meta.currency || 'USD',
-        timestamp: new Date().toISOString(),
-        source: 'yahoo',
-        name: meta.longName || meta.shortName || ticker
-      };
-    } catch (error) {
-      lastError = error;
-
-      // Try rotating proxy on error
-      rotateProxy();
-
-      // If not last attempt, wait before retry (exponential backoff)
-      if (attempt < retries) {
-        const waitMs = 1000 * Math.pow(2, attempt); // 1s, 2s
-        await new Promise(resolve => setTimeout(resolve, waitMs));
-      }
+    if (!data.chart || !data.chart.result || data.chart.result.length === 0) {
+      throw new Error('Invalid response from Yahoo Finance');
     }
-  }
 
-  console.error(`Error fetching price for ${ticker}:`, lastError?.message);
-  return null;
+    const result = data.chart.result[0];
+    const meta = result.meta;
+    const quote = result.indicators.quote[0];
+
+    const currentPrice = meta.regularMarketPrice || quote.close[quote.close.length - 1];
+    const previousClose = meta.previousClose || meta.chartPreviousClose;
+    const change = currentPrice - previousClose;
+    const changePercent = (change / previousClose) * 100;
+
+    return {
+      ticker,
+      price: currentPrice,
+      change: change,
+      changePercent: changePercent,
+      currency: meta.currency || 'EUR',
+      timestamp: new Date().toISOString(),
+      source: 'yahoo-fallback',
+      name: meta.longName || meta.shortName || ticker
+    };
+  } catch (error) {
+    // Silent mode: don't spam console with CORS errors
+    if (!silent) {
+      console.warn(`⚠️ Failed to fetch ${ticker} via fallback:`, error.message);
+    }
+    return null;
+  }
 };
 
 /**
@@ -231,11 +223,36 @@ export const fetchMultiplePrices = async (tickers, categoriesMap = {}, forceRefr
       // Merge Google prices
       pricesMap = { ...pricesMap, ...googlePrices };
 
-      // Log failed tickers (but don't retry with CORS proxy to avoid errors)
+      // Step 3: Silent fallback for failed tickers (Yahoo Finance via CORS proxy)
       const failedStockTickers = stockTickers.filter(ticker => !googlePrices[ticker]);
       if (failedStockTickers.length > 0) {
-        console.warn(`⚠️ ${failedStockTickers.length} stocks failed to fetch:`, failedStockTickers);
-        console.log('💡 Tip: Check if Google Apps Script is running correctly');
+        console.log(`🔄 Retrying ${failedStockTickers.length} failed stocks via fallback...`);
+
+        // Fetch in parallel with silent error handling
+        const fallbackPromises = failedStockTickers.map(ticker =>
+          fetchStockPrice(ticker, true) // silent = true
+        );
+
+        const fallbackResults = await Promise.all(fallbackPromises);
+
+        // Merge successful fallback results
+        let fallbackCount = 0;
+        fallbackResults.forEach((result, index) => {
+          if (result && result.price) {
+            pricesMap[failedStockTickers[index]] = result;
+            fallbackCount++;
+          }
+        });
+
+        if (fallbackCount > 0) {
+          console.log(`✅ Fallback fetched ${fallbackCount}/${failedStockTickers.length} prices`);
+        }
+
+        // Log remaining failures (if any)
+        const stillFailed = failedStockTickers.filter(ticker => !pricesMap[ticker]);
+        if (stillFailed.length > 0) {
+          console.warn(`⚠️ ${stillFailed.length} stocks unavailable:`, stillFailed);
+        }
       }
     }
 

@@ -1,14 +1,15 @@
 /**
  * Price Service
  * Fetches real-time prices from multiple sources:
- * 1. Google Apps Script (primary, most reliable)
- * 2. Yahoo Finance via CORS proxy (fallback)
- * 3. CoinGecko for crypto (fallback)
+ * 1. Google Apps Script (primary, most reliable) - for stocks/ETFs only
+ * 2. CoinGecko (for cryptocurrencies)
+ * 3. Yahoo Finance via CORS proxy (fallback for stocks/ETFs)
  */
 
 import axios from 'axios';
 import { getCachedPrices, cachePrices } from './priceCache';
 import { fetchMultipleCurrentPrices } from './historicalPriceService';
+import { isCrypto } from './coinGecko';
 
 // CORS proxy options
 const CORS_PROXIES = [
@@ -209,38 +210,62 @@ export const fetchMultiplePrices = async (tickers, categoriesMap = {}, forceRefr
     // Fetch fresh prices
     const uniqueTickers = [...new Set(tickers)];
 
-    console.log('🔄 Fetching prices - Strategy: Google Apps Script → CORS Proxy fallback');
+    // Separate crypto from stocks/ETFs
+    const cryptoTickers = uniqueTickers.filter(ticker => isCrypto(ticker) || categoriesMap[ticker] === 'Crypto');
+    const stockTickers = uniqueTickers.filter(ticker => !isCrypto(ticker) && categoriesMap[ticker] !== 'Crypto');
 
-    // Step 1: Try Google Apps Script first (primary source)
-    console.log('📡 Step 1: Trying Google Apps Script for all tickers...');
-    const googlePrices = await fetchMultipleCurrentPrices(uniqueTickers);
+    console.log('🔄 Fetching prices - Crypto via CoinGecko, Stocks via Google Apps Script');
+    console.log(`📊 ${cryptoTickers.length} crypto, ${stockTickers.length} stocks/ETFs`);
 
-    // Check which tickers failed
-    const failedTickers = uniqueTickers.filter(ticker => !googlePrices[ticker]);
+    let pricesMap = {};
 
-    let pricesMap = { ...googlePrices };
-
-    // Step 2: Retry failed tickers with CORS proxy (fallback)
-    if (failedTickers.length > 0) {
-      console.log(`⚠️ ${failedTickers.length} tickers failed. Trying CORS proxy fallback...`);
-      console.log('Failed tickers:', failedTickers);
-
-      const fallbackPromises = failedTickers.map(ticker =>
-        fetchPrice(ticker, categoriesMap[ticker])
-          .catch(err => ({
-            ticker,
-            error: err.message,
-            price: null
-          }))
-      );
-
-      const fallbackResults = await Promise.all(fallbackPromises);
-
-      fallbackResults.forEach(result => {
-        if (result && result.price) {
-          pricesMap[result.ticker] = result;
+    // Step 1: Fetch crypto prices directly from CoinGecko (skip Google Apps Script)
+    if (cryptoTickers.length > 0) {
+      console.log('💰 Fetching crypto prices from CoinGecko...');
+      for (const ticker of cryptoTickers) {
+        try {
+          const cryptoPrice = await fetchCryptoPrice(ticker);
+          if (cryptoPrice && !cryptoPrice.error) {
+            pricesMap[ticker] = cryptoPrice;
+          }
+        } catch (err) {
+          console.warn(`⚠️ Failed to fetch crypto price for ${ticker}`);
         }
-      });
+      }
+    }
+
+    // Step 2: Try Google Apps Script for stocks/ETFs only (no crypto!)
+    if (stockTickers.length > 0) {
+      console.log('📡 Trying Google Apps Script for stocks/ETFs...');
+      const googlePrices = await fetchMultipleCurrentPrices(stockTickers);
+
+      // Merge Google prices
+      pricesMap = { ...pricesMap, ...googlePrices };
+
+      // Check which stock tickers failed
+      const failedStockTickers = stockTickers.filter(ticker => !googlePrices[ticker]);
+
+      // Step 3: Retry failed stock tickers with CORS proxy (fallback)
+      if (failedStockTickers.length > 0) {
+        console.log(`⚠️ ${failedStockTickers.length} stocks failed Google Apps Script. Trying CORS proxy...`);
+
+        const fallbackPromises = failedStockTickers.map(ticker =>
+          fetchPrice(ticker, categoriesMap[ticker])
+            .catch(err => ({
+              ticker,
+              error: err.message,
+              price: null
+            }))
+        );
+
+        const fallbackResults = await Promise.all(fallbackPromises);
+
+        fallbackResults.forEach(result => {
+          if (result && result.price) {
+            pricesMap[result.ticker] = result;
+          }
+        });
+      }
     }
 
     const successCount = Object.keys(pricesMap).length;

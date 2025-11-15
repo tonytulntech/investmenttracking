@@ -56,80 +56,15 @@ export async function getTERWithAPI(ticker, isin = null, forceRefresh = false) {
     }
   }
 
-  // 2. Try JustETF with ISIN if provided (best source for European ETFs)
-  if (isin) {
-    try {
-      const justETFTer = await fetchTERFromJustETF(isin);
-      if (justETFTer !== null) {
-        const terData = {
-          ter: justETFTer,
-          source: 'justetf',
-          lastUpdated: new Date().toISOString()
-        };
-        cacheTER(ticker, terData);
-        console.log(`✅ Fetched TER for ${ticker} from JustETF: ${justETFTer}%`);
-        return justETFTer;
-      }
-    } catch (error) {
-      console.warn(`⚠️ Failed to fetch TER from JustETF for ${isin}:`, error);
-    }
-  }
+  // CORS proxies (JustETF, ExtraETF, Yahoo, Morningstar) are disabled due to
+  // frequent CORS errors and rate limiting that slow down the page.
+  // TER fetching now relies only on:
+  // 1. Cache (fast, 7-day expiry)
+  // 2. User can manually input TER in transaction form if needed
+  //
+  // Future: Could add TER fetching via Google Apps Script if needed
 
-  // 3. Try ExtraETF with ISIN (alternative European ETF source)
-  if (isin) {
-    try {
-      const extraETFTer = await fetchTERFromExtraETF(isin);
-      if (extraETFTer !== null) {
-        const terData = {
-          ter: extraETFTer,
-          source: 'extraetf',
-          lastUpdated: new Date().toISOString()
-        };
-        cacheTER(ticker, terData);
-        console.log(`✅ Fetched TER for ${ticker} from ExtraETF: ${extraETFTer}%`);
-        return extraETFTer;
-      }
-    } catch (error) {
-      console.warn(`⚠️ Failed to fetch TER from ExtraETF for ${isin}:`, error);
-    }
-  }
-
-  // 4. Try Yahoo Finance directly (with CORS proxy)
-  try {
-    const yahooTer = await fetchTERFromYahoo(ticker);
-    if (yahooTer !== null) {
-      const terData = {
-        ter: yahooTer,
-        source: 'yahoo-finance',
-        lastUpdated: new Date().toISOString()
-      };
-      cacheTER(ticker, terData);
-      console.log(`✅ Fetched TER for ${ticker} from Yahoo Finance: ${yahooTer}%`);
-      return yahooTer;
-    }
-  } catch (error) {
-    console.warn(`⚠️ Failed to fetch TER from Yahoo Finance for ${ticker}:`, error);
-  }
-
-  // 5. Try Morningstar as last resort
-  try {
-    const morningstarTer = await fetchTERFromMorningstar(ticker, isin);
-    if (morningstarTer !== null) {
-      const terData = {
-        ter: morningstarTer,
-        source: 'morningstar',
-        lastUpdated: new Date().toISOString()
-      };
-      cacheTER(ticker, terData);
-      console.log(`✅ Fetched TER for ${ticker} from Morningstar: ${morningstarTer}%`);
-      return morningstarTer;
-    }
-  } catch (error) {
-    console.warn(`⚠️ Failed to fetch TER from Morningstar for ${ticker}:`, error);
-  }
-
-  // 6. No TER found - return null (user can input manually)
-  console.log(`❌ TER not found for ${ticker}. User can input manually.`);
+  // No TER found - return null (user can input manually)
   return null;
 }
 

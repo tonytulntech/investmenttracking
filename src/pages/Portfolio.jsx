@@ -3,7 +3,7 @@ import { Search, Filter, RefreshCw, ArrowUpDown, Wallet } from 'lucide-react';
 import { calculatePortfolio } from '../services/localStorageService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { getCachedPrices, cachePrices } from '../services/priceCache';
-import { getTER, calculateAnnualTERCost, getTERBadgeColor, getBatchTERWithAPI } from '../services/terDetectionService';
+import { getTER, calculateAnnualTERCost, getTERBadgeColor } from '../services/terDetectionService';
 import { isCrypto } from '../services/coinGecko';
 
 function Portfolio() {
@@ -138,88 +138,7 @@ function Portfolio() {
     setPortfolio(updatedPortfolio);
     setRefreshing(false);
 
-    // Fetch TERs in background (don't wait for it)
-    if (tickers.length > 0) {
-      updateTERsInBackground(holdings, newPriceCache, tickers);
-    }
-  };
-
-  const updateTERsInBackground = async (holdings, prices, tickers) => {
-    try {
-      console.log('📊 Fetching TERs in background for', tickers.length, 'tickers...');
-
-      // Fetch TERs from API (with cache) - pass holdings to include ISIN
-      // Exclude Cash and Cryptocurrencies (they don't have TER)
-      const holdingsWithISIN = holdings
-        .filter(h => !h.isCash && !isCrypto(h.ticker) && h.category !== 'Crypto')
-        .map(h => ({ ticker: h.ticker, isin: h.isin || null }));
-
-      console.log(`🔍 Filtering: ${holdings.length} total → ${holdingsWithISIN.length} eligible for TER (excluded Cash and Crypto)`);
-
-      // Skip if no holdings need TER
-      if (holdingsWithISIN.length === 0) {
-        console.log('ℹ️ No assets require TER fetching (only Cash/Crypto in portfolio)');
-        return;
-      }
-
-      const terMap = await getBatchTERWithAPI(holdingsWithISIN);
-
-      const fetchedCount = Object.values(terMap).filter(ter => ter !== null).length;
-      console.log(`✅ Fetched ${fetchedCount}/${holdingsWithISIN.length} TERs from API`);
-
-      // Recalculate portfolio with updated TERs
-      const updatedPortfolio = holdings.map(holding => {
-        if (holding.isCash) {
-          const marketValue = holding.totalCost;
-          return {
-            ...holding,
-            currentPrice: 1,
-            marketValue,
-            totalCost: marketValue,
-            unrealizedPL: 0,
-            roi: 0,
-            dayChange: 0,
-            dayChangePercent: 0,
-            ter: null,
-            annualTERCost: 0
-          };
-        }
-
-        const priceData = prices[holding.ticker];
-        const currentPrice = priceData?.price || holding.avgPrice;
-        const marketValue = currentPrice * holding.quantity;
-        const totalCost = holding.avgPrice * holding.quantity;
-        const unrealizedPL = marketValue - totalCost;
-        const roi = totalCost > 0 ? (unrealizedPL / totalCost) * 100 : 0;
-
-        // Cryptocurrencies don't have TER (Total Expense Ratio)
-        // Only fetch TER for ETFs, stocks, bonds, etc.
-        const isCryptoAsset = isCrypto(holding.ticker) || holding.category === 'Crypto';
-        const ter = isCryptoAsset ? null : (terMap[holding.ticker] !== undefined ? terMap[holding.ticker] : getTER(holding.ticker));
-        const annualTERCost = ter ? calculateAnnualTERCost(marketValue, ter) : 0;
-
-        return {
-          ...holding,
-          currentPrice,
-          marketValue,
-          totalCost,
-          unrealizedPL,
-          roi,
-          dayChange: priceData?.change || 0,
-          dayChangePercent: priceData?.changePercent || 0,
-          ter,
-          annualTERCost
-        };
-      });
-
-      // Update portfolio with new TER data
-      setPortfolio(updatedPortfolio);
-      console.log('🔄 Portfolio updated with fresh TER data');
-
-    } catch (error) {
-      console.error('Error fetching TERs in background:', error);
-      // Don't show error to user - just use cached/hardcoded TERs
-    }
+    // TER auto-fetching removed - TER now comes from cache only (manually entered by user)
   };
 
   const applyFiltersAndSort = () => {

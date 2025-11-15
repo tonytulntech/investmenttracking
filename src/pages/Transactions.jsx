@@ -3,7 +3,7 @@ import { Plus, Edit2, Trash2, Search, FileText, X, Calendar, DollarSign, Hash, T
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction, exportTransactions, bulkImportTransactions } from '../services/localStorageService';
 import { searchSecurity } from '../services/priceService';
 import { detectSubCategory } from '../services/categoryDetectionService';
-import { getTERWithAPI } from '../services/terDetectionService';
+import { cacheTER, getTER } from '../services/terDetectionService';
 import { getMacroAssetClasses, getMicroCategories } from '../config/assetClasses';
 import { checkCashAvailability } from '../services/cashFlowService';
 import { isCrypto } from '../services/coinGecko';
@@ -20,7 +20,6 @@ function Transactions() {
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [formData, setFormData] = useState(getEmptyForm());
   const [availableMicroCategories, setAvailableMicroCategories] = useState({});
-  const [isFetchingTER, setIsFetchingTER] = useState(false);
 
   useEffect(() => {
     loadTransactions();
@@ -103,49 +102,19 @@ function Transactions() {
     }
   };
 
-  // Auto-fetch TER when ticker or ISIN changes
+  // Auto-fill TER from cache when ticker changes
   useEffect(() => {
-    const fetchTER = async () => {
-      // Only fetch for ETFs/stocks/bonds (not Cash or Crypto)
-      // Cryptocurrencies don't have TER (Total Expense Ratio)
-      if (formData.macroCategory === 'Cash' ||
-          formData.macroCategory === 'Crypto' ||
-          isCrypto(formData.ticker) ||
-          !formData.ticker) {
-        return;
+    if (formData.ticker && !formData.ter && !editingTransaction) {
+      const cachedTER = getTER(formData.ticker);
+      if (cachedTER !== null) {
+        setFormData(prev => ({
+          ...prev,
+          ter: cachedTER.toString()
+        }));
+        console.log(`💾 Auto-filled TER from cache for ${formData.ticker}: ${cachedTER}%`);
       }
-
-      // Don't auto-fetch if TER already exists or if editing
-      if (formData.ter || editingTransaction) {
-        return;
-      }
-
-      setIsFetchingTER(true);
-
-      try {
-        console.log(`🔍 Auto-fetching TER for ${formData.ticker}...`);
-        const ter = await getTERWithAPI(formData.ticker, formData.isin);
-
-        if (ter !== null) {
-          setFormData(prev => ({
-            ...prev,
-            ter: ter.toString()
-          }));
-          console.log(`✅ Auto-filled TER for ${formData.ticker}: ${ter}%`);
-        } else {
-          console.log(`ℹ️ TER not found for ${formData.ticker}. User can input manually.`);
-        }
-      } catch (error) {
-        console.error(`Error fetching TER for ${formData.ticker}:`, error);
-      } finally {
-        setIsFetchingTER(false);
-      }
-    };
-
-    // Debounce: wait 500ms after user stops typing ticker/ISIN
-    const timer = setTimeout(fetchTER, 500);
-    return () => clearTimeout(timer);
-  }, [formData.ticker, formData.isin, formData.macroCategory]);
+    }
+  }, [formData.ticker]);
 
   const loadTransactions = () => {
     const data = getTransactions();
@@ -284,6 +253,17 @@ function Transactions() {
         // Mark as cash for special handling
         isCash: isCash
       };
+
+      // Cache TER for future auto-fill (synchronization across same ticker)
+      if (formData.ter && formData.ticker) {
+        const terValue = parseFloat(formData.ter);
+        cacheTER(formData.ticker, {
+          ter: terValue,
+          source: 'manual',
+          lastUpdated: new Date().toISOString()
+        });
+        console.log(`💾 Cached TER for ${formData.ticker}: ${terValue}% (manual entry - will sync to other transactions)`);
+      }
 
       if (editingTransaction) {
         updateTransaction(editingTransaction.id, transactionData);
@@ -831,9 +811,6 @@ function Transactions() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     TER (Total Expense Ratio) %
-                    {isFetchingTER && (
-                      <Loader className="w-4 h-4 inline ml-2 animate-spin text-primary-600" />
-                    )}
                   </label>
                   <input
                     type="number"
@@ -844,14 +821,11 @@ function Transactions() {
                     onChange={(e) => setFormData({ ...formData, ter: e.target.value })}
                     placeholder="0.22"
                     className="input"
-                    disabled={isFetchingTER}
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    {isFetchingTER
-                      ? '🔍 Ricerca TER automatica in corso...'
-                      : formData.ter
-                        ? `Costo annuale: ~${formData.ter}% del patrimonio investito`
-                        : 'TER verrà recuperato automaticamente o inseriscilo manualmente'}
+                    {formData.ter
+                      ? `Costo annuale: ~${formData.ter}% del patrimonio investito`
+                      : 'Inserisci il TER manualmente. Verrà salvato e sincronizzato per lo stesso ticker'}
                   </p>
                 </div>
               )}

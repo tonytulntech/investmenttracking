@@ -1,21 +1,18 @@
 /**
- * TER (Total Expense Ratio) Detection Service
+ * TER (Total Expense Ratio) Service - CACHE ONLY
  *
- * Detects and provides TER information for common ETFs and investment instruments.
  * TER represents the annual cost of holding an ETF as a percentage of assets.
  *
- * TER Sources (in order of preference):
- * 1. Cache (terCache) - Fast, stored in localStorage
- * 2. Google Apps Script API - Automatic fetching from Yahoo Finance
- * 3. Hardcoded database - Fallback for common ETFs
+ * TER is now MANUAL ONLY:
+ * - User enters TER manually in transaction form
+ * - TER is cached (7-day expiry) and automatically syncs to other transactions with same ticker
+ * - No automatic fetching to avoid CORS errors and slow page loads
  */
 
 import { getCachedTER, cacheTER } from './terCache';
-import { fetchTER } from './historicalPriceService';
 
-// Note: Hardcoded TER database removed - using automatic fetching instead
-// TER will be fetched from JustETF (via ISIN) or Yahoo Finance (via ticker)
-// If automatic fetch fails, user can input TER manually in the transaction form
+// Re-export cacheTER for convenience
+export { cacheTER } from './terCache';
 
 /**
  * Get TER for a ticker symbol (synchronous - uses cache only)
@@ -56,227 +53,15 @@ export async function getTERWithAPI(ticker, isin = null, forceRefresh = false) {
     }
   }
 
-  // CORS proxies (JustETF, ExtraETF, Yahoo, Morningstar) are disabled due to
-  // frequent CORS errors and rate limiting that slow down the page.
-  // TER fetching now relies only on:
-  // 1. Cache (fast, 7-day expiry)
-  // 2. User can manually input TER in transaction form if needed
+  // CORS proxies (JustETF, ExtraETF, Yahoo, Morningstar) have been completely removed
+  // due to frequent CORS errors and rate limiting that slow down page loads.
   //
-  // Future: Could add TER fetching via Google Apps Script if needed
+  // TER is now MANUAL ONLY with cache synchronization:
+  // - User enters TER manually in transaction form
+  // - TER is cached (7-day expiry) and syncs to other transactions with same ticker
+  // - No automatic fetching to ensure fast, reliable page loads
 
-  // No TER found - return null (user can input manually)
   return null;
-}
-
-/**
- * Fetch TER from JustETF using ISIN
- * @param {string} isin - ISIN code (e.g., 'IE00BK5BQT80')
- * @returns {Promise<number|null>} - TER percentage or null if not found
- */
-async function fetchTERFromJustETF(isin) {
-  if (!isin) return null;
-
-  try {
-    // JustETF URL with ISIN
-    const url = `https://www.justetf.com/en/etf-profile.html?isin=${isin}`;
-
-    console.log(`🔍 Fetching TER from JustETF for ISIN: ${isin}`);
-
-    // Use CORS proxy to avoid CORS issues
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-
-    const response = await fetch(proxyUrl, {
-      headers: {
-        'Accept': 'text/html',
-      }
-    });
-
-    if (!response.ok) {
-      console.warn(`❌ JustETF request failed: ${response.status}`);
-      return null;
-    }
-
-    const html = await response.text();
-
-    // Look for TER in the HTML
-    // JustETF shows TER as "Total expense ratio" or "Ongoing charges"
-    const terPatterns = [
-      /Ongoing\s+charges?[^0-9]*([0-9]+[.,][0-9]+)\s*%/i,
-      /Total\s+expense\s+ratio[^0-9]*([0-9]+[.,][0-9]+)\s*%/i,
-      /TER[^0-9]*([0-9]+[.,][0-9]+)\s*%/i,
-      /"ter":\s*"?([0-9]+[.,][0-9]+)"?/i,
-      /"ongoingCharge":\s*"?([0-9]+[.,][0-9]+)"?/i,
-      /data-value="ter"[^>]*>([0-9]+[.,][0-9]+)/i,
-      /<td[^>]*>TER<\/td>[^<]*<td[^>]*>([0-9]+[.,][0-9]+)\s*%/i
-    ];
-
-    for (const pattern of terPatterns) {
-      const match = html.match(pattern);
-      if (match && match[1]) {
-        const terString = match[1].replace(',', '.');
-        const ter = parseFloat(terString);
-
-        if (!isNaN(ter) && ter >= 0 && ter < 10) { // Sanity check: TER should be < 10%
-          console.log(`✅ Found TER from JustETF for ${isin}: ${ter}%`);
-          return ter;
-        }
-      }
-    }
-
-    console.log(`❌ TER not found in JustETF page for ${isin}`);
-    return null;
-
-  } catch (error) {
-    console.error(`❌ Error fetching TER from JustETF for ${isin}:`, error);
-    return null;
-  }
-}
-
-/**
- * Fetch TER from ExtraETF using ISIN
- * @param {string} isin - ISIN code
- * @returns {Promise<number|null>} - TER percentage or null if not found
- */
-async function fetchTERFromExtraETF(isin) {
-  if (!isin) return null;
-
-  try {
-    const url = `https://extraetf.com/etf-profile/${isin}`;
-    console.log(`🔍 Fetching TER from ExtraETF for ISIN: ${isin}`);
-
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-    const response = await fetch(proxyUrl, { headers: { 'Accept': 'text/html' } });
-
-    if (!response.ok) {
-      console.warn(`❌ ExtraETF request failed: ${response.status}`);
-      return null;
-    }
-
-    const html = await response.text();
-
-    const terPatterns = [
-      /Total Expense Ratio.*?([0-9]+[.,][0-9]+)\s*%/i,
-      /TER.*?([0-9]+[.,][0-9]+)\s*%/i,
-      /Gesamtkostenquote.*?([0-9]+[.,][0-9]+)\s*%/i,
-      /"ter":([0-9]+[.,][0-9]+)/i
-    ];
-
-    for (const pattern of terPatterns) {
-      const match = html.match(pattern);
-      if (match && match[1]) {
-        const ter = parseFloat(match[1].replace(',', '.'));
-        if (!isNaN(ter) && ter >= 0 && ter < 10) {
-          console.log(`✅ Found TER from ExtraETF for ${isin}: ${ter}%`);
-          return ter;
-        }
-      }
-    }
-
-    return null;
-  } catch (error) {
-    console.error(`❌ Error fetching TER from ExtraETF for ${isin}:`, error);
-    return null;
-  }
-}
-
-/**
- * Fetch TER from Yahoo Finance directly (without Google Apps Script)
- * @param {string} ticker - Ticker symbol
- * @returns {Promise<number|null>} - TER percentage or null if not found
- */
-async function fetchTERFromYahoo(ticker) {
-  if (!ticker) return null;
-
-  try {
-    const url = `https://finance.yahoo.com/quote/${ticker}`;
-    console.log(`🔍 Fetching TER from Yahoo Finance for: ${ticker}`);
-
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-    const response = await fetch(proxyUrl, { headers: { 'Accept': 'text/html' } });
-
-    if (!response.ok) {
-      console.warn(`❌ Yahoo Finance request failed: ${response.status}`);
-      return null;
-    }
-
-    const html = await response.text();
-
-    // Yahoo Finance patterns for expense ratio
-    const terPatterns = [
-      /Expense Ratio.*?([0-9]+[.,][0-9]+)%/i,
-      /Net Expense Ratio.*?([0-9]+[.,][0-9]+)%/i,
-      /Annual Report Expense Ratio.*?([0-9]+[.,][0-9]+)%/i,
-      /"annualReportExpenseRatio"[^}]*?([0-9]+[.,][0-9]+)/i,
-      /"yield"[^}]*?"annualReportExpenseRatio":([0-9]+[.,][0-9]+)/i
-    ];
-
-    for (const pattern of terPatterns) {
-      const match = html.match(pattern);
-      if (match && match[1]) {
-        const ter = parseFloat(match[1].replace(',', '.'));
-        if (!isNaN(ter) && ter >= 0 && ter < 10) {
-          console.log(`✅ Found TER from Yahoo Finance for ${ticker}: ${ter}%`);
-          return ter;
-        }
-      }
-    }
-
-    return null;
-  } catch (error) {
-    console.error(`❌ Error fetching TER from Yahoo Finance for ${ticker}:`, error);
-    return null;
-  }
-}
-
-/**
- * Fetch TER from Morningstar
- * @param {string} ticker - Ticker symbol
- * @param {string} isin - ISIN code (optional)
- * @returns {Promise<number|null>} - TER percentage or null if not found
- */
-async function fetchTERFromMorningstar(ticker, isin = null) {
-  if (!ticker && !isin) return null;
-
-  try {
-    // Try with ISIN first if available
-    const searchTerm = isin || ticker;
-    const url = `https://www.morningstar.com/search?query=${encodeURIComponent(searchTerm)}`;
-
-    console.log(`🔍 Fetching TER from Morningstar for: ${searchTerm}`);
-
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-    const response = await fetch(proxyUrl, { headers: { 'Accept': 'text/html' } });
-
-    if (!response.ok) {
-      console.warn(`❌ Morningstar request failed: ${response.status}`);
-      return null;
-    }
-
-    const html = await response.text();
-
-    const terPatterns = [
-      /Expense Ratio.*?([0-9]+[.,][0-9]+)%/i,
-      /Net Expense Ratio.*?([0-9]+[.,][0-9]+)%/i,
-      /Ongoing Charge.*?([0-9]+[.,][0-9]+)%/i,
-      /"expenseRatio":([0-9]+[.,][0-9]+)/i
-    ];
-
-    for (const pattern of terPatterns) {
-      const match = html.match(pattern);
-      if (match && match[1]) {
-        const ter = parseFloat(match[1].replace(',', '.'));
-        if (!isNaN(ter) && ter >= 0 && ter < 10) {
-          console.log(`✅ Found TER from Morningstar for ${searchTerm}: ${ter}%`);
-          return ter;
-        }
-      }
-    }
-
-    return null;
-  } catch (error) {
-    console.error(`❌ Error fetching TER from Morningstar:`, error);
-    return null;
-  }
 }
 
 /**

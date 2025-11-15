@@ -4,6 +4,7 @@ import { calculatePortfolio } from '../services/localStorageService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { getCachedPrices, cachePrices } from '../services/priceCache';
 import { getTER, calculateAnnualTERCost, getTERBadgeColor, getBatchTERWithAPI } from '../services/terDetectionService';
+import { isCrypto } from '../services/coinGecko';
 
 function Portfolio() {
   const [loading, setLoading] = useState(true);
@@ -79,8 +80,9 @@ function Portfolio() {
       const unrealizedPL = marketValue - totalCost;
       const roi = totalCost > 0 ? (unrealizedPL / totalCost) * 100 : 0;
 
-      // Get TER information
-      const ter = getTER(holding.ticker);
+      // Get TER information (cryptocurrencies don't have TER)
+      const isCryptoAsset = isCrypto(holding.ticker) || holding.category === 'Crypto';
+      const ter = isCryptoAsset ? null : getTER(holding.ticker);
       const annualTERCost = ter ? calculateAnnualTERCost(marketValue, ter) : 0;
 
       return {
@@ -147,14 +149,23 @@ function Portfolio() {
       console.log('📊 Fetching TERs in background for', tickers.length, 'tickers...');
 
       // Fetch TERs from API (with cache) - pass holdings to include ISIN
+      // Exclude Cash and Cryptocurrencies (they don't have TER)
       const holdingsWithISIN = holdings
-        .filter(h => !h.isCash)
+        .filter(h => !h.isCash && !isCrypto(h.ticker) && h.category !== 'Crypto')
         .map(h => ({ ticker: h.ticker, isin: h.isin || null }));
+
+      console.log(`🔍 Filtering: ${holdings.length} total → ${holdingsWithISIN.length} eligible for TER (excluded Cash and Crypto)`);
+
+      // Skip if no holdings need TER
+      if (holdingsWithISIN.length === 0) {
+        console.log('ℹ️ No assets require TER fetching (only Cash/Crypto in portfolio)');
+        return;
+      }
 
       const terMap = await getBatchTERWithAPI(holdingsWithISIN);
 
       const fetchedCount = Object.values(terMap).filter(ter => ter !== null).length;
-      console.log(`✅ Fetched ${fetchedCount}/${tickers.length} TERs from API`);
+      console.log(`✅ Fetched ${fetchedCount}/${holdingsWithISIN.length} TERs from API`);
 
       // Recalculate portfolio with updated TERs
       const updatedPortfolio = holdings.map(holding => {
@@ -181,8 +192,10 @@ function Portfolio() {
         const unrealizedPL = marketValue - totalCost;
         const roi = totalCost > 0 ? (unrealizedPL / totalCost) * 100 : 0;
 
-        // Use freshly fetched TER (falls back to cache/hardcoded if not found)
-        const ter = terMap[holding.ticker] !== undefined ? terMap[holding.ticker] : getTER(holding.ticker);
+        // Cryptocurrencies don't have TER (Total Expense Ratio)
+        // Only fetch TER for ETFs, stocks, bonds, etc.
+        const isCryptoAsset = isCrypto(holding.ticker) || holding.category === 'Crypto';
+        const ter = isCryptoAsset ? null : (terMap[holding.ticker] !== undefined ? terMap[holding.ticker] : getTER(holding.ticker));
         const annualTERCost = ter ? calculateAnnualTERCost(marketValue, ter) : 0;
 
         return {

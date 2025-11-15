@@ -6,6 +6,7 @@ import { detectSubCategory } from '../services/categoryDetectionService';
 import { getTERWithAPI } from '../services/terDetectionService';
 import { getMacroAssetClasses, getMicroCategories } from '../config/assetClasses';
 import { checkCashAvailability } from '../services/cashFlowService';
+import { isCrypto } from '../services/coinGecko';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 
@@ -105,8 +106,12 @@ function Transactions() {
   // Auto-fetch TER when ticker or ISIN changes
   useEffect(() => {
     const fetchTER = async () => {
-      // Only fetch for ETFs (not Cash or other categories)
-      if (formData.macroCategory === 'Cash' || !formData.ticker) {
+      // Only fetch for ETFs/stocks/bonds (not Cash or Crypto)
+      // Cryptocurrencies don't have TER (Total Expense Ratio)
+      if (formData.macroCategory === 'Cash' ||
+          formData.macroCategory === 'Crypto' ||
+          isCrypto(formData.ticker) ||
+          !formData.ticker) {
         return;
       }
 

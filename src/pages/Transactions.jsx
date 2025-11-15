@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, FileText, X, Calendar, DollarSign, Hash, Tag, FileDown, FileUp } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, FileText, X, Calendar, DollarSign, Hash, Tag, FileDown, FileUp, Loader } from 'lucide-react';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction, exportTransactions, bulkImportTransactions } from '../services/localStorageService';
 import { searchSecurity } from '../services/priceService';
 import { detectSubCategory } from '../services/categoryDetectionService';
+import { getTERWithAPI } from '../services/terDetectionService';
 import { getMacroAssetClasses, getMicroCategories } from '../config/assetClasses';
 import { checkCashAvailability } from '../services/cashFlowService';
 import { format } from 'date-fns';
@@ -18,6 +19,7 @@ function Transactions() {
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [formData, setFormData] = useState(getEmptyForm());
   const [availableMicroCategories, setAvailableMicroCategories] = useState({});
+  const [isFetchingTER, setIsFetchingTER] = useState(false);
 
   useEffect(() => {
     loadTransactions();
@@ -38,6 +40,7 @@ function Transactions() {
       price: '',
       quantity: '',
       commission: '',
+      ter: '', // Total Expense Ratio (%)
       currency: 'EUR',
       notes: '',
       type: 'buy',
@@ -89,6 +92,7 @@ function Transactions() {
         macroCategory: lastTransaction.macroCategory || lastTransaction.category || prev.macroCategory,
         microCategory: lastTransaction.microCategory || lastTransaction.subCategory || prev.microCategory,
         currency: lastTransaction.currency || prev.currency,
+        ter: lastTransaction.ter || prev.ter, // Auto-fill TER from last transaction
         // Keep current date, price, quantity, commission (user will update these)
         date: new Date().toISOString().split('T')[0],
         price: '',
@@ -97,6 +101,46 @@ function Transactions() {
       }));
     }
   };
+
+  // Auto-fetch TER when ticker or ISIN changes
+  useEffect(() => {
+    const fetchTER = async () => {
+      // Only fetch for ETFs (not Cash or other categories)
+      if (formData.macroCategory === 'Cash' || !formData.ticker) {
+        return;
+      }
+
+      // Don't auto-fetch if TER already exists or if editing
+      if (formData.ter || editingTransaction) {
+        return;
+      }
+
+      setIsFetchingTER(true);
+
+      try {
+        console.log(`🔍 Auto-fetching TER for ${formData.ticker}...`);
+        const ter = await getTERWithAPI(formData.ticker, formData.isin);
+
+        if (ter !== null) {
+          setFormData(prev => ({
+            ...prev,
+            ter: ter.toString()
+          }));
+          console.log(`✅ Auto-filled TER for ${formData.ticker}: ${ter}%`);
+        } else {
+          console.log(`ℹ️ TER not found for ${formData.ticker}. User can input manually.`);
+        }
+      } catch (error) {
+        console.error(`Error fetching TER for ${formData.ticker}:`, error);
+      } finally {
+        setIsFetchingTER(false);
+      }
+    };
+
+    // Debounce: wait 500ms after user stops typing ticker/ISIN
+    const timer = setTimeout(fetchTER, 500);
+    return () => clearTimeout(timer);
+  }, [formData.ticker, formData.isin, formData.macroCategory]);
 
   const loadTransactions = () => {
     const data = getTransactions();
@@ -148,6 +192,7 @@ function Transactions() {
       price: transaction.price || '',
       quantity: transaction.quantity || '',
       commission: transaction.commission || '',
+      ter: transaction.ter || '',
       currency: transaction.currency || 'EUR',
       notes: transaction.notes || '',
       type: transaction.type || 'buy'
@@ -229,6 +274,7 @@ function Transactions() {
         price: isCash ? 1 : parseFloat(formData.price),
         quantity: parseFloat(formData.quantity),
         commission: (isCash || !formData.commission) ? 0 : parseFloat(formData.commission),
+        ter: formData.ter ? parseFloat(formData.ter) : null, // Parse TER as number or null
         subCategory: detectedSubCategory || '', // Save detected sub-category silently
         // Mark as cash for special handling
         isCash: isCash
@@ -393,6 +439,7 @@ function Transactions() {
                   <th className="text-right">Prezzo</th>
                   <th className="text-right">Totale</th>
                   <th className="text-right">Commissioni</th>
+                  <th className="text-right">TER %</th>
                   <th className="text-right">Azioni</th>
                 </tr>
               </thead>
@@ -428,6 +475,15 @@ function Transactions() {
                       {tx.commission && tx.commission > 0 ? (
                         <span className="text-orange-700">
                           €{tx.commission.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="text-right">
+                      {tx.ter && tx.ter > 0 ? (
+                        <span className="text-sm font-medium text-purple-700">
+                          {tx.ter.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                         </span>
                       ) : (
                         <span className="text-gray-400">-</span>
@@ -762,6 +818,36 @@ function Transactions() {
                       Commissioni di broker/exchange
                     </p>
                   </div>
+                </div>
+              )}
+
+              {/* TER Field - Only show if NOT Cash */}
+              {formData.macroCategory !== 'Cash' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    TER (Total Expense Ratio) %
+                    {isFetchingTER && (
+                      <Loader className="w-4 h-4 inline ml-2 animate-spin text-primary-600" />
+                    )}
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="10"
+                    value={formData.ter}
+                    onChange={(e) => setFormData({ ...formData, ter: e.target.value })}
+                    placeholder="0.22"
+                    className="input"
+                    disabled={isFetchingTER}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {isFetchingTER
+                      ? '🔍 Ricerca TER automatica in corso...'
+                      : formData.ter
+                        ? `Costo annuale: ~${formData.ter}% del patrimonio investito`
+                        : 'TER verrà recuperato automaticamente o inseriscilo manualmente'}
+                  </p>
                 </div>
               )}
 

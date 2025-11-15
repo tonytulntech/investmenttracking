@@ -13,173 +13,38 @@
 import { getCachedTER, cacheTER } from './terCache';
 import { fetchTER } from './historicalPriceService';
 
-// Database of common ETF TERs (in %)
-const TER_DATABASE = {
-  // Vanguard ETFs - World Equity
-  'VWCE': 0.22,
-  'VWRL': 0.22,
-  'VT': 0.07,
-  'VTI': 0.03,
-  'VXUS': 0.07,
-
-  // iShares World Equity
-  'SWDA': 0.20,
-  'IWDA': 0.20,
-  'ACWI': 0.20,
-  'URTH': 0.24,
-
-  // USA Equity
-  'SPY': 0.09,
-  'VOO': 0.03,
-  'IVV': 0.03,
-  'VUSA': 0.07,
-  'CSPX': 0.07,
-  'QQQ': 0.20,
-
-  // Europe Equity
-  'VEUR': 0.12,
-  'IEUR': 0.12,
-  'EXS1': 0.05,
-  'SMEA': 0.25,
-
-  // Emerging Markets
-  'VFEM': 0.22,
-  'EIMI': 0.18,
-  'AEEM': 0.14,
-  'EMIM': 0.18,
-
-  // Japan
-  'VJPN': 0.19,
-  'EWJ': 0.50,
-  'JPXN': 0.12,
-
-  // Asia
-  'AAXJ': 0.70,
-  'VPL': 0.08,
-
-  // China
-  'MCHI': 0.59,
-  'FXI': 0.74,
-  'CNYA': 0.68,
-
-  // India
-  'INDA': 0.65,
-  'PIN': 0.85,
-
-  // Small Cap
-  'VB': 0.05,
-  'IWM': 0.19,
-  'IJR': 0.06,
-  'VSS': 0.11,
-
-  // Sector - Technology
-  'VGT': 0.10,
-  'XLK': 0.10,
-  'QTEC': 0.57,
-
-  // Sector - Healthcare
-  'VHT': 0.10,
-  'XLV': 0.10,
-
-  // Sector - Financial
-  'VFH': 0.10,
-  'XLF': 0.10,
-
-  // Sector - Energy
-  'VDE': 0.10,
-  'XLE': 0.10,
-
-  // Sector - Real Estate
-  'VNQ': 0.12,
-  'XLRE': 0.10,
-  'IYR': 0.40,
-
-  // Bonds - Government
-  'TLT': 0.15,
-  'IEF': 0.15,
-  'SHY': 0.15,
-  'GOVT': 0.05,
-
-  // Bonds - Corporate
-  'LQD': 0.14,
-  'VCIT': 0.04,
-  'HYG': 0.49,
-  'JNK': 0.40,
-
-  // Bonds - Global
-  'AGG': 0.03,
-  'BND': 0.03,
-  'VWOB': 0.25,
-
-  // Commodities - Gold
-  'GLD': 0.40,
-  'IAU': 0.25,
-  'SGOL': 0.17,
-
-  // Commodities - Silver
-  'SLV': 0.50,
-  'SIVR': 0.30,
-
-  // Commodities - Oil
-  'USO': 0.60,
-  'UCO': 1.07,
-
-  // Commodities - Diversified
-  'DBC': 0.87,
-  'GSG': 0.75,
-
-  // Thematic - Clean Energy
-  'ICLN': 0.42,
-  'TAN': 0.69,
-  'QCLN': 0.60,
-
-  // Thematic - ESG
-  'ESGV': 0.09,
-  'USSG': 0.04,
-  'SUSL': 0.15,
-
-  // Thematic - AI/Robotics
-  'BOTZ': 0.68,
-  'ROBO': 0.95,
-  'AIQ': 0.68,
-
-  // Multi-Asset
-  'AOR': 0.15,
-  'AOM': 0.15,
-  'AOK': 0.15,
-  'AOA': 0.15,
-};
+// Note: Hardcoded TER database removed - using automatic fetching instead
+// TER will be fetched from JustETF (via ISIN) or Yahoo Finance (via ticker)
+// If automatic fetch fails, user can input TER manually in the transaction form
 
 /**
- * Get TER for a ticker symbol (synchronous - uses cache and hardcoded database only)
+ * Get TER for a ticker symbol (synchronous - uses cache only)
+ * For automatic fetching, use getTERWithAPI instead
  * @param {string} ticker - The ticker symbol
  * @returns {number|null} - TER percentage or null if not found
  */
 export function getTER(ticker) {
   if (!ticker) return null;
 
-  // 1. Try cache first (fast)
+  // Try cache first (fast)
   const cached = getCachedTER(ticker);
   if (cached && cached.ter !== null) {
     return cached.ter;
   }
 
-  // 2. Fallback to hardcoded database
-  const normalizedTicker = ticker.toUpperCase()
-    .replace(/\.DE$|\.L$|\.MI$|\.PA$|\.AS$|\.SW$/g, '')
-    .trim();
-
-  return TER_DATABASE[normalizedTicker] || null;
+  // No automatic fetch in sync mode - use getTERWithAPI for that
+  return null;
 }
 
 /**
  * Get TER for a ticker symbol with API fetch (asynchronous)
- * Tries cache first, then fetches from API if needed, then falls back to hardcoded database
+ * Tries cache first, then fetches from API if needed
  * @param {string} ticker - The ticker symbol
+ * @param {string} isin - Optional ISIN for better fetching from JustETF
  * @param {boolean} forceRefresh - Force refresh from API even if cached
  * @returns {Promise<number|null>} - TER percentage or null if not found
  */
-export async function getTERWithAPI(ticker, forceRefresh = false) {
+export async function getTERWithAPI(ticker, isin = null, forceRefresh = false) {
   if (!ticker) return null;
 
   // 1. Try cache first (unless forceRefresh)
@@ -191,35 +56,102 @@ export async function getTERWithAPI(ticker, forceRefresh = false) {
     }
   }
 
-  // 2. Try fetching from API
+  // 2. Try fetching from API (Google Apps Script will try Yahoo Finance)
   try {
     const terData = await fetchTER(ticker);
     if (terData && terData.ter !== null) {
       // Cache the result
       cacheTER(ticker, terData);
+      console.log(`✅ Fetched TER for ${ticker}: ${terData.ter}%`);
       return terData.ter;
     }
   } catch (error) {
-    console.warn(`Failed to fetch TER from API for ${ticker}:`, error);
+    console.warn(`⚠️ Failed to fetch TER from API for ${ticker}:`, error);
   }
 
-  // 3. Fallback to hardcoded database
-  const normalizedTicker = ticker.toUpperCase()
-    .replace(/\.DE$|\.L$|\.MI$|\.PA$|\.AS$|\.SW$/g, '')
-    .trim();
+  // 3. Try JustETF with ISIN if provided
+  if (isin) {
+    try {
+      const justETFTer = await fetchTERFromJustETF(isin);
+      if (justETFTer !== null) {
+        const terData = {
+          ter: justETFTer,
+          source: 'justetf',
+          lastUpdated: new Date().toISOString()
+        };
+        cacheTER(ticker, terData);
+        console.log(`✅ Fetched TER for ${ticker} from JustETF: ${justETFTer}%`);
+        return justETFTer;
+      }
+    } catch (error) {
+      console.warn(`⚠️ Failed to fetch TER from JustETF for ${isin}:`, error);
+    }
+  }
 
-  const hardcodedTER = TER_DATABASE[normalizedTicker] || null;
+  // 4. No TER found - return null (user can input manually)
+  console.log(`❌ TER not found for ${ticker}. User can input manually.`);
+  return null;
+}
 
-  // Cache even hardcoded values for consistency
-  if (hardcodedTER !== null) {
-    cacheTER(ticker, {
-      ter: hardcodedTER,
-      source: 'hardcoded-database',
-      lastUpdated: new Date().toISOString()
+/**
+ * Fetch TER from JustETF using ISIN
+ * @param {string} isin - ISIN code (e.g., 'IE00BK5BQT80')
+ * @returns {Promise<number|null>} - TER percentage or null if not found
+ */
+async function fetchTERFromJustETF(isin) {
+  if (!isin) return null;
+
+  try {
+    // JustETF URL with ISIN
+    const url = `https://www.justetf.com/en/etf-profile.html?isin=${isin}`;
+
+    console.log(`🔍 Fetching TER from JustETF for ISIN: ${isin}`);
+
+    // Use CORS proxy to avoid CORS issues
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+
+    const response = await fetch(proxyUrl, {
+      headers: {
+        'Accept': 'text/html',
+      }
     });
-  }
 
-  return hardcodedTER;
+    if (!response.ok) {
+      console.warn(`❌ JustETF request failed: ${response.status}`);
+      return null;
+    }
+
+    const html = await response.text();
+
+    // Look for TER in the HTML
+    // JustETF shows TER as "Total expense ratio" or "Ongoing charges"
+    const terPatterns = [
+      /Total expense ratio.*?([0-9]+[.,][0-9]+)%/i,
+      /Ongoing charges.*?([0-9]+[.,][0-9]+)%/i,
+      /TER.*?([0-9]+[.,][0-9]+)%/i,
+      /"ter"[^}]*?([0-9]+[.,][0-9]+)/i
+    ];
+
+    for (const pattern of terPatterns) {
+      const match = html.match(pattern);
+      if (match && match[1]) {
+        const terString = match[1].replace(',', '.');
+        const ter = parseFloat(terString);
+
+        if (!isNaN(ter) && ter >= 0 && ter < 10) { // Sanity check: TER should be < 10%
+          console.log(`✅ Found TER from JustETF for ${isin}: ${ter}%`);
+          return ter;
+        }
+      }
+    }
+
+    console.log(`❌ TER not found in JustETF page for ${isin}`);
+    return null;
+
+  } catch (error) {
+    console.error(`❌ Error fetching TER from JustETF for ${isin}:`, error);
+    return null;
+  }
 }
 
 /**

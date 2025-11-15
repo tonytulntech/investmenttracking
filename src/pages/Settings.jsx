@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Trash2, Database, Download, AlertCircle, RefreshCw } from 'lucide-react';
 import { getSettings, updateSettings, getStorageInfo, clearAllTransactions, exportTransactions, updateAllSubCategories } from '../services/localStorageService';
+import { clearTERCache, getCachedTERs } from '../services/terCache';
+import { clearPriceCache } from '../services/priceCache';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 
@@ -69,6 +71,40 @@ function Settings() {
       alert('❌ Errore durante l\'aggiornamento delle sotto-categorie');
     } finally {
       setUpdatingSubCategories(false);
+    }
+  };
+
+  const handleClearTERCache = () => {
+    try {
+      const cachedTERs = getCachedTERs();
+      const count = Object.keys(cachedTERs).length;
+
+      if (count === 0) {
+        alert('ℹ️ Nessun TER in cache da eliminare');
+        return;
+      }
+
+      if (window.confirm(`Vuoi eliminare ${count} TER dalla cache? I TER verranno ri-fetchati automaticamente.`)) {
+        clearTERCache();
+        alert(`✅ Cache TER pulita! Eliminati ${count} TER.\n\nRicarica la pagina per ri-fetchare i TER corretti.`);
+        loadStorageInfo();
+      }
+    } catch (error) {
+      console.error('Error clearing TER cache:', error);
+      alert('❌ Errore durante la pulizia della cache TER');
+    }
+  };
+
+  const handleClearPriceCache = () => {
+    try {
+      if (window.confirm('Vuoi eliminare la cache dei prezzi? I prezzi verranno ri-fetchati automaticamente.')) {
+        clearPriceCache();
+        alert('✅ Cache prezzi pulita!\n\nRicarica la pagina per aggiornare i prezzi.');
+        loadStorageInfo();
+      }
+    } catch (error) {
+      console.error('Error clearing price cache:', error);
+      alert('❌ Errore durante la pulizia della cache prezzi');
     }
   };
 
@@ -192,6 +228,20 @@ function Settings() {
               >
                 <RefreshCw className={`w-4 h-4 ${updatingSubCategories ? 'animate-spin' : ''}`} />
                 {updatingSubCategories ? 'Aggiornamento...' : 'Aggiorna Sotto-Categorie'}
+              </button>
+              <button
+                onClick={handleClearTERCache}
+                className="btn-secondary flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Pulisci Cache TER
+              </button>
+              <button
+                onClick={handleClearPriceCache}
+                className="btn-secondary flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Pulisci Cache Prezzi
               </button>
             </div>
 

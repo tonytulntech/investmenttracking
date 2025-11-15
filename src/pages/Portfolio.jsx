@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, RefreshCw, ArrowUpDown, Wallet } from 'lucide-react';
-import { calculatePortfolio } from '../services/localStorageService';
+import { calculatePortfolio, getTransactions } from '../services/localStorageService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { getCachedPrices, cachePrices } from '../services/priceCache';
-import { getTER, calculateAnnualTERCost, getTERBadgeColor } from '../services/terDetectionService';
+import { calculateAnnualTERCost, getTERBadgeColor } from '../services/terDetectionService';
 import { isCrypto } from '../services/coinGecko';
 
 function Portfolio() {
@@ -20,6 +20,32 @@ function Portfolio() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [sortBy, setSortBy] = useState('marketValue');
   const [sortOrder, setSortOrder] = useState('desc');
+
+  // Get TER from the most recent transaction for a ticker (instead of cache)
+  const getTERFromTransactions = (ticker) => {
+    const transactions = getTransactions();
+
+    // Filter transactions for this ticker and sort by date (most recent first)
+    const tickerTransactions = transactions
+      .filter(tx => tx.ticker === ticker)
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    if (tickerTransactions.length === 0) {
+      return null;
+    }
+
+    // Get TER from most recent transaction
+    const mostRecent = tickerTransactions[0];
+
+    // Only return TER if it's explicitly set (not null/undefined)
+    // Convert to number if it's a string
+    if (mostRecent.ter !== null && mostRecent.ter !== undefined && mostRecent.ter !== '') {
+      const terValue = typeof mostRecent.ter === 'string' ? parseFloat(mostRecent.ter) : mostRecent.ter;
+      return !isNaN(terValue) ? terValue : null;
+    }
+
+    return null;
+  };
 
   useEffect(() => {
     loadPortfolio();
@@ -80,9 +106,9 @@ function Portfolio() {
       const unrealizedPL = marketValue - totalCost;
       const roi = totalCost > 0 ? (unrealizedPL / totalCost) * 100 : 0;
 
-      // Get TER information (cryptocurrencies don't have TER)
+      // Get TER from transactions (cryptocurrencies don't have TER)
       const isCryptoAsset = isCrypto(holding.ticker) || holding.category === 'Crypto';
-      const ter = isCryptoAsset ? null : getTER(holding.ticker);
+      const ter = isCryptoAsset ? null : getTERFromTransactions(holding.ticker);
       const annualTERCost = ter ? calculateAnnualTERCost(marketValue, ter) : 0;
 
       return {

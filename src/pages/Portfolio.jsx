@@ -146,8 +146,12 @@ function Portfolio() {
     try {
       console.log('📊 Fetching TERs in background for', tickers.length, 'tickers...');
 
-      // Fetch TERs from API (with cache)
-      const terMap = await getBatchTERWithAPI(tickers);
+      // Fetch TERs from API (with cache) - pass holdings to include ISIN
+      const holdingsWithISIN = holdings
+        .filter(h => !h.isCash)
+        .map(h => ({ ticker: h.ticker, isin: h.isin || null }));
+
+      const terMap = await getBatchTERWithAPI(holdingsWithISIN);
 
       const fetchedCount = Object.values(terMap).filter(ter => ter !== null).length;
       console.log(`✅ Fetched ${fetchedCount}/${tickers.length} TERs from API`);

@@ -195,10 +195,14 @@ export const fetchCryptoMarketData = async (symbol, vsCurrency = 'eur') => {
 
 /**
  * Check if a symbol is a known cryptocurrency
+ * Handles both plain symbols (BTC) and ticker formats (BTC-EUR, BTC-USD)
  * @param {string} symbol - Symbol to check
  * @returns {boolean} True if it's a known crypto
  */
 export const isCrypto = (symbol) => {
-  const upperSymbol = symbol.toUpperCase();
-  return upperSymbol in CRYPTO_ID_MAP;
+  if (!symbol) return false;
+
+  // Extract base symbol (BTC from BTC-EUR, ETH from ETH-USD, etc.)
+  const baseSymbol = symbol.split('-')[0].toUpperCase();
+  return baseSymbol in CRYPTO_ID_MAP;
 };

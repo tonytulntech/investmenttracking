@@ -1,35 +1,17 @@
 /**
  * Price Service
  * Fetches real-time prices from multiple sources:
- * 1. Google Apps Script (primary, most reliable) - for stocks/ETFs only
- * 2. CoinGecko (for cryptocurrencies)
- * 3. Yahoo Finance via CORS proxy (fallback for stocks/ETFs)
+ * 1. CoinGecko (for cryptocurrencies) - fast, reliable, no API key needed
+ * 2. Google Apps Script (for stocks/ETFs) - primary source
+ *
+ * CORS proxy fallback has been removed to eliminate slow page loads and error spam.
+ * If Google Apps Script fails, prices simply won't update (cache is used instead).
  */
 
 import axios from 'axios';
 import { getCachedPrices, cachePrices } from './priceCache';
 import { fetchMultipleCurrentPrices } from './historicalPriceService';
 import { isCrypto } from './coinGecko';
-
-// CORS proxy options
-const CORS_PROXIES = [
-  'https://api.allorigins.win/raw?url=',
-  'https://corsproxy.io/?'
-];
-
-let currentProxyIndex = 0;
-
-/**
- * Get current CORS proxy
- */
-const getCorsProxy = () => CORS_PROXIES[currentProxyIndex];
-
-/**
- * Rotate to next CORS proxy
- */
-const rotateProxy = () => {
-  currentProxyIndex = (currentProxyIndex + 1) % CORS_PROXIES.length;
-};
 
 /**
  * Fetch stock/ETF price from Yahoo Finance with retry logic
@@ -92,12 +74,18 @@ export const fetchStockPrice = async (ticker, retries = 2) => {
 
 /**
  * Fetch cryptocurrency price from CoinGecko (free, no API key needed)
- * @param {string} symbol - Crypto symbol (e.g., 'BTC', 'ETH')
+ * Handles both plain symbols (BTC) and ticker formats (BTC-EUR, ETH-USD)
+ * @param {string} ticker - Crypto ticker (e.g., 'BTC', 'BTC-EUR', 'ETH-USD')
  * @param {string} vsCurrency - Fiat currency to convert to (default: 'eur')
  * @returns {Promise<Object>} Price data
  */
-export const fetchCryptoPrice = async (symbol, vsCurrency = 'eur') => {
+export const fetchCryptoPrice = async (ticker, vsCurrency = 'eur') => {
   try {
+    // Extract base symbol and currency from ticker (BTC-EUR -> BTC, EUR)
+    const parts = ticker.split('-');
+    const baseSymbol = parts[0].toUpperCase();
+    const currency = parts.length > 1 ? parts[1].toLowerCase() : vsCurrency;
+
     const cryptoIdMap = {
       'BTC': 'bitcoin',
       'ETH': 'ethereum',
@@ -113,13 +101,13 @@ export const fetchCryptoPrice = async (symbol, vsCurrency = 'eur') => {
       'XRP': 'ripple'
     };
 
-    const cryptoId = cryptoIdMap[symbol.toUpperCase()] || symbol.toLowerCase();
+    const cryptoId = cryptoIdMap[baseSymbol] || baseSymbol.toLowerCase();
     const url = `https://api.coingecko.com/api/v3/simple/price`;
 
     const response = await axios.get(url, {
       params: {
         ids: cryptoId,
-        vs_currencies: vsCurrency,
+        vs_currencies: currency,
         include_24hr_change: true,
         include_last_updated_at: true
       },
@@ -129,25 +117,26 @@ export const fetchCryptoPrice = async (symbol, vsCurrency = 'eur') => {
     const data = response.data[cryptoId];
 
     if (!data) {
-      throw new Error(`Crypto ${symbol} not found on CoinGecko`);
+      console.warn(`⚠️ Crypto ${ticker} (${cryptoId}) not found on CoinGecko`);
+      return null;
     }
 
-    const price = data[vsCurrency];
-    const changePercent = data[`${vsCurrency}_24h_change`] || 0;
+    const price = data[currency];
+    const changePercent = data[`${currency}_24h_change`] || 0;
     const change = (price * changePercent) / 100;
 
     return {
-      ticker: symbol.toUpperCase(),
+      ticker: ticker.toUpperCase(),
       price: price,
       change: change,
       changePercent: changePercent,
-      currency: vsCurrency.toUpperCase(),
+      currency: currency.toUpperCase(),
       timestamp: new Date(data.last_updated_at * 1000).toISOString(),
       source: 'coingecko',
-      name: symbol.toUpperCase()
+      name: baseSymbol
     };
   } catch (error) {
-    console.error(`Error fetching crypto price for ${symbol}:`, error.message);
+    console.error(`❌ Error fetching crypto price for ${ticker}:`, error.message);
     return null;
   }
 };
@@ -236,35 +225,17 @@ export const fetchMultiplePrices = async (tickers, categoriesMap = {}, forceRefr
 
     // Step 2: Try Google Apps Script for stocks/ETFs only (no crypto!)
     if (stockTickers.length > 0) {
-      console.log('📡 Trying Google Apps Script for stocks/ETFs...');
+      console.log('📡 Fetching stock/ETF prices via Google Apps Script...');
       const googlePrices = await fetchMultipleCurrentPrices(stockTickers);
 
       // Merge Google prices
       pricesMap = { ...pricesMap, ...googlePrices };
 
-      // Check which stock tickers failed
+      // Log failed tickers (but don't retry with CORS proxy to avoid errors)
       const failedStockTickers = stockTickers.filter(ticker => !googlePrices[ticker]);
-
-      // Step 3: Retry failed stock tickers with CORS proxy (fallback)
       if (failedStockTickers.length > 0) {
-        console.log(`⚠️ ${failedStockTickers.length} stocks failed Google Apps Script. Trying CORS proxy...`);
-
-        const fallbackPromises = failedStockTickers.map(ticker =>
-          fetchPrice(ticker, categoriesMap[ticker])
-            .catch(err => ({
-              ticker,
-              error: err.message,
-              price: null
-            }))
-        );
-
-        const fallbackResults = await Promise.all(fallbackPromises);
-
-        fallbackResults.forEach(result => {
-          if (result && result.price) {
-            pricesMap[result.ticker] = result;
-          }
-        });
+        console.warn(`⚠️ ${failedStockTickers.length} stocks failed to fetch:`, failedStockTickers);
+        console.log('💡 Tip: Check if Google Apps Script is running correctly');
       }
     }
 

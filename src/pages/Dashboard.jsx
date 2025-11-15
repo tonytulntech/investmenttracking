@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TrendingUp, TrendingDown, Wallet, DollarSign, BarChart3, RefreshCw, Target, AlertCircle, ArrowDownCircle, ArrowUpCircle, ShoppingCart, Calendar, Clock, Zap } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, AreaChart, Area, XAxis, YAxis, CartesianGrid, BarChart, Bar } from 'recharts';
 import { getTransactions, calculatePortfolio } from '../services/localStorageService';
@@ -13,6 +13,7 @@ const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899'
 function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const fetchingRef = useRef(false); // Prevent duplicate fetches
   const [stats, setStats] = useState({
     totalValue: 0,
     totalCost: 0,
@@ -114,43 +115,54 @@ function Dashboard() {
   };
 
   const fetchLatestPrices = async (forceRefresh = false) => {
-    console.log('🔄 Fetching latest prices...', forceRefresh ? '(FORCED)' : '(auto)');
-    setRefreshing(true);
-
-    // Get all unique tickers from transactions
-    const transactions = getTransactions();
-    const uniqueTickers = new Set();
-    const categoriesMap = {};
-
-    transactions.forEach(tx => {
-      if (!tx.isCash && tx.macroCategory !== 'Cash' && tx.ticker) {
-        uniqueTickers.add(tx.ticker);
-        if (!categoriesMap[tx.ticker]) {
-          categoriesMap[tx.ticker] = tx.macroCategory || tx.category;
-        }
-      }
-    });
-
-    const tickers = Array.from(uniqueTickers);
-
-    if (tickers.length === 0) {
-      console.log('⚠️ No tickers to fetch');
-      setRefreshing(false);
+    // Prevent duplicate fetches
+    if (fetchingRef.current) {
+      console.log('⏸️ Fetch already in progress, skipping...');
       return;
     }
 
-    // Fetch prices (forceRefresh bypasses cache)
-    const prices = await fetchMultiplePrices(tickers, categoriesMap, forceRefresh);
+    fetchingRef.current = true;
+    console.log('🔄 Fetching latest prices...', forceRefresh ? '(FORCED)' : '(auto)');
+    setRefreshing(true);
 
-    // Update price cache
-    const newPriceCache = { ...priceCache, ...prices };
-    setPriceCache(newPriceCache);
+    try {
+      // Get all unique tickers from transactions
+      const transactions = getTransactions();
+      const uniqueTickers = new Set();
+      const categoriesMap = {};
 
-    // Save to localStorage using priceCache service
-    cachePrices(newPriceCache);
-    console.log('💾 Fetched and cached', Object.keys(prices).length, 'prices');
+      transactions.forEach(tx => {
+        if (!tx.isCash && tx.macroCategory !== 'Cash' && tx.ticker) {
+          uniqueTickers.add(tx.ticker);
+          if (!categoriesMap[tx.ticker]) {
+            categoriesMap[tx.ticker] = tx.macroCategory || tx.category;
+          }
+        }
+      });
 
-    setRefreshing(false);
+      const tickers = Array.from(uniqueTickers);
+
+      if (tickers.length === 0) {
+        console.log('⚠️ No tickers to fetch');
+        return;
+      }
+
+      // Fetch prices (forceRefresh bypasses cache)
+      const prices = await fetchMultiplePrices(tickers, categoriesMap, forceRefresh);
+
+      // Update price cache
+      const newPriceCache = { ...priceCache, ...prices };
+      setPriceCache(newPriceCache);
+
+      // Save to localStorage using priceCache service
+      cachePrices(newPriceCache);
+      console.log('💾 Fetched and cached', Object.keys(prices).length, 'prices');
+    } catch (error) {
+      console.error('❌ Error fetching prices:', error);
+    } finally {
+      setRefreshing(false);
+      fetchingRef.current = false;
+    }
   };
 
   // ==============================================

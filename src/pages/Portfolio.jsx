@@ -37,13 +37,23 @@ function Portfolio() {
     // Get TER from most recent transaction
     const mostRecent = tickerTransactions[0];
 
+    console.log(`🔍 TER lookup for ${ticker}:`, {
+      transactionDate: mostRecent.date,
+      ter: mostRecent.ter,
+      terType: typeof mostRecent.ter,
+      allFields: Object.keys(mostRecent)
+    });
+
     // Only return TER if it's explicitly set (not null/undefined)
     // Convert to number if it's a string
     if (mostRecent.ter !== null && mostRecent.ter !== undefined && mostRecent.ter !== '') {
       const terValue = typeof mostRecent.ter === 'string' ? parseFloat(mostRecent.ter) : mostRecent.ter;
-      return !isNaN(terValue) ? terValue : null;
+      const finalTER = !isNaN(terValue) ? terValue : null;
+      console.log(`✅ TER found for ${ticker}: ${finalTER}%`);
+      return finalTER;
     }
 
+    console.log(`❌ No TER found for ${ticker}`);
     return null;
   };
 

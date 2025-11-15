@@ -9,6 +9,29 @@
 // HARDCODED Google Apps Script URL
 const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxOnB9j5LNJrebcBTVbZhQQITv77hCdty5nv-6Oq20ahdEkt9x5R-I5Ci-8s4kQYLIX8Q/exec';
 
+// Timeout for fetch requests (5 seconds)
+const FETCH_TIMEOUT = 5000;
+
+/**
+ * Fetch with timeout to avoid hanging requests
+ * @param {string} url - URL to fetch
+ * @param {number} timeout - Timeout in milliseconds
+ * @returns {Promise<Response>}
+ */
+async function fetchWithTimeout(url, timeout = FETCH_TIMEOUT) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
 /**
  * Fetch historical prices for a ticker from Google Apps Script API
  *
@@ -23,12 +46,11 @@ export async function fetchHistoricalPrices(ticker, startDate, endDate) {
     const url = `${GOOGLE_APPS_SCRIPT_URL}?ticker=${encodeURIComponent(ticker)}&startDate=${startDate}&endDate=${endDate}`;
 
     console.log(`📡 Fetching historical prices for ${ticker} from ${startDate} to ${endDate}`);
-    console.log(`🔗 URL: ${url}`);
 
-    const response = await fetch(url);
+    const response = await fetchWithTimeout(url);
 
     if (!response.ok) {
-      console.error(`API request failed: ${response.status} ${response.statusText}`);
+      console.warn(`⚠️ API request failed for ${ticker}: ${response.status} ${response.statusText}`);
       return [];
     }
 
@@ -36,14 +58,13 @@ export async function fetchHistoricalPrices(ticker, startDate, endDate) {
     console.log(`📦 Response for ${ticker}:`, data);
 
     if (data.error) {
-      console.error(`❌ API returned error for ${ticker}:`, data.error);
+      console.warn(`⚠️ API returned error for ${ticker}:`, data.error);
       return [];
     }
 
     // Check if historicalPrices exists and is an array
     if (!data.historicalPrices || !Array.isArray(data.historicalPrices)) {
-      console.error(`❌ Invalid response format for ${ticker}. Expected {historicalPrices: [...]}, got:`, data);
-      console.error(`❌ Missing historicalPrices array. Did you update your Google Apps Script with the new doGet() function?`);
+      console.warn(`⚠️ Invalid response format for ${ticker}. Expected {historicalPrices: [...]}, got:`, data);
       return [];
     }
 
@@ -52,7 +73,11 @@ export async function fetchHistoricalPrices(ticker, startDate, endDate) {
     return data.historicalPrices;
 
   } catch (error) {
-    console.error(`❌ Error fetching historical prices for ${ticker}:`, error);
+    if (error.name === 'AbortError') {
+      console.warn(`⏱️ Timeout fetching historical prices for ${ticker} (exceeded ${FETCH_TIMEOUT}ms)`);
+    } else {
+      console.warn(`⚠️ Error fetching historical prices for ${ticker}:`, error.message);
+    }
     return [];
   }
 }
@@ -167,17 +192,17 @@ export async function fetchCurrentPrice(ticker) {
 
     console.log(`💰 Fetching current price for ${ticker} via Google Apps Script`);
 
-    const response = await fetch(url);
+    const response = await fetchWithTimeout(url);
 
     if (!response.ok) {
-      console.error(`API request failed: ${response.status} ${response.statusText}`);
+      console.warn(`⚠️ API request failed for ${ticker}: ${response.status} ${response.statusText}`);
       return null;
     }
 
     const data = await response.json();
 
     if (data.error) {
-      console.error(`❌ API returned error for ${ticker}:`, data.error);
+      console.warn(`⚠️ API returned error for ${ticker}:`, data.error);
       return null;
     }
 
@@ -204,11 +229,15 @@ export async function fetchCurrentPrice(ticker) {
       };
     }
 
-    console.error(`❌ No price data found for ${ticker}`);
+    console.warn(`⚠️ No price data found for ${ticker}`);
     return null;
 
   } catch (error) {
-    console.error(`❌ Error fetching current price for ${ticker}:`, error);
+    if (error.name === 'AbortError') {
+      console.warn(`⏱️ Timeout fetching current price for ${ticker}`);
+    } else {
+      console.warn(`⚠️ Error fetching current price for ${ticker}:`, error.message);
+    }
     return null;
   }
 }
@@ -257,10 +286,10 @@ export async function fetchTER(ticker) {
 
     console.log(`📊 Fetching TER for ${ticker} via Google Apps Script`);
 
-    const response = await fetch(url);
+    const response = await fetchWithTimeout(url);
 
     if (!response.ok) {
-      console.error(`API request failed: ${response.status} ${response.statusText}`);
+      console.warn(`⚠️ API request failed for ${ticker}: ${response.status} ${response.statusText}`);
       return null;
     }
 
@@ -284,7 +313,11 @@ export async function fetchTER(ticker) {
     return null;
 
   } catch (error) {
-    console.error(`❌ Error fetching TER for ${ticker}:`, error);
+    if (error.name === 'AbortError') {
+      console.warn(`⏱️ Timeout fetching TER for ${ticker}`);
+    } else {
+      console.warn(`⚠️ Error fetching TER for ${ticker}:`, error.message);
+    }
     return null;
   }
 }

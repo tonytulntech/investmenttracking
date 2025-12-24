@@ -12,6 +12,14 @@ import {
   ArrowDownRight
 } from 'lucide-react';
 
+// Format currency consistently (avoid hydration mismatch)
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+};
+
 // Mock data - will be replaced with real data from Supabase
 const stats = {
   totalValue: 125340.50,
@@ -48,21 +56,21 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 animate-slide-up">
         <StatCard
           title="Portfolio Value"
-          value={`€${stats.totalValue.toLocaleString()}`}
+          value={`€${formatCurrency(stats.totalValue)}`}
           change={stats.dayChangePercent}
           changeLabel="vs yesterday"
           icon={<Wallet className="w-5 h-5 text-emerald-600" />}
         />
         <StatCard
           title="Total P/L"
-          value={`€${stats.totalPnL.toLocaleString()}`}
+          value={`€${formatCurrency(stats.totalPnL)}`}
           change={stats.totalPnLPercent}
           changeLabel="all time"
           icon={<TrendingUp className="w-5 h-5 text-emerald-600" />}
         />
         <StatCard
           title="Day Change"
-          value={`€${stats.dayChange.toLocaleString()}`}
+          value={`€${formatCurrency(stats.dayChange)}`}
           change={stats.dayChangePercent}
           icon={<Activity className="w-5 h-5 text-blue-600" />}
         />
@@ -204,7 +212,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="text-right">
                   <p className="font-semibold text-slate-900">
-                    €{item.value.toLocaleString()}
+                    €{formatCurrency(item.value)}
                   </p>
                   <p className="text-sm text-emerald-600 flex items-center justify-end gap-1">
                     <ArrowUpRight className="w-3 h-3" />
@@ -235,7 +243,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="text-right">
                   <p className="font-semibold text-slate-900">
-                    €{item.value.toLocaleString()}
+                    €{formatCurrency(item.value)}
                   </p>
                   <p className="text-sm text-red-600 flex items-center justify-end gap-1">
                     <ArrowDownRight className="w-3 h-3" />

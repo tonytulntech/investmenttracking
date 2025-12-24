@@ -20,14 +20,15 @@ export const isSupabaseConfigured = () => Boolean(supabaseUrl && supabaseAnonKey
 // Database types (will be expanded as we add tables)
 export interface Holding {
   id: string;
-  user_id: string;
+  user_id?: string | null;
   ticker: string;
   name: string;
-  isin: string;
+  isin?: string;
   shares: number;
   avg_price: number;
   asset_class: 'equity' | 'bond' | 'commodity' | 'crypto' | 'cash';
-  region: string;
+  region?: string;
+  purchase_date?: string;
   created_at: string;
   updated_at: string;
 }

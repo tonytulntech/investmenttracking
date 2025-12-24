@@ -33,10 +33,9 @@ export default function HoldingsPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const handleAddHolding = async (holdingData: any) => {
-    await addHolding({
-      ...holdingData,
-      user_id: '', // Will be set by Supabase RLS or we handle it server-side
-    });
+    // Don't send user_id - we'll handle it when we add auth
+    const { user_id, ...dataWithoutUserId } = holdingData;
+    await addHolding(dataWithoutUserId);
   };
 
   const filteredHoldings = holdings

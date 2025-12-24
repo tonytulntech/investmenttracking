@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Search, Plus, Loader2 } from 'lucide-react';
+import { X, Search, Plus, Loader2, Calendar } from 'lucide-react';
 import { getCachedSearch } from '@/lib/eodhd-cached';
 
 interface AddHoldingModalProps {
@@ -15,6 +15,7 @@ interface AddHoldingModalProps {
     avg_price: number;
     asset_class: 'equity' | 'bond' | 'commodity' | 'crypto' | 'cash';
     region: string;
+    purchase_date: string;
   }) => Promise<void>;
 }
 
@@ -24,6 +25,7 @@ export function AddHoldingModal({ isOpen, onClose, onAdd }: AddHoldingModalProps
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const [selectedAsset, setSelectedAsset] = useState<{
     ticker: string;
@@ -37,17 +39,31 @@ export function AddHoldingModal({ isOpen, onClose, onAdd }: AddHoldingModalProps
     avg_price: '',
     asset_class: 'equity' as const,
     region: 'Global',
+    purchase_date: new Date().toISOString().split('T')[0], // Today's date
   });
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
 
     setSearching(true);
+    setSearchError(null);
     try {
       const results = await getCachedSearch(searchQuery);
-      setSearchResults(results.slice(0, 10)); // Limit to 10 results
+      console.log('[Search] Results:', results);
+
+      if (results.length === 0) {
+        setSearchError('Nessun risultato trovato. Prova con "VWCE", "SPY", "IWDA"...');
+      }
+
+      // Filter to show mainly ETFs and stocks
+      const filtered = results
+        .filter((r: any) => ['ETF', 'Common Stock', 'Stock'].includes(r.Type))
+        .slice(0, 15);
+
+      setSearchResults(filtered.length > 0 ? filtered : results.slice(0, 15));
     } catch (error) {
       console.error('Search error:', error);
+      setSearchError('Errore nella ricerca. Riprova.');
     } finally {
       setSearching(false);
     }
@@ -77,14 +93,15 @@ export function AddHoldingModal({ isOpen, onClose, onAdd }: AddHoldingModalProps
         avg_price: parseFloat(formData.avg_price),
         asset_class: formData.asset_class,
         region: formData.region,
+        purchase_date: formData.purchase_date,
       });
 
       // Reset and close
       resetForm();
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding holding:', error);
-      alert('Errore durante il salvataggio. Riprova.');
+      alert(`Errore: ${error?.message || 'Impossibile salvare. Riprova.'}`);
     } finally {
       setSubmitting(false);
     }
@@ -95,11 +112,13 @@ export function AddHoldingModal({ isOpen, onClose, onAdd }: AddHoldingModalProps
     setSearchQuery('');
     setSearchResults([]);
     setSelectedAsset(null);
+    setSearchError(null);
     setFormData({
       shares: '',
       avg_price: '',
       asset_class: 'equity',
       region: 'Global',
+      purchase_date: new Date().toISOString().split('T')[0],
     });
   };
 
@@ -121,7 +140,7 @@ export function AddHoldingModal({ isOpen, onClose, onAdd }: AddHoldingModalProps
             {step === 'search' ? 'Cerca ETF/Azione' : 'Dettagli Posizione'}
           </h2>
           <button
-            onClick={onClose}
+            onClick={() => { resetForm(); onClose(); }}
             className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
           >
             <X className="w-5 h-5 text-slate-500" />
@@ -138,7 +157,7 @@ export function AddHoldingModal({ isOpen, onClose, onAdd }: AddHoldingModalProps
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Cerca per nome o ticker (es. VWCE, S&P 500)..."
+                    placeholder="Cerca per ticker (VWCE, SPY, IWDA...)"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -154,6 +173,13 @@ export function AddHoldingModal({ isOpen, onClose, onAdd }: AddHoldingModalProps
                   {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Cerca'}
                 </button>
               </div>
+
+              {/* Search error */}
+              {searchError && (
+                <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">
+                  {searchError}
+                </p>
+              )}
 
               {/* Search results */}
               <div className="max-h-80 overflow-y-auto">
@@ -176,21 +202,27 @@ export function AddHoldingModal({ isOpen, onClose, onAdd }: AddHoldingModalProps
                             <p className="text-sm text-slate-500 truncate max-w-[300px]">
                               {result.Name}
                             </p>
+                            {result.ISIN && (
+                              <p className="text-xs text-slate-400 mt-1">
+                                ISIN: {result.ISIN}
+                              </p>
+                            )}
                           </div>
-                          <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            result.Type === 'ETF'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}>
                             {result.Type}
                           </span>
                         </div>
                       </button>
                     ))}
                   </div>
-                ) : searchQuery && !searching ? (
-                  <div className="text-center py-8 text-slate-500">
-                    Nessun risultato. Prova con un altro termine.
-                  </div>
-                ) : (
+                ) : !searchError && !searching && (
                   <div className="text-center py-8 text-slate-400">
-                    Cerca un ETF o azione da aggiungere al portfolio
+                    <p>Cerca un ETF o azione</p>
+                    <p className="text-sm mt-2">Es: VWCE, CSPX, IWDA, SPY, AAPL</p>
                   </div>
                 )}
               </div>
@@ -209,7 +241,7 @@ export function AddHoldingModal({ isOpen, onClose, onAdd }: AddHoldingModalProps
                   }}
                   className="w-full p-3 text-sm text-slate-600 hover:text-emerald-600 transition-colors"
                 >
-                  Oppure inserisci manualmente →
+                  Non trovi l'asset? Inserisci manualmente →
                 </button>
               </div>
             </div>
@@ -288,6 +320,21 @@ export function AddHoldingModal({ isOpen, onClose, onAdd }: AddHoldingModalProps
                     className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                   />
                 </div>
+              </div>
+
+              {/* Date */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <Calendar className="w-4 h-4 inline mr-1" />
+                  Data Acquisto *
+                </label>
+                <input
+                  type="date"
+                  value={formData.purchase_date}
+                  onChange={(e) => setFormData(prev => ({...prev, purchase_date: e.target.value}))}
+                  required
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                />
               </div>
 
               {/* Asset Class & Region */}

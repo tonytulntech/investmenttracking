@@ -239,18 +239,29 @@ export async function getCachedETFFundamentals(ticker: string): Promise<EODHDFun
   return fundamentals;
 }
 
+// Search result type
+export interface EODHDSearchResult {
+  Code: string;
+  Exchange: string;
+  Name: string;
+  Type: string;
+  Country: string;
+  Currency: string;
+  ISIN: string;
+}
+
 // Cached search
-export async function getCachedSearch(query: string) {
+export async function getCachedSearch(query: string): Promise<EODHDSearchResult[]> {
   const cacheKey = `search_${query.toLowerCase()}`;
 
   if (isCacheValid(cacheKey, CACHE_DURATION.SEARCH)) {
     console.log(`[EODHD] Using cached search for ${query}`);
-    return getFromCache(cacheKey) || [];
+    return getFromCache<EODHDSearchResult[]>(cacheKey) || [];
   }
 
   if (!canMakeApiCall()) {
     console.warn('[EODHD] API limit reached');
-    return getFromCache(cacheKey) || [];
+    return getFromCache<EODHDSearchResult[]>(cacheKey) || [];
   }
 
   const results = await searchSymbols(query);

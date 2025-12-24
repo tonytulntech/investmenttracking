@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { X, Search, Plus, Loader2, Calendar } from 'lucide-react';
-import { getCachedSearch } from '@/lib/eodhd-cached';
+import { getCachedSearch, EODHDSearchResult } from '@/lib/eodhd-cached';
 
 interface AddHoldingModalProps {
   isOpen: boolean;
@@ -22,7 +22,7 @@ interface AddHoldingModalProps {
 export function AddHoldingModal({ isOpen, onClose, onAdd }: AddHoldingModalProps) {
   const [step, setStep] = useState<'search' | 'details'>('search');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<EODHDSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export function AddHoldingModal({ isOpen, onClose, onAdd }: AddHoldingModalProps
 
       // Filter to show mainly ETFs and stocks
       const filtered = results
-        .filter((r: any) => ['ETF', 'Common Stock', 'Stock'].includes(r.Type))
+        .filter((r) => ['ETF', 'Common Stock', 'Stock'].includes(r.Type))
         .slice(0, 15);
 
       setSearchResults(filtered.length > 0 ? filtered : results.slice(0, 15));
@@ -69,7 +69,7 @@ export function AddHoldingModal({ isOpen, onClose, onAdd }: AddHoldingModalProps
     }
   };
 
-  const handleSelectAsset = (asset: any) => {
+  const handleSelectAsset = (asset: EODHDSearchResult) => {
     setSelectedAsset({
       ticker: `${asset.Code}.${asset.Exchange}`,
       name: asset.Name,

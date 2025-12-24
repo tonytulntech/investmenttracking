@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { Header } from '@/components/layout/Header';
 import { Card } from '@/components/ui/Card';
 import { WorldHeatMap } from '@/components/charts/WorldHeatMap';
@@ -159,7 +160,7 @@ export default function DashboardPage() {
                   );
                   acc.offset += item.value;
                   return acc;
-                }, { elements: [] as JSX.Element[], offset: 0 }).elements}
+                }, { elements: [] as React.ReactElement[], offset: 0 }).elements}
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-3xl font-bold text-slate-900">€{(totalPortfolio / 1000).toFixed(1)}K</span>

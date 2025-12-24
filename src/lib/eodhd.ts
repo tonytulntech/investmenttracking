@@ -148,7 +148,7 @@ export async function searchSymbols(query: string): Promise<Array<{
   }
 }
 
-// Get multiple quotes at once (for portfolio) - uses bulk real-time endpoint
+// Get multiple quotes at once (for portfolio) - uses server-side API route to avoid CORS
 // This counts as 1 API call regardless of how many tickers
 export async function getBulkQuotes(
   tickers: string[]
@@ -158,12 +158,9 @@ export async function getBulkQuotes(
   if (tickers.length === 0) return results;
 
   try {
-    // EODHD supports comma-separated tickers in real-time endpoint
-    // e.g., /real-time/VWCE.XETRA,CSPX.LSE?api_token=...
+    // Use our API route to avoid CORS issues
     const tickerString = tickers.join(',');
-    const response = await fetch(
-      `${BASE_URL}/real-time/${tickerString}?api_token=${API_KEY}&fmt=json`
-    );
+    const response = await fetch(`/api/quotes?tickers=${encodeURIComponent(tickerString)}`);
 
     if (!response.ok) throw new Error('Failed to fetch bulk quotes');
 

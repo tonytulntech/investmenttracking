@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, type Holding } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured, type Holding } from '@/lib/supabase';
 import { getCachedQuote, getApiUsageStats } from '@/lib/eodhd-cached';
 
 export interface HoldingWithPrice extends Holding {
@@ -142,14 +142,22 @@ export function useHoldings() {
     setError(null);
 
     try {
-      // Try to fetch from Supabase first
-      const { data: dbHoldings, error: dbError } = await supabase
-        .from('holdings')
-        .select('*')
-        .order('created_at', { ascending: false });
+      let dbHoldings: Holding[] | null = null;
 
-      if (dbError) {
-        console.warn('Supabase error:', dbError.message);
+      // Try to fetch from Supabase if configured
+      if (isSupabaseConfigured() && supabase) {
+        const { data, error: dbError } = await supabase
+          .from('holdings')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (dbError) {
+          console.warn('Supabase error:', dbError.message);
+        } else {
+          dbHoldings = data;
+        }
+      } else {
+        console.log('[Holdings] Supabase not configured, using demo mode');
       }
 
       // If no holdings in DB, use mock data for demo
@@ -214,6 +222,8 @@ export function useHoldings() {
 
   // Add a new holding
   const addHolding = async (holding: Omit<Holding, 'id' | 'created_at' | 'updated_at'>) => {
+    if (!supabase) throw new Error('Supabase not configured');
+
     const { data, error } = await supabase
       .from('holdings')
       .insert([holding])
@@ -228,6 +238,8 @@ export function useHoldings() {
 
   // Update a holding
   const updateHolding = async (id: string, updates: Partial<Holding>) => {
+    if (!supabase) throw new Error('Supabase not configured');
+
     const { error } = await supabase
       .from('holdings')
       .update({ ...updates, updated_at: new Date().toISOString() })
@@ -240,6 +252,8 @@ export function useHoldings() {
 
   // Delete a holding
   const deleteHolding = async (id: string) => {
+    if (!supabase) throw new Error('Supabase not configured');
+
     const { error } = await supabase
       .from('holdings')
       .delete()

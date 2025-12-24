@@ -12,11 +12,10 @@ import {
   ChevronDown,
   RefreshCw,
   AlertCircle,
-  Plus
+  Info
 } from 'lucide-react';
 import { useState } from 'react';
 import { useHoldings } from '@/hooks/useHoldings';
-import { AddHoldingModal } from '@/components/holdings/AddHoldingModal';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -26,17 +25,10 @@ const formatCurrency = (value: number) => {
 };
 
 export default function HoldingsPage() {
-  const { holdings, loading, error, totals, apiStats, refetch, addHolding } = useHoldings();
+  const { holdings, loading, error, totals, apiStats, refetch } = useHoldings();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'value' | 'pnl' | 'weight'>('value');
   const [filterAsset, setFilterAsset] = useState<string>('all');
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-
-  const handleAddHolding = async (holdingData: any) => {
-    // Don't send user_id - we'll handle it when we add auth
-    const { user_id, ...dataWithoutUserId } = holdingData;
-    await addHolding(dataWithoutUserId);
-  };
 
   const filteredHoldings = holdings
     .filter(h => {
@@ -60,23 +52,20 @@ export default function HoldingsPage() {
 
         {/* Actions */}
         <div className="flex items-center gap-4">
+          <div className="text-xs text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+            <Info className="w-3 h-3" />
+            Derivati da Transazioni
+          </div>
           <div className="text-xs text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg">
-            API: {apiStats.remaining}/20 calls remaining
+            API: {apiStats.remaining}/20 calls
           </div>
           <button
             onClick={refetch}
             disabled={loading}
             className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
-            title="Refresh data"
+            title="Aggiorna"
           >
             <RefreshCw className={`w-4 h-4 text-slate-600 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors font-medium"
-          >
-            <Plus className="w-4 h-4" />
-            Aggiungi
           </button>
         </div>
       </div>
@@ -266,19 +255,12 @@ export default function HoldingsPage() {
 
             {filteredHoldings.length === 0 && (
               <div className="text-center py-12 text-slate-500">
-                No holdings found
+                Nessun holding trovato. Aggiungi transazioni per vedere i tuoi asset.
               </div>
             )}
           </div>
         )}
       </Card>
-
-      {/* Add Holding Modal */}
-      <AddHoldingModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onAdd={handleAddHolding}
-      />
     </div>
   );
 }

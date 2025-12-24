@@ -8,18 +8,16 @@ import {
   ArrowLeftRight,
   LineChart,
   FlaskConical,
-  Upload,
   Settings,
   TrendingUp
 } from 'lucide-react';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-  { icon: Briefcase, label: 'Portfolio', href: '/portfolio' },
-  { icon: ArrowLeftRight, label: 'Transactions', href: '/transactions' },
-  { icon: LineChart, label: 'Analysis', href: '/analysis' },
-  { icon: FlaskConical, label: 'Backtest', href: '/backtest' },
-  { icon: Upload, label: 'Upload', href: '/upload' },
+  { icon: Briefcase, label: 'Holdings', href: '/dashboard/holdings' },
+  { icon: ArrowLeftRight, label: 'Transactions', href: '/dashboard/transactions' },
+  { icon: FlaskConical, label: 'Backtest', href: '/dashboard/backtesting' },
+  { icon: LineChart, label: 'Analytics', href: '/dashboard/analytics' },
 ];
 
 export function Sidebar() {
@@ -37,7 +35,9 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex flex-col items-center gap-2 flex-1">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = item.href === '/dashboard'
+            ? pathname === '/dashboard'
+            : pathname.startsWith(item.href);
           const Icon = item.icon;
 
           return (

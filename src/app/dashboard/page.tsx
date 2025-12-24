@@ -1,16 +1,10 @@
 'use client';
 
 import { Header } from '@/components/layout/Header';
-import { Card, StatCard } from '@/components/ui/Card';
-import {
-  Wallet,
-  TrendingUp,
-  TrendingDown,
-  Activity,
-  PieChart,
-  ArrowUpRight,
-  ArrowDownRight
-} from 'lucide-react';
+import { Card } from '@/components/ui/Card';
+import { WorldHeatMap } from '@/components/charts/WorldHeatMap';
+import { PortfolioTrendChart } from '@/components/charts/PortfolioTrendChart';
+import { Calendar, MoreVertical } from 'lucide-react';
 
 // Format currency consistently (avoid hydration mismatch)
 const formatCurrency = (value: number) => {
@@ -21,76 +15,131 @@ const formatCurrency = (value: number) => {
 };
 
 // Mock data - will be replaced with real data from Supabase
-const stats = {
-  totalValue: 125340.50,
-  dayChange: 1847.23,
-  dayChangePercent: 1.49,
-  totalPnL: 23450.80,
-  totalPnLPercent: 23.05,
+const portfolioStats = {
+  activeHoldings: { count: 16, value: 125340 },
+  newPositions: { count: 3, value: 8500 },
+  dividends: { count: 12, value: 2450 },
 };
 
-const topPerformers = [
-  { ticker: 'VWCE.XETRA', name: 'Vanguard FTSE All-World', change: 12.5, value: 25340 },
-  { ticker: 'CSPX.LSE', name: 'iShares Core S&P 500', change: 8.3, value: 18920 },
-  { ticker: 'IWDA.LSE', name: 'iShares MSCI World', change: 6.7, value: 32100 },
+// Asset allocation data (for donut chart)
+const assetAllocation = [
+  { name: 'Azionario', value: 65, amount: 81471, color: '#22c55e' },
+  { name: 'Obbligazionario', value: 20, amount: 25068, color: '#f97316' },
+  { name: 'Commodities', value: 10, amount: 12534, color: '#3b82f6' },
+  { name: 'Cash', value: 5, amount: 6267, color: '#8b5cf6' },
 ];
 
-const worstPerformers = [
-  { ticker: 'EIMI.LSE', name: 'iShares EM IMI', change: -4.2, value: 8450 },
-  { ticker: 'AGGH.LSE', name: 'iShares Global Aggregate', change: -2.1, value: 12300 },
+// Geographic allocation (for heat map)
+const geoAllocation = [
+  { name: 'Stati Uniti', code: 'US', value: 56400, percentage: 45 },
+  { name: 'Europa', code: 'EU', value: 31335, percentage: 25 },
+  { name: 'Cina', code: 'CN', value: 12534, percentage: 10 },
+  { name: 'Giappone', code: 'JP', value: 8774, percentage: 7 },
+  { name: 'UK', code: 'UK', value: 6267, percentage: 5 },
+  { name: 'Emergenti', code: 'EM', value: 10030, percentage: 8 },
 ];
 
-const allocations = [
-  { name: 'USA', value: 45, color: '#22c55e' },
-  { name: 'Europe', value: 25, color: '#3b82f6' },
-  { name: 'Asia', value: 20, color: '#f97316' },
-  { name: 'Emerging', value: 10, color: '#8b5cf6' },
+// Portfolio details
+const portfolioDetails = {
+  openedRequests: { label: 'Holdings Attivi', value: 16 },
+  engaged: { label: 'In Profit', value: 75, isPercent: true },
+  sent: { label: 'YTD Return', value: 18.5, isPercent: true },
+};
+
+// Performance breakdown (bar chart data)
+const performanceBreakdown = [
+  { label: 'Q1', positive: 8, negative: 4 },
+  { label: 'Q2', positive: 32, negative: 21 },
+  { label: 'Q3', positive: 60, negative: 57 },
+];
+
+// Portfolio trend data
+const portfolioTrend = [
+  { date: 'Gen', value: 95000 },
+  { date: 'Feb', value: 98000 },
+  { date: 'Mar', value: 102000 },
+  { date: 'Apr', value: 99000 },
+  { date: 'Mag', value: 108000 },
+  { date: 'Giu', value: 112000 },
+  { date: 'Lug', value: 118000 },
+  { date: 'Ago', value: 115000 },
+  { date: 'Set', value: 120000 },
+  { date: 'Ott', value: 122000 },
+  { date: 'Nov', value: 119000 },
+  { date: 'Dic', value: 125340 },
+];
+
+const trendCategories = [
+  { name: 'Azionario', color: '#f97316' },
+  { name: 'Obbligazionario', color: '#22c55e' },
+  { name: 'Totale', color: '#e2e8f0' },
 ];
 
 export default function DashboardPage() {
+  const totalPortfolio = 125340;
+
   return (
     <div className="p-6 max-w-[1600px] mx-auto">
-      <Header title="Welcome back!" subtitle="Your Portfolio Statistics" />
+      {/* Header with Stats */}
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between mb-8 gap-6">
+        <Header title="Welcome back!" subtitle="Your Portfolio Statistics" />
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 animate-slide-up">
-        <StatCard
-          title="Portfolio Value"
-          value={`€${formatCurrency(stats.totalValue)}`}
-          change={stats.dayChangePercent}
-          changeLabel="vs yesterday"
-          icon={<Wallet className="w-5 h-5 text-emerald-600" />}
-        />
-        <StatCard
-          title="Total P/L"
-          value={`€${formatCurrency(stats.totalPnL)}`}
-          change={stats.totalPnLPercent}
-          changeLabel="all time"
-          icon={<TrendingUp className="w-5 h-5 text-emerald-600" />}
-        />
-        <StatCard
-          title="Day Change"
-          value={`€${formatCurrency(stats.dayChange)}`}
-          change={stats.dayChangePercent}
-          icon={<Activity className="w-5 h-5 text-blue-600" />}
-        />
-        <StatCard
-          title="Holdings"
-          value="16 ETFs"
-          icon={<PieChart className="w-5 h-5 text-purple-600" />}
-        />
+        {/* Top Stats - like reference */}
+        <div className="flex gap-8">
+          <div className="text-right">
+            <p className="text-sm text-slate-500">Holdings Attivi</p>
+            <p className="text-3xl font-bold text-slate-900">
+              {portfolioStats.activeHoldings.count}
+              <span className="text-sm font-normal text-slate-400 ml-2">
+                €{(portfolioStats.activeHoldings.value / 1000).toFixed(1)}K
+              </span>
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-slate-500">Nuove Posizioni</p>
+            <p className="text-3xl font-bold text-slate-900">
+              {portfolioStats.newPositions.count}
+              <span className="text-sm font-normal text-slate-400 ml-2">
+                €{(portfolioStats.newPositions.value / 1000).toFixed(1)}K
+              </span>
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-slate-500">Dividendi YTD</p>
+            <p className="text-3xl font-bold text-slate-900">
+              {portfolioStats.dividends.count}
+              <span className="text-sm font-normal text-slate-400 ml-2">
+                €{(portfolioStats.dividends.value / 1000).toFixed(1)}K
+              </span>
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        {/* Allocation Chart */}
-        <Card title="Allocation by Region" className="animate-slide-up">
-          <div className="flex items-center gap-6">
-            {/* Simple Donut representation */}
-            <div className="relative w-32 h-32">
+      {/* Main Grid - 2 columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Left: Asset Allocation Donut */}
+        <Card className="animate-slide-up">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-slate-900">Asset Allocation</h3>
+            <div className="flex items-center gap-2">
+              <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 text-sm text-slate-600 hover:bg-slate-200 transition-colors">
+                <Calendar className="w-4 h-4" />
+                This month
+              </button>
+              <button className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                <MoreVertical className="w-4 h-4 text-slate-400" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-8">
+            {/* Donut Chart */}
+            <div className="relative w-48 h-48">
               <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                {allocations.reduce((acc, item, index) => {
+                {assetAllocation.reduce((acc, item, index) => {
                   const offset = acc.offset;
+                  const dashArray = `${item.value} ${100 - item.value}`;
                   acc.elements.push(
                     <circle
                       key={item.name}
@@ -99,9 +148,13 @@ export default function DashboardPage() {
                       r="14"
                       fill="transparent"
                       stroke={item.color}
-                      strokeWidth="4"
-                      strokeDasharray={`${item.value} ${100 - item.value}`}
+                      strokeWidth="3.5"
+                      strokeDasharray={dashArray}
                       strokeDashoffset={-offset}
+                      className="transition-all duration-500"
+                      style={{
+                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
+                      }}
                     />
                   );
                   acc.offset += item.value;
@@ -109,22 +162,23 @@ export default function DashboardPage() {
                 }, { elements: [] as JSX.Element[], offset: 0 }).elements}
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-xl font-bold text-slate-900">€125K</span>
-                <span className="text-xs text-slate-500">Total</span>
+                <span className="text-3xl font-bold text-slate-900">€{(totalPortfolio / 1000).toFixed(1)}K</span>
+                <span className="text-sm text-slate-500">Totale</span>
               </div>
             </div>
 
-            {/* Legend */}
-            <div className="flex flex-col gap-2">
-              {allocations.map((item) => (
-                <div key={item.name} className="flex items-center gap-2">
+            {/* Legend with values */}
+            <div className="flex flex-col gap-3 flex-1">
+              {assetAllocation.map((item) => (
+                <div key={item.name} className="flex items-center gap-3">
                   <div
-                    className="w-3 h-3 rounded-full"
+                    className="w-3 h-3 rounded-full flex-shrink-0"
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="text-sm text-slate-600">{item.name}</span>
-                  <span className="text-sm font-semibold text-slate-900 ml-auto">
-                    {item.value}%
+                  <span className="text-sm text-slate-600 flex-1">{item.name}</span>
+                  <span className="text-sm text-slate-400">...........</span>
+                  <span className="text-sm font-semibold text-slate-900">
+                    €{(item.amount / 1000).toFixed(1)}K
                   </span>
                 </div>
               ))}
@@ -132,126 +186,101 @@ export default function DashboardPage() {
           </div>
         </Card>
 
-        {/* Quick Stats */}
-        <Card title="Quick Stats" className="animate-slide-up">
-          <div className="space-y-4">
-            <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50">
-              <div>
-                <p className="text-sm text-slate-500">Active Holdings</p>
-                <p className="text-xl font-bold text-slate-900">16</p>
-              </div>
-              <span className="text-sm text-slate-500">€125.3K</span>
-            </div>
-            <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50">
-              <div>
-                <p className="text-sm text-slate-500">This Month</p>
-                <p className="text-xl font-bold text-slate-900">+€3,240</p>
-              </div>
-              <span className="badge-success">+2.6%</span>
-            </div>
-            <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50">
-              <div>
-                <p className="text-sm text-slate-500">YTD Return</p>
-                <p className="text-xl font-bold text-slate-900">+€18,450</p>
-              </div>
-              <span className="badge-success">+17.3%</span>
+        {/* Right: Geographic Heat Map */}
+        <Card className="animate-slide-up">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-slate-900">Map Preview</h3>
+            <div className="flex items-center gap-2">
+              <button className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 text-sm text-slate-600 hover:bg-slate-200 transition-colors">
+                <Calendar className="w-4 h-4" />
+                This month
+              </button>
+              <button className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                <MoreVertical className="w-4 h-4 text-slate-400" />
+              </button>
             </div>
           </div>
-        </Card>
 
-        {/* Recent Activity */}
-        <Card title="Recent Activity" className="animate-slide-up">
-          <div className="space-y-3">
-            {[
-              { type: 'BUY', ticker: 'VWCE', amount: '€500', date: 'Today' },
-              { type: 'DIVIDEND', ticker: 'CSPX', amount: '€23.50', date: 'Yesterday' },
-              { type: 'BUY', ticker: 'IWDA', amount: '€1,000', date: '3 days ago' },
-            ].map((item, index) => (
-              <div key={index} className="flex items-center gap-3 p-3 rounded-xl bg-slate-50">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                  item.type === 'BUY' ? 'bg-emerald-100' : 'bg-blue-100'
-                }`}>
-                  {item.type === 'BUY' ? (
-                    <ArrowDownRight className="w-4 h-4 text-emerald-600" />
-                  ) : (
-                    <ArrowUpRight className="w-4 h-4 text-blue-600" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-900">{item.ticker}</p>
-                  <p className="text-xs text-slate-500">{item.type}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-slate-900">{item.amount}</p>
-                  <p className="text-xs text-slate-500">{item.date}</p>
-                </div>
-              </div>
-            ))}
+          <div className="h-64">
+            <WorldHeatMap
+              data={geoAllocation.map(g => ({ ...g, color: '' }))}
+              total={totalPortfolio}
+            />
           </div>
         </Card>
       </div>
 
-      {/* Bottom Row */}
+      {/* Bottom Grid - 2 columns */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Performers */}
-        <Card title="Top Performers" className="animate-slide-up">
-          <div className="space-y-3">
-            {topPerformers.map((item) => (
-              <div
-                key={item.ticker}
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-                    <TrendingUp className="w-5 h-5 text-emerald-600" />
+        {/* Left: Details / Performance */}
+        <Card className="animate-slide-up">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-slate-900">Details</h3>
+            <button className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+              <MoreVertical className="w-4 h-4 text-slate-400" />
+            </button>
+          </div>
+
+          {/* Top stats row */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div>
+              <p className="text-sm text-slate-500">{portfolioDetails.openedRequests.label}</p>
+              <p className="text-2xl font-bold text-slate-900">{portfolioDetails.openedRequests.value}</p>
+            </div>
+            <div>
+              <p className="text-sm text-slate-500">{portfolioDetails.engaged.label}</p>
+              <p className="text-2xl font-bold text-slate-900">{portfolioDetails.engaged.value}%</p>
+            </div>
+            <div>
+              <p className="text-sm text-slate-500">{portfolioDetails.sent.label}</p>
+              <p className="text-2xl font-bold text-slate-900">{portfolioDetails.sent.value}%</p>
+            </div>
+          </div>
+
+          {/* Performance bars */}
+          <div className="flex items-end justify-between h-32 gap-4">
+            {performanceBreakdown.map((item, index) => (
+              <div key={index} className="flex-1 flex flex-col items-center gap-1">
+                <div className="w-full flex flex-col gap-0.5">
+                  {/* Positive bar */}
+                  <div className="w-full flex justify-center">
+                    <div
+                      className="w-8 rounded-t-lg bg-gradient-to-t from-green-400 to-green-300"
+                      style={{ height: `${item.positive * 1.5}px` }}
+                    />
                   </div>
-                  <div>
-                    <p className="font-semibold text-slate-900">{item.ticker}</p>
-                    <p className="text-xs text-slate-500">{item.name}</p>
+                  {/* Negative bar */}
+                  <div className="w-full flex justify-center">
+                    <div
+                      className="w-8 rounded-b-lg bg-gradient-to-b from-orange-300 to-red-400"
+                      style={{ height: `${item.negative * 1.2}px` }}
+                    />
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold text-slate-900">
-                    €{formatCurrency(item.value)}
-                  </p>
-                  <p className="text-sm text-emerald-600 flex items-center justify-end gap-1">
-                    <ArrowUpRight className="w-3 h-3" />
-                    +{item.change}%
-                  </p>
+                <div className="text-center mt-2">
+                  <p className="text-xs text-emerald-600">{item.positive}%</p>
+                  <p className="text-xs text-red-500">{item.negative}%</p>
                 </div>
+                <p className="text-xs text-slate-500 font-medium">{item.label}</p>
               </div>
             ))}
           </div>
         </Card>
 
-        {/* Worst Performers */}
-        <Card title="Worst Performers" className="animate-slide-up">
-          <div className="space-y-3">
-            {worstPerformers.map((item) => (
-              <div
-                key={item.ticker}
-                className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
-                    <TrendingDown className="w-5 h-5 text-red-600" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-900">{item.ticker}</p>
-                    <p className="text-xs text-slate-500">{item.name}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold text-slate-900">
-                    €{formatCurrency(item.value)}
-                  </p>
-                  <p className="text-sm text-red-600 flex items-center justify-end gap-1">
-                    <ArrowDownRight className="w-3 h-3" />
-                    {item.change}%
-                  </p>
-                </div>
-              </div>
-            ))}
+        {/* Right: Portfolio Trend Chart */}
+        <Card className="animate-slide-up">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-slate-900">Portfolio Trend</h3>
+            <button className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+              <MoreVertical className="w-4 h-4 text-slate-400" />
+            </button>
+          </div>
+
+          <div className="relative">
+            <PortfolioTrendChart
+              data={portfolioTrend}
+              categories={trendCategories}
+            />
           </div>
         </Card>
       </div>

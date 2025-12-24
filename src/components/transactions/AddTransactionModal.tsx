@@ -1,8 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Search, Plus, Loader2, Calendar, ArrowDownLeft, ArrowUpRight, Coins } from 'lucide-react';
-import { getCachedSearch } from '@/lib/eodhd-cached';
+import { X, Search, Loader2, Calendar, ArrowDownLeft, ArrowUpRight, Coins, TrendingUp, Globe } from 'lucide-react';
+
+interface ETFResult {
+  id: string;
+  ticker: string;
+  code: string;
+  exchange: string;
+  name: string;
+  isin: string;
+  type: string;
+  currency: string;
+  asset_class: string;
+  region: string;
+  provider: string;
+  ter: number;
+  distribution: string;
+  exchanges_count: number;
+}
 
 interface AddTransactionModalProps {
   isOpen: boolean;
@@ -25,7 +41,7 @@ interface AddTransactionModalProps {
 export function AddTransactionModal({ isOpen, onClose, onAdd }: AddTransactionModalProps) {
   const [step, setStep] = useState<'search' | 'details'>('search');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<ETFResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -34,6 +50,8 @@ export function AddTransactionModal({ isOpen, onClose, onAdd }: AddTransactionMo
     ticker: string;
     name: string;
     isin: string;
+    asset_class: string;
+    region: string;
   } | null>(null);
 
   const [formData, setFormData] = useState({
@@ -43,27 +61,28 @@ export function AddTransactionModal({ isOpen, onClose, onAdd }: AddTransactionMo
     fees: '0',
     date: new Date().toISOString().split('T')[0],
     notes: '',
-    asset_class: 'equity',
-    region: 'Global',
   });
 
+  // Search local ETF database (zero API calls!)
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
 
     setSearching(true);
     setSearchError(null);
     try {
-      const results = await getCachedSearch(searchQuery);
+      const response = await fetch(`/api/etf/search?q=${encodeURIComponent(searchQuery)}`);
 
-      if (results.length === 0) {
-        setSearchError('Nessun risultato. Prova con "VWCE", "SPY", "IWDA"...');
+      if (!response.ok) {
+        throw new Error('Ricerca fallita');
       }
 
-      const filtered = results
-        .filter((r: any) => ['ETF', 'Common Stock', 'Stock'].includes(r.Type))
-        .slice(0, 15);
+      const results: ETFResult[] = await response.json();
 
-      setSearchResults(filtered.length > 0 ? filtered : results.slice(0, 15));
+      if (results.length === 0) {
+        setSearchError('Nessun risultato. Prova con "VWCE", "CSPX", "IWDA"...');
+      }
+
+      setSearchResults(results);
     } catch (error) {
       setSearchError('Errore nella ricerca. Riprova.');
     } finally {
@@ -71,11 +90,13 @@ export function AddTransactionModal({ isOpen, onClose, onAdd }: AddTransactionMo
     }
   };
 
-  const handleSelectAsset = (asset: any) => {
+  const handleSelectAsset = (etf: ETFResult) => {
     setSelectedAsset({
-      ticker: `${asset.Code}.${asset.Exchange}`,
-      name: asset.Name,
-      isin: asset.ISIN || '',
+      ticker: etf.ticker,
+      name: etf.name,
+      isin: etf.isin,
+      asset_class: etf.asset_class,
+      region: etf.region,
     });
     setStep('details');
   };
@@ -96,8 +117,8 @@ export function AddTransactionModal({ isOpen, onClose, onAdd }: AddTransactionMo
         fees: parseFloat(formData.fees) || 0,
         date: formData.date,
         notes: formData.notes || undefined,
-        asset_class: formData.asset_class,
-        region: formData.region,
+        asset_class: selectedAsset.asset_class,
+        region: selectedAsset.region,
       });
 
       resetForm();
@@ -123,8 +144,6 @@ export function AddTransactionModal({ isOpen, onClose, onAdd }: AddTransactionMo
       fees: '0',
       date: new Date().toISOString().split('T')[0],
       notes: '',
-      asset_class: 'equity',
-      region: 'Global',
     });
   };
 
@@ -136,6 +155,29 @@ export function AddTransactionModal({ isOpen, onClose, onAdd }: AddTransactionMo
     }
   };
 
+  const getExchangeLabel = (exchange: string) => {
+    switch (exchange) {
+      case 'XETRA': return '🇩🇪 Xetra';
+      case 'MI': return '🇮🇹 Milano';
+      case 'LSE': return '🇬🇧 Londra';
+      case 'US': return '🇺🇸 USA';
+      case 'PA': return '🇫🇷 Parigi';
+      case 'AS': return '🇳🇱 Amsterdam';
+      default: return exchange;
+    }
+  };
+
+  const getAssetClassBadge = (assetClass: string) => {
+    const styles: Record<string, string> = {
+      equity: 'bg-blue-100 text-blue-700',
+      bond: 'bg-amber-100 text-amber-700',
+      commodity: 'bg-yellow-100 text-yellow-700',
+      crypto: 'bg-purple-100 text-purple-700',
+      cash: 'bg-slate-100 text-slate-700',
+    };
+    return styles[assetClass] || 'bg-slate-100 text-slate-700';
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -145,7 +187,7 @@ export function AddTransactionModal({ isOpen, onClose, onAdd }: AddTransactionMo
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden">
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <h2 className="text-xl font-semibold text-slate-900">
-            {step === 'search' ? 'Cerca Asset' : 'Nuova Transazione'}
+            {step === 'search' ? 'Cerca ETF' : 'Nuova Transazione'}
           </h2>
           <button
             onClick={() => { resetForm(); onClose(); }}
@@ -158,12 +200,19 @@ export function AddTransactionModal({ isOpen, onClose, onAdd }: AddTransactionMo
         <div className="p-6 max-h-[70vh] overflow-y-auto">
           {step === 'search' ? (
             <div className="space-y-4">
+              {/* Search info */}
+              <div className="flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg">
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>Ricerca locale - nessun consumo API</span>
+              </div>
+
+              {/* Search input */}
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Cerca per ticker (VWCE, SPY, IWDA...)"
+                    placeholder="Cerca per ticker (VWCE, CSPX, IWDA...)"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -184,27 +233,44 @@ export function AddTransactionModal({ isOpen, onClose, onAdd }: AddTransactionMo
                 <p className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg">{searchError}</p>
               )}
 
+              {/* Results */}
               <div className="max-h-80 overflow-y-auto">
                 {searchResults.length > 0 ? (
                   <div className="space-y-2">
-                    {searchResults.map((result, index) => (
+                    {searchResults.map((etf) => (
                       <button
-                        key={index}
-                        onClick={() => handleSelectAsset(result)}
+                        key={etf.id}
+                        onClick={() => handleSelectAsset(etf)}
                         className="w-full p-4 text-left rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition-colors"
                       >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-semibold text-slate-900">
-                              {result.Code}
-                              <span className="text-slate-400 font-normal ml-2">{result.Exchange}</span>
-                            </p>
-                            <p className="text-sm text-slate-500 truncate max-w-[300px]">{result.Name}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-slate-900">{etf.code}</span>
+                              <span className="text-xs text-slate-500">{getExchangeLabel(etf.exchange)}</span>
+                              {etf.type === 'ETF' && (
+                                <span className={`text-xs px-1.5 py-0.5 rounded ${getAssetClassBadge(etf.asset_class)}`}>
+                                  {etf.asset_class}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-slate-500 truncate mt-0.5">{etf.name}</p>
+                            <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400">
+                              {etf.provider && <span>{etf.provider}</span>}
+                              {etf.ter && <span>TER: {(etf.ter * 100).toFixed(2)}%</span>}
+                              {etf.distribution && (
+                                <span className={etf.distribution === 'ACC' ? 'text-blue-500' : 'text-green-500'}>
+                                  {etf.distribution === 'ACC' ? '📈 Acc' : '💰 Dist'}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <span className={`text-xs px-2 py-1 rounded-full ${
-                            result.Type === 'ETF' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                          <span className={`text-xs px-2 py-1 rounded-full shrink-0 ${
+                            etf.type === 'ETF' ? 'bg-emerald-100 text-emerald-700' :
+                            etf.type === 'ETC' ? 'bg-amber-100 text-amber-700' :
+                            'bg-slate-100 text-slate-600'
                           }`}>
-                            {result.Type}
+                            {etf.type}
                           </span>
                         </div>
                       </button>
@@ -212,8 +278,10 @@ export function AddTransactionModal({ isOpen, onClose, onAdd }: AddTransactionMo
                   </div>
                 ) : !searchError && !searching && (
                   <div className="text-center py-8 text-slate-400">
-                    <p>Cerca un ETF o azione</p>
-                    <p className="text-sm mt-2">Es: VWCE, CSPX, IWDA, SPY</p>
+                    <Globe className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p>Cerca un ETF o ETC</p>
+                    <p className="text-sm mt-2">Es: VWCE, CSPX, IWDA, SGLD, EIMI</p>
+                    <p className="text-xs mt-3 text-slate-300">Disponibili sia .XETRA che .MI</p>
                   </div>
                 )}
               </div>
@@ -221,7 +289,7 @@ export function AddTransactionModal({ isOpen, onClose, onAdd }: AddTransactionMo
               <div className="pt-4 border-t border-slate-100">
                 <button
                   onClick={() => {
-                    setSelectedAsset({ ticker: '', name: '', isin: '' });
+                    setSelectedAsset({ ticker: '', name: '', isin: '', asset_class: 'equity', region: 'Global' });
                     setStep('details');
                   }}
                   className="w-full p-3 text-sm text-slate-600 hover:text-emerald-600 transition-colors"
@@ -341,40 +409,6 @@ export function AddTransactionModal({ isOpen, onClose, onAdd }: AddTransactionMo
                   />
                 </div>
               </div>
-
-              {/* Asset Class & Region (only for BUY on new asset) */}
-              {formData.type === 'BUY' && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Asset Class</label>
-                    <select
-                      value={formData.asset_class}
-                      onChange={(e) => setFormData(prev => ({...prev, asset_class: e.target.value}))}
-                      className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                    >
-                      <option value="equity">Azionario</option>
-                      <option value="bond">Obbligazionario</option>
-                      <option value="commodity">Commodities</option>
-                      <option value="crypto">Crypto</option>
-                      <option value="cash">Cash</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Regione</label>
-                    <select
-                      value={formData.region}
-                      onChange={(e) => setFormData(prev => ({...prev, region: e.target.value}))}
-                      className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                    >
-                      <option value="Global">Globale</option>
-                      <option value="USA">USA</option>
-                      <option value="Europe">Europa</option>
-                      <option value="Emerging">Emergenti</option>
-                      <option value="Asia">Asia</option>
-                    </select>
-                  </div>
-                </div>
-              )}
 
               {/* Notes */}
               <div>

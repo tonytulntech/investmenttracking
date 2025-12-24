@@ -1,5 +1,6 @@
 import {
   getQuote,
+  getBulkQuotes,
   getHistoricalPrices,
   getETFFundamentals,
   searchSymbols,
@@ -129,6 +130,57 @@ export async function getCachedQuote(ticker: string): Promise<EODHDQuote | null>
   }
 
   return quote;
+}
+
+// Cached bulk quotes - fetches all tickers in ONE API call
+// Much more efficient for portfolio refresh (1 call instead of N calls)
+export async function getCachedBulkQuotes(
+  tickers: string[]
+): Promise<Record<string, EODHDQuote>> {
+  const results: Record<string, EODHDQuote> = {};
+  const tickersToFetch: string[] = [];
+
+  // Check cache for each ticker
+  for (const ticker of tickers) {
+    const cacheKey = `quote_${ticker}`;
+
+    if (isCacheValid(cacheKey, CACHE_DURATION.QUOTE)) {
+      const cached = getFromCache<EODHDQuote>(cacheKey);
+      if (cached) {
+        results[ticker] = cached;
+        console.log(`[EODHD] Using cached quote for ${ticker}`);
+      }
+    } else {
+      tickersToFetch.push(ticker);
+    }
+  }
+
+  // Fetch uncached tickers in bulk (1 API call)
+  if (tickersToFetch.length > 0) {
+    if (!canMakeApiCall()) {
+      console.warn('[EODHD] API limit reached, using only cached data');
+      // Return whatever we have in cache, even if expired
+      for (const ticker of tickersToFetch) {
+        const cached = getFromCache<EODHDQuote>(`quote_${ticker}`);
+        if (cached) results[ticker] = cached;
+      }
+    } else {
+      console.log(`[EODHD] Fetching ${tickersToFetch.length} quotes in 1 bulk call`);
+      const freshQuotes = await getBulkQuotes(tickersToFetch);
+
+      // Cache each result
+      for (const [ticker, quote] of Object.entries(freshQuotes)) {
+        saveToCache(`quote_${ticker}`, quote);
+        results[ticker] = quote;
+      }
+
+      // Only count as 1 API call since bulk endpoint
+      incrementApiCalls();
+      console.log(`[EODHD] Bulk fetch complete (${getApiCallsToday()}/20 calls today)`);
+    }
+  }
+
+  return results;
 }
 
 // Cached historical prices

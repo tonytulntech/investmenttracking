@@ -148,19 +148,41 @@ export async function searchSymbols(query: string): Promise<Array<{
   }
 }
 
-// Get multiple quotes at once (for portfolio)
+// Get multiple quotes at once (for portfolio) - uses bulk real-time endpoint
+// This counts as 1 API call regardless of how many tickers
 export async function getBulkQuotes(
-  symbols: Array<{ symbol: string; exchange: string }>
+  tickers: string[]
 ): Promise<Record<string, EODHDQuote>> {
   const results: Record<string, EODHDQuote> = {};
 
-  // EODHD doesn't have a bulk endpoint in free tier, so we fetch one by one
-  // In production, you'd want to cache these results
-  for (const { symbol, exchange } of symbols) {
-    const quote = await getQuote(symbol, exchange);
-    if (quote) {
-      results[`${symbol}.${exchange}`] = quote;
+  if (tickers.length === 0) return results;
+
+  try {
+    // EODHD supports comma-separated tickers in real-time endpoint
+    // e.g., /real-time/VWCE.XETRA,CSPX.LSE?api_token=...
+    const tickerString = tickers.join(',');
+    const response = await fetch(
+      `${BASE_URL}/real-time/${tickerString}?api_token=${API_KEY}&fmt=json`
+    );
+
+    if (!response.ok) throw new Error('Failed to fetch bulk quotes');
+
+    const data = await response.json();
+
+    // If single ticker, response is an object. If multiple, it's an array
+    if (Array.isArray(data)) {
+      for (const quote of data) {
+        if (quote.code) {
+          results[quote.code] = quote;
+        }
+      }
+    } else if (data.code) {
+      results[data.code] = data;
     }
+
+    console.log(`[EODHD] Fetched ${Object.keys(results).length} quotes in 1 bulk call`);
+  } catch (error) {
+    console.error('Error fetching bulk quotes:', error);
   }
 
   return results;

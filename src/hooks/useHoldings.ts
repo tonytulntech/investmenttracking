@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured, type Holding } from '@/lib/supabase';
-import { getCachedQuote, getApiUsageStats } from '@/lib/eodhd-cached';
+import { getCachedBulkQuotes, getApiUsageStats } from '@/lib/eodhd-cached';
 
 export interface HoldingWithPrice extends Holding {
   current_price: number;
@@ -173,40 +173,42 @@ export function useHoldings() {
         return;
       }
 
-      // Enrich with current prices from EODHD (cached)
-      const enrichedHoldings: HoldingWithPrice[] = await Promise.all(
-        baseHoldings.map(async (holding) => {
-          const quote = await getCachedQuote(holding.ticker);
+      // Fetch all quotes in ONE bulk API call (much more efficient!)
+      const tickers = baseHoldings.map(h => h.ticker);
+      const quotes = await getCachedBulkQuotes(tickers);
 
-          if (quote) {
-            const currentPrice = quote.close;
-            const value = holding.shares * currentPrice;
-            const cost = holding.shares * holding.avg_price;
-            const pnl = value - cost;
+      // Enrich holdings with prices
+      const enrichedHoldings: HoldingWithPrice[] = baseHoldings.map((holding) => {
+        const quote = quotes[holding.ticker];
 
-            return {
-              ...holding,
-              current_price: currentPrice,
-              value,
-              pnl,
-              pnl_percent: (pnl / cost) * 100,
-              day_change: quote.change,
-              day_change_percent: quote.change_p,
-            };
-          }
+        if (quote) {
+          const currentPrice = quote.close;
+          const value = holding.shares * currentPrice;
+          const cost = holding.shares * holding.avg_price;
+          const pnl = value - cost;
 
-          // Fallback if no quote available
           return {
             ...holding,
-            current_price: holding.avg_price,
-            value: holding.shares * holding.avg_price,
-            pnl: 0,
-            pnl_percent: 0,
-            day_change: 0,
-            day_change_percent: 0,
+            current_price: currentPrice,
+            value,
+            pnl,
+            pnl_percent: cost > 0 ? (pnl / cost) * 100 : 0,
+            day_change: quote.change,
+            day_change_percent: quote.change_p,
           };
-        })
-      );
+        }
+
+        // Fallback if no quote available
+        return {
+          ...holding,
+          current_price: holding.avg_price,
+          value: holding.shares * holding.avg_price,
+          pnl: 0,
+          pnl_percent: 0,
+          day_change: 0,
+          day_change_percent: 0,
+        };
+      });
 
       setHoldings(enrichedHoldings);
       setApiStats(getApiUsageStats());

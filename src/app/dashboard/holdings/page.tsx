@@ -11,10 +11,12 @@ import {
   MoreVertical,
   ChevronDown,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Plus
 } from 'lucide-react';
 import { useState } from 'react';
 import { useHoldings } from '@/hooks/useHoldings';
+import { AddHoldingModal } from '@/components/holdings/AddHoldingModal';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -24,10 +26,18 @@ const formatCurrency = (value: number) => {
 };
 
 export default function HoldingsPage() {
-  const { holdings, loading, error, totals, apiStats, refetch } = useHoldings();
+  const { holdings, loading, error, totals, apiStats, refetch, addHolding } = useHoldings();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'value' | 'pnl' | 'weight'>('value');
   const [filterAsset, setFilterAsset] = useState<string>('all');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  const handleAddHolding = async (holdingData: any) => {
+    await addHolding({
+      ...holdingData,
+      user_id: '', // Will be set by Supabase RLS or we handle it server-side
+    });
+  };
 
   const filteredHoldings = holdings
     .filter(h => {
@@ -49,7 +59,7 @@ export default function HoldingsPage() {
       <div className="flex items-center justify-between mb-6">
         <Header title="Holdings" subtitle="Your ETF Portfolio" />
 
-        {/* API Usage indicator */}
+        {/* Actions */}
         <div className="flex items-center gap-4">
           <div className="text-xs text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg">
             API: {apiStats.remaining}/20 calls remaining
@@ -61,6 +71,13 @@ export default function HoldingsPage() {
             title="Refresh data"
           >
             <RefreshCw className={`w-4 h-4 text-slate-600 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Aggiungi
           </button>
         </div>
       </div>
@@ -256,6 +273,13 @@ export default function HoldingsPage() {
           </div>
         )}
       </Card>
+
+      {/* Add Holding Modal */}
+      <AddHoldingModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onAdd={handleAddHolding}
+      />
     </div>
   );
 }

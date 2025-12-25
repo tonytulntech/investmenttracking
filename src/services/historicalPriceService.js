@@ -104,13 +104,20 @@ export async function fetchHistoricalPrices(ticker, startDate, endDate) {
   // Normalize the ticker first
   const normalizedTicker = normalizeTicker(ticker);
 
-  // Check if it's a cryptocurrency
+  // Try Yahoo Finance first for ALL tickers (including crypto like BTC-EUR, ETH-EUR)
+  // Yahoo Finance supports crypto pairs like BTC-EUR, ETH-EUR, etc.
+  const yahooPrices = await fetchHistoricalPricesFromYahooDirect(normalizedTicker, startDate, endDate);
+  if (yahooPrices && yahooPrices.length > 0) {
+    return yahooPrices;
+  }
+
+  // Fallback to CoinGecko for crypto if Yahoo Finance fails
   if (isCrypto(normalizedTicker)) {
-    console.log(`🪙 ${normalizedTicker} is a cryptocurrency, using CoinGecko API`);
+    console.log(`🪙 ${normalizedTicker} - Yahoo failed, trying CoinGecko API`);
     return await fetchCryptoHistoricalPrices(normalizedTicker, startDate, endDate, 'eur');
   }
 
-  // Otherwise use Google Apps Script (Yahoo Finance)
+  // Fallback to Google Apps Script for traditional assets
   return await fetchHistoricalPricesFromGAS(normalizedTicker, startDate, endDate);
 }
 
@@ -265,25 +272,21 @@ export async function fetchMultipleHistoricalPrices(tickers, startDate, endDate)
     // Remove duplicates after normalization
     const uniqueNormalized = [...new Set(normalizedTickers)];
 
-    // Separate crypto from traditional assets using normalized tickers
-    const cryptoTickers = uniqueNormalized.filter(ticker => isCrypto(ticker));
-    const traditionalTickers = uniqueNormalized.filter(ticker => !isCrypto(ticker));
+    console.log(`📈 Fetching ${uniqueNormalized.length} unique tickers via Yahoo Finance`);
 
-    console.log(`🪙 Crypto tickers (${cryptoTickers.length}): ${cryptoTickers.join(', ')}`);
-    console.log(`📈 Traditional tickers (${traditionalTickers.length}): ${traditionalTickers.join(', ')}`);
+    // Fetch ALL tickers via Yahoo Finance (supports both stocks and crypto like BTC-EUR)
+    const promises = uniqueNormalized.map(ticker =>
+      fetchHistoricalPrices(ticker, startDate, endDate)
+        .then(prices => ({ ticker, prices }))
+    );
 
-    // Fetch in parallel
-    const [cryptoPrices, traditionalPrices] = await Promise.all([
-      // Fetch crypto prices from CoinGecko
-      cryptoTickers.length > 0
-        ? fetchMultipleCryptoHistoricalPrices(cryptoTickers, startDate, endDate, 'eur')
-        : {},
-      // Fetch traditional prices from Google Apps Script (Yahoo Finance)
-      fetchMultipleTraditionalPrices(traditionalTickers, startDate, endDate)
-    ]);
+    const results = await Promise.all(promises);
 
-    // Merge results with normalized ticker keys
-    const normalizedPricesMap = { ...cryptoPrices, ...traditionalPrices };
+    // Build normalized prices map
+    const normalizedPricesMap = {};
+    results.forEach(({ ticker, prices }) => {
+      normalizedPricesMap[ticker] = prices;
+    });
 
     // Map back to original ticker names for backward compatibility
     const pricesMap = {};

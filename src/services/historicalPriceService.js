@@ -1,14 +1,18 @@
 /**
  * Historical Price Service
+ * VERSION: 2025-12-25-v2
  *
  * Fetches historical prices from multiple sources:
- * 1. Google Apps Script API (Yahoo Finance) - for ETFs and stocks
- * 2. CoinGecko API - for cryptocurrencies
+ * 1. Yahoo Finance API (via CORS proxy) - primary for ETFs and stocks
+ * 2. Google Apps Script API - fallback
+ * 3. CoinGecko API - for cryptocurrencies
  *
  * Supports monthly historical data for accurate performance calculations
  */
 
 import { isCrypto, fetchCryptoHistoricalPrices, fetchMultipleCryptoHistoricalPrices } from './coinGecko';
+
+console.log('📦 historicalPriceService.js v2 loaded - using Yahoo Finance direct + CORS proxy');
 
 // HARDCODED Google Apps Script URL
 const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzrNB1TkO1COP5DxUqxlbY-nwEPghn4bNqAgeKCGXHcBnIkXQc69_uCF6oxIX8lRczWDg/exec';

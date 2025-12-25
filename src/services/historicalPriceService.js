@@ -111,7 +111,77 @@ export async function fetchHistoricalPrices(ticker, startDate, endDate) {
 }
 
 /**
- * Fetch historical prices from Google Apps Script API (Yahoo Finance)
+ * Fetch historical prices directly from Yahoo Finance via CORS proxy
+ * This is faster and more reliable than going through Google Apps Script
+ *
+ * @param {string} ticker - Ticker symbol (e.g., 'VWCE.DE', 'SWDA.MI')
+ * @param {string} startDate - Start date in YYYY-MM-DD format
+ * @param {string} endDate - End date in YYYY-MM-DD format
+ * @returns {Promise<Array>} Array of {date, price} objects
+ */
+async function fetchHistoricalPricesFromYahooDirect(ticker, startDate, endDate) {
+  try {
+    // Convert dates to Unix timestamps
+    const startTimestamp = Math.floor(new Date(startDate).getTime() / 1000);
+    const endTimestamp = Math.floor(new Date(endDate).getTime() / 1000) + 86400;
+
+    // Yahoo Finance API v8 endpoint with monthly interval
+    const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?period1=${startTimestamp}&period2=${endTimestamp}&interval=1mo`;
+
+    // Use CORS proxy
+    const corsProxy = 'https://corsproxy.io/?';
+    const url = corsProxy + encodeURIComponent(yahooUrl);
+
+    console.log(`📡 Fetching historical prices for ${ticker} via Yahoo Finance (direct)`);
+
+    const response = await fetchWithTimeout(url, 15000); // 15 second timeout
+
+    if (!response.ok) {
+      console.warn(`⚠️ Yahoo Finance request failed for ${ticker}: ${response.status}`);
+      return null; // Return null to signal fallback needed
+    }
+
+    const data = await response.json();
+
+    if (!data.chart || !data.chart.result || data.chart.result.length === 0) {
+      console.warn(`⚠️ No data returned from Yahoo Finance for ${ticker}`);
+      return null;
+    }
+
+    const result = data.chart.result[0];
+    const timestamps = result.timestamp || [];
+    const quotes = result.indicators.quote[0];
+    const closePrices = quotes.close || [];
+
+    const prices = [];
+
+    for (let i = 0; i < timestamps.length; i++) {
+      const timestamp = timestamps[i];
+      const closePrice = closePrices[i];
+
+      if (timestamp && closePrice && closePrice > 0) {
+        const date = new Date(timestamp * 1000);
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+        prices.push({
+          date: dateStr,
+          price: closePrice
+        });
+      }
+    }
+
+    console.log(`✅ Received ${prices.length} monthly prices from Yahoo Finance for ${ticker}`);
+
+    return prices;
+
+  } catch (error) {
+    console.warn(`⚠️ Error fetching from Yahoo Finance direct for ${ticker}:`, error.message);
+    return null; // Return null to signal fallback needed
+  }
+}
+
+/**
+ * Fetch historical prices - tries Yahoo Finance direct first, then Google Apps Script
  *
  * @param {string} ticker - Ticker symbol (e.g., 'VWCE.DE', 'SWDA.MI')
  * @param {string} startDate - Start date in YYYY-MM-DD format
@@ -119,13 +189,22 @@ export async function fetchHistoricalPrices(ticker, startDate, endDate) {
  * @returns {Promise<Array>} Array of {date, price} objects
  */
 async function fetchHistoricalPricesFromGAS(ticker, startDate, endDate) {
+  // Try Yahoo Finance direct first (faster)
+  const yahooPrices = await fetchHistoricalPricesFromYahooDirect(ticker, startDate, endDate);
+  if (yahooPrices && yahooPrices.length > 0) {
+    return yahooPrices;
+  }
+
+  // Fallback to Google Apps Script
+  console.log(`🔄 Falling back to Google Apps Script for ${ticker}`);
+
   try {
     // Build URL with parameters
     const url = `${GOOGLE_APPS_SCRIPT_URL}?ticker=${encodeURIComponent(ticker)}&startDate=${startDate}&endDate=${endDate}`;
 
-    console.log(`📡 Fetching historical prices for ${ticker} from ${startDate} to ${endDate}`);
+    console.log(`📡 Fetching historical prices for ${ticker} via Google Apps Script`);
 
-    const response = await fetchWithTimeout(url);
+    const response = await fetchWithTimeout(url, 30000); // 30 second timeout for GAS
 
     if (!response.ok) {
       console.warn(`⚠️ API request failed for ${ticker}: ${response.status} ${response.statusText}`);
@@ -133,26 +212,24 @@ async function fetchHistoricalPricesFromGAS(ticker, startDate, endDate) {
     }
 
     const data = await response.json();
-    console.log(`📦 Response for ${ticker}:`, data);
 
     if (data.error) {
       console.warn(`⚠️ API returned error for ${ticker}:`, data.error);
       return [];
     }
 
-    // Check if historicalPrices exists and is an array
     if (!data.historicalPrices || !Array.isArray(data.historicalPrices)) {
-      console.warn(`⚠️ Invalid response format for ${ticker}. Expected {historicalPrices: [...]}, got:`, data);
+      console.warn(`⚠️ Invalid response format for ${ticker}`);
       return [];
     }
 
-    console.log(`✅ Received ${data.historicalPrices.length} historical prices for ${ticker} (source: ${data.source || 'unknown'})`);
+    console.log(`✅ Received ${data.historicalPrices.length} historical prices for ${ticker} (source: GAS)`);
 
     return data.historicalPrices;
 
   } catch (error) {
     if (error.name === 'AbortError') {
-      console.warn(`⏱️ Timeout fetching historical prices for ${ticker} (exceeded ${FETCH_TIMEOUT}ms)`);
+      console.warn(`⏱️ Timeout fetching historical prices for ${ticker}`);
     } else {
       console.warn(`⚠️ Error fetching historical prices for ${ticker}:`, error.message);
     }

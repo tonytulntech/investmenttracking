@@ -1,0 +1,18 @@
+Strategy EUR,,,,,,
+,,,,,,
+,,,,,,"100,02%"
+,Strategy,Macro Asset,Micro Asset,Assets,Ticker,Target %
+,Core,Azionario,Azionario Usa,,BIT:A500,"4,50%"
+,Core,Azionario,Azionario All Country,,BIT:ACWI,"0,01%"
+,Core,Materie Prime,Materie Prime,,BIT:CMOD,"4,00%"
+,Core,Obbligazionario,Obbligazionario Usa Middle Term,,BIT:CSBGU7,"0,01%"
+,Core,Obbligazionario,Obbligazionario Europa Inflazione,,BIT:EMI,"9,00%"
+,Core,Azionario,Azionario Emergenti Ex China,,BIT:EMXC,"9,00%"
+,Core,Azionario,Azionario China,,BIT:LCCN,"4,50%"
+,Core,Materie Prime,Oro,,BIT:PHAU,"9,00%"
+,Core,Azionario,Azionario Mondo Ex Em,,BIT:SWDA,"39,00%"
+,Core,Obbligazionario,Obbligazionario Europa Corporate,,BIT:VECA,"1,00%"
+,YOLO,Cryptovalute,Cryptovalute,,BTCEUR,"16,00%"
+,YOLO,Cryptovalute,Cryptovalute,,ETHEUR,"2,00%"
+,YOLO,Cryptovalute,Cryptovalute,,ADAEUR,1%
+,YOLO,Cryptovalute,Cryptovalute,,SHIB-EUR,"1,00%"

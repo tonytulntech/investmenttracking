@@ -260,7 +260,7 @@ function PAC() {
           ...item,
           modifiedPercentage: pct,
           allocatedAmount: Math.round(allocatedAmount * 100) / 100,
-          quantity: quantity ? Math.round(quantity * 100000) / 100000 : null
+          quantity: quantity ? Math.round(quantity * 100000000) / 100000000 : null
         };
       });
 
@@ -725,7 +725,7 @@ function PAC() {
                               )}
                             </td>
                             <td className="px-3 py-2 text-right font-mono">
-                              {item.quantity ? item.quantity.toFixed(5) : '-'}
+                              {item.quantity ? item.quantity.toFixed(8) : '-'}
                             </td>
                           </tr>
                         ))}

@@ -243,9 +243,9 @@ export const preparePACExecution = async (template, executionDate, modifiedTotal
       originalPercentage: allocation.percentage,
       modifiedPercentage: allocation.percentage,
       allocatedAmount: Math.round(allocatedAmount * 100) / 100,
-      price: price ? Math.round(price * 100) / 100 : null,
+      price: price, // Don't round price - use full precision
       priceSource: priceData?.source || 'unavailable',
-      quantity: quantity ? Math.round(quantity * 100000) / 100000 : null, // 5 decimal places for crypto
+      quantity: quantity ? Math.round(quantity * 100000000) / 100000000 : null, // 8 decimal places (satoshi precision)
       error: price ? null : 'Prezzo non disponibile'
     };
   });

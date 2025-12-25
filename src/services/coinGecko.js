@@ -195,14 +195,150 @@ export const fetchCryptoMarketData = async (symbol, vsCurrency = 'eur') => {
 
 /**
  * Check if a symbol is a known cryptocurrency
- * Handles both plain symbols (BTC) and ticker formats (BTC-EUR, BTC-USD)
+ * Handles both plain symbols (BTC) and ticker formats (BTC-EUR, BTC-USD, BTCEUR)
  * @param {string} symbol - Symbol to check
  * @returns {boolean} True if it's a known crypto
  */
 export const isCrypto = (symbol) => {
   if (!symbol) return false;
 
-  // Extract base symbol (BTC from BTC-EUR, ETH from ETH-USD, etc.)
-  const baseSymbol = symbol.split('-')[0].toUpperCase();
+  // Extract base symbol from various formats
+  // BTC-EUR -> BTC
+  // BTCEUR -> BTC
+  // ETH-USD -> ETH
+  let baseSymbol = symbol.toUpperCase();
+
+  if (baseSymbol.includes('-')) {
+    baseSymbol = baseSymbol.split('-')[0];
+  } else if (baseSymbol.endsWith('EUR') || baseSymbol.endsWith('USD')) {
+    baseSymbol = baseSymbol.replace(/EUR$|USD$/, '');
+  }
+
   return baseSymbol in CRYPTO_ID_MAP;
+};
+
+/**
+ * Extract base crypto symbol from ticker
+ * @param {string} ticker - Ticker like BTC-EUR, BTCEUR, ETH-USD
+ * @returns {string} Base symbol like BTC, ETH
+ */
+export const extractCryptoSymbol = (ticker) => {
+  if (!ticker) return null;
+
+  let baseSymbol = ticker.toUpperCase();
+
+  if (baseSymbol.includes('-')) {
+    baseSymbol = baseSymbol.split('-')[0];
+  } else if (baseSymbol.endsWith('EUR') || baseSymbol.endsWith('USD')) {
+    baseSymbol = baseSymbol.replace(/EUR$|USD$/, '');
+  }
+
+  return baseSymbol;
+};
+
+/**
+ * Fetch historical prices for a cryptocurrency from CoinGecko
+ * Returns monthly prices (one price per month)
+ * @param {string} symbol - Crypto symbol (e.g., 'BTC', 'ETH', 'BTC-EUR')
+ * @param {string} startDate - Start date in YYYY-MM-DD format
+ * @param {string} endDate - End date in YYYY-MM-DD format
+ * @param {string} vsCurrency - Fiat currency (default: 'eur')
+ * @returns {Promise<Array>} Array of {date, price} objects
+ */
+export const fetchCryptoHistoricalPrices = async (symbol, startDate, endDate, vsCurrency = 'eur') => {
+  try {
+    const baseSymbol = extractCryptoSymbol(symbol);
+    const cryptoId = getCryptoId(baseSymbol);
+
+    console.log(`📈 Fetching historical crypto prices for ${baseSymbol} (${cryptoId}) from ${startDate} to ${endDate}`);
+
+    // CoinGecko market_chart/range endpoint
+    // Convert dates to Unix timestamps
+    const startTimestamp = Math.floor(new Date(startDate).getTime() / 1000);
+    const endTimestamp = Math.floor(new Date(endDate).getTime() / 1000);
+
+    const url = `${COINGECKO_API}/coins/${cryptoId}/market_chart/range`;
+
+    const response = await axios.get(url, {
+      params: {
+        vs_currency: vsCurrency,
+        from: startTimestamp,
+        to: endTimestamp
+      },
+      timeout: 15000
+    });
+
+    const prices = response.data.prices; // Array of [timestamp, price]
+
+    if (!prices || prices.length === 0) {
+      console.warn(`⚠️ No historical data from CoinGecko for ${symbol}`);
+      return [];
+    }
+
+    // Group prices by month and take the last price of each month
+    const monthlyPrices = {};
+
+    prices.forEach(([timestamp, price]) => {
+      const date = new Date(timestamp);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+      // Keep the last price of each month
+      monthlyPrices[monthKey] = {
+        date: `${monthKey}-${String(date.getDate()).padStart(2, '0')}`,
+        price: price
+      };
+    });
+
+    // Convert to array sorted by date
+    const result = Object.values(monthlyPrices).sort((a, b) =>
+      new Date(a.date) - new Date(b.date)
+    );
+
+    console.log(`✅ Fetched ${result.length} monthly prices from CoinGecko for ${symbol}`);
+
+    return result;
+
+  } catch (error) {
+    console.error(`Error fetching historical crypto prices for ${symbol}:`, error.message);
+    return [];
+  }
+};
+
+/**
+ * Fetch historical prices for multiple cryptocurrencies
+ * @param {string[]} symbols - Array of crypto symbols/tickers
+ * @param {string} startDate - Start date
+ * @param {string} endDate - End date
+ * @param {string} vsCurrency - Fiat currency
+ * @returns {Promise<Object>} Object mapping symbol to historical prices array
+ */
+export const fetchMultipleCryptoHistoricalPrices = async (symbols, startDate, endDate, vsCurrency = 'eur') => {
+  try {
+    console.log(`📊 Fetching historical prices for ${symbols.length} cryptocurrencies`);
+
+    // CoinGecko has rate limits, so we need to be careful
+    // Free tier: 10-30 calls/minute
+    const results = {};
+
+    for (const symbol of symbols) {
+      try {
+        const prices = await fetchCryptoHistoricalPrices(symbol, startDate, endDate, vsCurrency);
+        results[symbol] = prices;
+
+        // Add a small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 300));
+      } catch (error) {
+        console.warn(`Failed to fetch historical prices for ${symbol}:`, error.message);
+        results[symbol] = [];
+      }
+    }
+
+    console.log(`✅ Fetched historical prices for ${Object.keys(results).length} cryptocurrencies`);
+
+    return results;
+
+  } catch (error) {
+    console.error('Error fetching multiple crypto historical prices:', error);
+    return {};
+  }
 };

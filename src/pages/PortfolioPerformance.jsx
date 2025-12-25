@@ -181,9 +181,15 @@ function PortfolioPerformance() {
             holdings[tx.ticker].totalCost += amount + commission;
             totalInvested += amount + commission;
           } else if (tx.type === 'sell') {
+            // Use average cost method (same as Dashboard) for consistency
+            const avgCostPerUnit = holdings[tx.ticker].quantity > 0
+              ? holdings[tx.ticker].totalCost / holdings[tx.ticker].quantity
+              : 0;
+            const costBasisSold = tx.quantity * avgCostPerUnit;
+
             holdings[tx.ticker].quantity -= tx.quantity;
-            holdings[tx.ticker].totalCost -= amount;
-            totalInvested -= amount - commission;
+            holdings[tx.ticker].totalCost -= costBasisSold;  // Subtract cost basis, not sale price
+            totalInvested -= costBasisSold;  // Track actual cost basis removed
           }
 
           // Update categories from most recent transaction

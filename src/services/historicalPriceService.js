@@ -1,16 +1,20 @@
 /**
  * Historical Price Service
  *
- * Fetches historical prices and current prices from Google Apps Script API
+ * Fetches historical prices from multiple sources:
+ * 1. Google Apps Script API (Yahoo Finance) - for ETFs and stocks
+ * 2. CoinGecko API - for cryptocurrencies
+ *
  * Supports monthly historical data for accurate performance calculations
- * Also provides current price fetching as primary method (faster and more reliable than CORS proxies)
  */
+
+import { isCrypto, fetchCryptoHistoricalPrices, fetchMultipleCryptoHistoricalPrices } from './coinGecko';
 
 // HARDCODED Google Apps Script URL
 const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxOnB9j5LNJrebcBTVbZhQQITv77hCdty5nv-6Oq20ahdEkt9x5R-I5Ci-8s4kQYLIX8Q/exec';
 
-// Timeout for fetch requests (5 seconds)
-const FETCH_TIMEOUT = 5000;
+// Timeout for fetch requests (10 seconds for historical data)
+const FETCH_TIMEOUT = 10000;
 
 /**
  * Fetch with timeout to avoid hanging requests
@@ -33,14 +37,34 @@ async function fetchWithTimeout(url, timeout = FETCH_TIMEOUT) {
 }
 
 /**
- * Fetch historical prices for a ticker from Google Apps Script API
+ * Fetch historical prices for a ticker
+ * Automatically routes to the correct API based on ticker type
  *
- * @param {string} ticker - Ticker symbol (e.g., 'VWCE.DE', 'AAPL')
+ * @param {string} ticker - Ticker symbol (e.g., 'VWCE.DE', 'BTC-EUR')
  * @param {string} startDate - Start date in YYYY-MM-DD format
  * @param {string} endDate - End date in YYYY-MM-DD format
  * @returns {Promise<Array>} Array of {date, price} objects
  */
 export async function fetchHistoricalPrices(ticker, startDate, endDate) {
+  // Check if it's a cryptocurrency
+  if (isCrypto(ticker)) {
+    console.log(`🪙 ${ticker} is a cryptocurrency, using CoinGecko API`);
+    return await fetchCryptoHistoricalPrices(ticker, startDate, endDate, 'eur');
+  }
+
+  // Otherwise use Google Apps Script (Yahoo Finance)
+  return await fetchHistoricalPricesFromGAS(ticker, startDate, endDate);
+}
+
+/**
+ * Fetch historical prices from Google Apps Script API (Yahoo Finance)
+ *
+ * @param {string} ticker - Ticker symbol (e.g., 'VWCE.DE', 'SWDA.MI')
+ * @param {string} startDate - Start date in YYYY-MM-DD format
+ * @param {string} endDate - End date in YYYY-MM-DD format
+ * @returns {Promise<Array>} Array of {date, price} objects
+ */
+async function fetchHistoricalPricesFromGAS(ticker, startDate, endDate) {
   try {
     // Build URL with parameters
     const url = `${GOOGLE_APPS_SCRIPT_URL}?ticker=${encodeURIComponent(ticker)}&startDate=${startDate}&endDate=${endDate}`;
@@ -68,7 +92,7 @@ export async function fetchHistoricalPrices(ticker, startDate, endDate) {
       return [];
     }
 
-    console.log(`✅ Received ${data.historicalPrices.length} historical prices for ${ticker}`);
+    console.log(`✅ Received ${data.historicalPrices.length} historical prices for ${ticker} (source: ${data.source || 'unknown'})`);
 
     return data.historicalPrices;
 
@@ -84,7 +108,7 @@ export async function fetchHistoricalPrices(ticker, startDate, endDate) {
 
 /**
  * Fetch historical prices for multiple tickers
- * Processes in parallel for better performance
+ * Automatically separates crypto from traditional assets
  *
  * @param {Array<string>} tickers - Array of ticker symbols
  * @param {string} startDate - Start date in YYYY-MM-DD format
@@ -95,9 +119,46 @@ export async function fetchMultipleHistoricalPrices(tickers, startDate, endDate)
   try {
     console.log(`📊 Fetching historical prices for ${tickers.length} tickers`);
 
+    // Separate crypto from traditional assets
+    const cryptoTickers = tickers.filter(ticker => isCrypto(ticker));
+    const traditionalTickers = tickers.filter(ticker => !isCrypto(ticker));
+
+    console.log(`🪙 Crypto tickers (${cryptoTickers.length}): ${cryptoTickers.join(', ')}`);
+    console.log(`📈 Traditional tickers (${traditionalTickers.length}): ${traditionalTickers.join(', ')}`);
+
+    // Fetch in parallel
+    const [cryptoPrices, traditionalPrices] = await Promise.all([
+      // Fetch crypto prices from CoinGecko
+      cryptoTickers.length > 0
+        ? fetchMultipleCryptoHistoricalPrices(cryptoTickers, startDate, endDate, 'eur')
+        : {},
+      // Fetch traditional prices from Google Apps Script (Yahoo Finance)
+      fetchMultipleTraditionalPrices(traditionalTickers, startDate, endDate)
+    ]);
+
+    // Merge results
+    const pricesMap = { ...cryptoPrices, ...traditionalPrices };
+
+    console.log(`✅ Fetched historical prices for ${Object.keys(pricesMap).length} tickers`);
+
+    return pricesMap;
+
+  } catch (error) {
+    console.error('Error fetching multiple historical prices:', error);
+    return {};
+  }
+}
+
+/**
+ * Fetch historical prices for traditional assets (ETFs, stocks)
+ */
+async function fetchMultipleTraditionalPrices(tickers, startDate, endDate) {
+  if (tickers.length === 0) return {};
+
+  try {
     // Fetch all tickers in parallel
     const promises = tickers.map(ticker =>
-      fetchHistoricalPrices(ticker, startDate, endDate)
+      fetchHistoricalPricesFromGAS(ticker, startDate, endDate)
         .then(prices => ({ ticker, prices }))
     );
 
@@ -109,12 +170,10 @@ export async function fetchMultipleHistoricalPrices(tickers, startDate, endDate)
       pricesMap[ticker] = prices;
     });
 
-    console.log(`✅ Fetched historical prices for ${Object.keys(pricesMap).length} tickers`);
-
     return pricesMap;
 
   } catch (error) {
-    console.error('Error fetching multiple historical prices:', error);
+    console.error('Error fetching multiple traditional prices:', error);
     return {};
   }
 }
@@ -158,6 +217,7 @@ export function getPriceForMonth(historicalPrices, targetMonth) {
 
 /**
  * Build a price lookup table by month for efficient access
+ * Also fills in gaps with interpolation
  *
  * @param {Array} historicalPrices - Array of {date, price} objects
  * @returns {Object} Object with YYYY-MM keys and price values
@@ -169,11 +229,43 @@ export function buildMonthlyPriceTable(historicalPrices) {
     return table;
   }
 
+  // First pass: add all available prices
   historicalPrices.forEach(item => {
     // Extract YYYY-MM from date
     const month = item.date.substring(0, 7); // "2024-01-15" -> "2024-01"
     table[month] = item.price;
   });
+
+  // Second pass: fill gaps using linear interpolation
+  const months = Object.keys(table).sort();
+
+  if (months.length >= 2) {
+    const firstMonth = months[0];
+    const lastMonth = months[months.length - 1];
+
+    // Generate all months in range
+    const allMonths = [];
+    let current = new Date(firstMonth + '-01');
+    const end = new Date(lastMonth + '-01');
+
+    while (current <= end) {
+      const monthKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`;
+      allMonths.push(monthKey);
+      current.setMonth(current.getMonth() + 1);
+    }
+
+    // Fill gaps
+    let lastKnownPrice = null;
+    allMonths.forEach(month => {
+      if (table[month]) {
+        lastKnownPrice = table[month];
+      } else if (lastKnownPrice) {
+        // Use last known price for missing months
+        table[month] = lastKnownPrice;
+        console.log(`📊 Filled gap for ${month} with price ${lastKnownPrice}`);
+      }
+    });
+  }
 
   return table;
 }
@@ -207,13 +299,16 @@ export async function fetchCurrentPrice(ticker) {
     }
 
     // Check for current price in response
-    if (data.currentPrice) {
-      console.log(`✅ Current price for ${ticker}: ${data.currentPrice}`);
+    if (data.currentPrice || data.price) {
+      const price = data.currentPrice || data.price;
+      console.log(`✅ Current price for ${ticker}: ${price}`);
       return {
         ticker,
-        price: data.currentPrice,
+        price: price,
+        change: data.change || 0,
+        changePercent: data.changePercent || 0,
         timestamp: new Date().toISOString(),
-        source: 'google-apps-script'
+        source: data.source || 'google-apps-script'
       };
     }
 

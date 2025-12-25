@@ -257,18 +257,23 @@ export const fetchCryptoHistoricalPrices = async (symbol, startDate, endDate, vs
     const startTimestamp = Math.floor(new Date(startDate).getTime() / 1000);
     const endTimestamp = Math.floor(new Date(endDate).getTime() / 1000);
 
-    const url = `${COINGECKO_API}/coins/${cryptoId}/market_chart/range`;
+    // Use CORS proxy for browser compatibility
+    const coinGeckoUrl = `${COINGECKO_API}/coins/${cryptoId}/market_chart/range?vs_currency=${vsCurrency}&from=${startTimestamp}&to=${endTimestamp}`;
+    const corsProxy = 'https://corsproxy.io/?';
+    const url = corsProxy + encodeURIComponent(coinGeckoUrl);
 
-    const response = await axios.get(url, {
-      params: {
-        vs_currency: vsCurrency,
-        from: startTimestamp,
-        to: endTimestamp
-      },
-      timeout: 15000
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    const prices = response.data.prices; // Array of [timestamp, price]
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const prices = data.prices; // Array of [timestamp, price]
 
     if (!prices || prices.length === 0) {
       console.warn(`⚠️ No historical data from CoinGecko for ${symbol}`);

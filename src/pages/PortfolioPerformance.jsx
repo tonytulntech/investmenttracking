@@ -232,23 +232,37 @@ function PortfolioPerformance() {
 
             // Improved fallback logic:
             // 1. Use historical price if available for this exact month
-            // 2. Use current price from cache (for very recent months)
-            // 3. Use last known historical price (carry forward last available price)
+            // 2. Use last known historical price (carry forward/backward nearest price)
+            // 3. Use current price from cache ONLY for current month
             // 4. Last resort: use average cost
             const currentPrice = currentPrices[holding.ticker]?.price;
             const avgCost = holding.totalCost / holding.quantity;
-            const price = historicalPrice || currentPrice || lastKnownPrice || avgCost;
+
+            // For current month, prefer currentPrice; for old months, prefer lastKnownPrice
+            const isCurrentMonth = monthKey === format(new Date(), 'yyyy-MM');
+            const price = historicalPrice ||
+                          (isCurrentMonth ? (currentPrice || lastKnownPrice) : (lastKnownPrice || currentPrice)) ||
+                          avgCost;
             const value = holding.quantity * price;
 
             // DEBUG: Enhanced debug logging for problematic months
-            if (monthKey === '2021-02' || monthKey === '2025-11') {
+            if (monthKey === '2021-01' || monthKey === '2021-02') {
+              let fallbackUsed = 'historicalPrice';
+              if (!historicalPrice) {
+                if (isCurrentMonth) {
+                  fallbackUsed = currentPrice ? 'currentPrice' : (lastKnownPrice ? 'lastKnownPrice' : 'avgCost');
+                } else {
+                  fallbackUsed = lastKnownPrice ? 'lastKnownPrice' : (currentPrice ? 'currentPrice' : 'avgCost');
+                }
+              }
               console.log(`🔍 DEBUG ${monthKey} - ${holding.ticker}:`, {
                 historicalPrice,
                 currentPrice,
                 lastKnownPrice,
                 avgCost: avgCost.toFixed(2),
                 finalPrice: price.toFixed(2),
-                fallbackUsed: !historicalPrice ? (currentPrice ? 'currentPrice' : (lastKnownPrice ? 'lastKnownPrice' : 'avgCost')) : 'historicalPrice',
+                isCurrentMonth,
+                fallbackUsed,
                 quantity: holding.quantity,
                 value: value.toFixed(2)
               });

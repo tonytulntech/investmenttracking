@@ -1642,7 +1642,7 @@ function PortfolioPerformance() {
           <div>
             <p className="font-semibold text-green-900">✅ Dati Storici Reali</p>
             <p className="text-sm text-green-700 mt-1">
-              Questa pagina utilizza <strong>prezzi storici reali</strong> recuperati da Google Finance tramite Google Apps Script.
+              Questa pagina utilizza <strong>prezzi storici reali</strong> recuperati da Yahoo Finance.
               I rendimenti sono calcolati con il <strong>metodo Time-Weighted Return</strong>, che esclude correttamente i flussi di cassa (nuovi acquisti/vendite).
               I dati sono aggiornati fino ad <strong>oggi</strong>. Il cash è escluso da tutti i calcoli di performance.
             </p>

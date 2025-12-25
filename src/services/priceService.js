@@ -10,7 +10,7 @@
 
 import axios from 'axios';
 import { getCachedPrices, cachePrices } from './priceCache';
-import { fetchMultipleCurrentPrices } from './historicalPriceService';
+import { fetchMultipleCurrentPrices, normalizeTicker } from './historicalPriceService';
 import { isCrypto } from './coinGecko';
 
 /**
@@ -191,9 +191,18 @@ export const fetchMultiplePrices = async (tickers, categoriesMap = {}, forceRefr
     // Fetch fresh prices
     const uniqueTickers = [...new Set(tickers)];
 
-    // Separate crypto from stocks/ETFs
-    const cryptoTickers = uniqueTickers.filter(ticker => isCrypto(ticker) || categoriesMap[ticker] === 'Crypto');
-    const stockTickers = uniqueTickers.filter(ticker => !isCrypto(ticker) && categoriesMap[ticker] !== 'Crypto');
+    // Normalize tickers and create mapping for backward compatibility
+    const tickerMapping = {}; // originalTicker -> normalizedTicker
+    const normalizedTickers = uniqueTickers.map(ticker => {
+      const normalized = normalizeTicker(ticker);
+      tickerMapping[ticker] = normalized;
+      return normalized;
+    });
+    const uniqueNormalized = [...new Set(normalizedTickers)];
+
+    // Separate crypto from stocks/ETFs using normalized tickers
+    const cryptoTickers = uniqueNormalized.filter(ticker => isCrypto(ticker) || categoriesMap[ticker] === 'Crypto');
+    const stockTickers = uniqueNormalized.filter(ticker => !isCrypto(ticker) && categoriesMap[ticker] !== 'Crypto');
 
     console.log('🔄 Fetching prices - Crypto via CoinGecko, Stocks via Google Apps Script');
     console.log(`📊 ${cryptoTickers.length} crypto, ${stockTickers.length} stocks/ETFs`);
@@ -257,12 +266,20 @@ export const fetchMultiplePrices = async (tickers, categoriesMap = {}, forceRefr
     }
 
     const successCount = Object.keys(pricesMap).length;
-    console.log(`✅ Successfully fetched ${successCount}/${uniqueTickers.length} prices`);
+    console.log(`✅ Successfully fetched ${successCount}/${uniqueNormalized.length} prices`);
 
-    // Cache the results
-    cachePrices(pricesMap);
+    // Map back to original ticker names for backward compatibility
+    const finalPricesMap = {};
+    for (const [originalTicker, normalizedTicker] of Object.entries(tickerMapping)) {
+      if (pricesMap[normalizedTicker]) {
+        finalPricesMap[originalTicker] = pricesMap[normalizedTicker];
+      }
+    }
 
-    return pricesMap;
+    // Cache the results with original ticker names
+    cachePrices(finalPricesMap);
+
+    return finalPricesMap;
   } catch (error) {
     console.error('Error fetching multiple prices:', error);
     return {};

@@ -17,6 +17,57 @@ const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzrNB1Tk
 const FETCH_TIMEOUT = 10000;
 
 /**
+ * Normalize ticker to standard format for Yahoo Finance / CoinGecko
+ * Handles various input formats:
+ * - BIT:A500 → A500.MI (Italian stocks)
+ * - BIT:EMI → EMI.MI
+ * - BTCEUR → BTC-EUR (crypto)
+ * - ETHEUR → ETH-EUR
+ * - Already correct formats pass through unchanged
+ *
+ * @param {string} ticker - Raw ticker symbol
+ * @returns {string} Normalized ticker
+ */
+export function normalizeTicker(ticker) {
+  if (!ticker) return ticker;
+
+  let normalized = ticker.trim().toUpperCase();
+
+  // Handle BIT: prefix (Italian stocks) → convert to .MI suffix
+  if (normalized.startsWith('BIT:')) {
+    normalized = normalized.replace('BIT:', '') + '.MI';
+    console.log(`🔄 Normalized ${ticker} → ${normalized}`);
+    return normalized;
+  }
+
+  // Handle crypto tickers without hyphen (BTCEUR → BTC-EUR)
+  const cryptoPatterns = [
+    { pattern: /^(BTC)(EUR|USD)$/, replace: '$1-$2' },
+    { pattern: /^(ETH)(EUR|USD)$/, replace: '$1-$2' },
+    { pattern: /^(BNB)(EUR|USD)$/, replace: '$1-$2' },
+    { pattern: /^(SOL)(EUR|USD)$/, replace: '$1-$2' },
+    { pattern: /^(ADA)(EUR|USD)$/, replace: '$1-$2' },
+    { pattern: /^(DOT)(EUR|USD)$/, replace: '$1-$2' },
+    { pattern: /^(DOGE)(EUR|USD)$/, replace: '$1-$2' },
+    { pattern: /^(SHIB)(EUR|USD)$/, replace: '$1-$2' },
+    { pattern: /^(XRP)(EUR|USD)$/, replace: '$1-$2' },
+    { pattern: /^(AVAX)(EUR|USD)$/, replace: '$1-$2' },
+    { pattern: /^(MATIC)(EUR|USD)$/, replace: '$1-$2' },
+    { pattern: /^(LINK)(EUR|USD)$/, replace: '$1-$2' },
+  ];
+
+  for (const { pattern, replace } of cryptoPatterns) {
+    if (pattern.test(normalized)) {
+      const newTicker = normalized.replace(pattern, replace);
+      console.log(`🔄 Normalized ${ticker} → ${newTicker}`);
+      return newTicker;
+    }
+  }
+
+  return normalized;
+}
+
+/**
  * Fetch with timeout to avoid hanging requests
  * @param {string} url - URL to fetch
  * @param {number} timeout - Timeout in milliseconds
@@ -46,14 +97,17 @@ async function fetchWithTimeout(url, timeout = FETCH_TIMEOUT) {
  * @returns {Promise<Array>} Array of {date, price} objects
  */
 export async function fetchHistoricalPrices(ticker, startDate, endDate) {
+  // Normalize the ticker first
+  const normalizedTicker = normalizeTicker(ticker);
+
   // Check if it's a cryptocurrency
-  if (isCrypto(ticker)) {
-    console.log(`🪙 ${ticker} is a cryptocurrency, using CoinGecko API`);
-    return await fetchCryptoHistoricalPrices(ticker, startDate, endDate, 'eur');
+  if (isCrypto(normalizedTicker)) {
+    console.log(`🪙 ${normalizedTicker} is a cryptocurrency, using CoinGecko API`);
+    return await fetchCryptoHistoricalPrices(normalizedTicker, startDate, endDate, 'eur');
   }
 
   // Otherwise use Google Apps Script (Yahoo Finance)
-  return await fetchHistoricalPricesFromGAS(ticker, startDate, endDate);
+  return await fetchHistoricalPricesFromGAS(normalizedTicker, startDate, endDate);
 }
 
 /**
@@ -119,9 +173,20 @@ export async function fetchMultipleHistoricalPrices(tickers, startDate, endDate)
   try {
     console.log(`📊 Fetching historical prices for ${tickers.length} tickers`);
 
-    // Separate crypto from traditional assets
-    const cryptoTickers = tickers.filter(ticker => isCrypto(ticker));
-    const traditionalTickers = tickers.filter(ticker => !isCrypto(ticker));
+    // Normalize all tickers first and create mapping
+    const tickerMapping = {}; // originalTicker -> normalizedTicker
+    const normalizedTickers = tickers.map(ticker => {
+      const normalized = normalizeTicker(ticker);
+      tickerMapping[ticker] = normalized;
+      return normalized;
+    });
+
+    // Remove duplicates after normalization
+    const uniqueNormalized = [...new Set(normalizedTickers)];
+
+    // Separate crypto from traditional assets using normalized tickers
+    const cryptoTickers = uniqueNormalized.filter(ticker => isCrypto(ticker));
+    const traditionalTickers = uniqueNormalized.filter(ticker => !isCrypto(ticker));
 
     console.log(`🪙 Crypto tickers (${cryptoTickers.length}): ${cryptoTickers.join(', ')}`);
     console.log(`📈 Traditional tickers (${traditionalTickers.length}): ${traditionalTickers.join(', ')}`);
@@ -136,8 +201,16 @@ export async function fetchMultipleHistoricalPrices(tickers, startDate, endDate)
       fetchMultipleTraditionalPrices(traditionalTickers, startDate, endDate)
     ]);
 
-    // Merge results
-    const pricesMap = { ...cryptoPrices, ...traditionalPrices };
+    // Merge results with normalized ticker keys
+    const normalizedPricesMap = { ...cryptoPrices, ...traditionalPrices };
+
+    // Map back to original ticker names for backward compatibility
+    const pricesMap = {};
+    for (const [originalTicker, normalizedTicker] of Object.entries(tickerMapping)) {
+      if (normalizedPricesMap[normalizedTicker]) {
+        pricesMap[originalTicker] = normalizedPricesMap[normalizedTicker];
+      }
+    }
 
     console.log(`✅ Fetched historical prices for ${Object.keys(pricesMap).length} tickers`);
 

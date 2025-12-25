@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { TrendingUp, LayoutDashboard, Wallet, FileText, Settings, Plus, Target, RefreshCcw, BarChart3, PiggyBank } from 'lucide-react';
+import { TrendingUp, LayoutDashboard, Wallet, FileText, Settings, Plus, Target, RefreshCcw, BarChart3, PiggyBank, CalendarCheck } from 'lucide-react';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -11,6 +11,7 @@ import SettingsPage from './pages/Settings';
 import Strategy from './pages/Strategy';
 import Rebalancing from './pages/Rebalancing';
 import Patrimonio from './pages/Patrimonio';
+import PAC from './pages/PAC';
 
 function App() {
   const location = useLocation();
@@ -21,6 +22,7 @@ function App() {
     { name: 'Performance', href: '/performance', icon: BarChart3 },
     { name: 'Patrimonio', href: '/patrimonio', icon: PiggyBank },
     { name: 'Transazioni', href: '/transactions', icon: FileText },
+    { name: 'PAC', href: '/pac', icon: CalendarCheck },
     { name: 'Strategia', href: '/strategy', icon: Target },
     { name: 'Ribilanciamento', href: '/rebalancing', icon: RefreshCcw },
     { name: 'Impostazioni', href: '/settings', icon: Settings },
@@ -94,6 +96,7 @@ function App() {
             <Route path="/patrimonio" element={<Patrimonio />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/transactions/new" element={<Transactions />} />
+            <Route path="/pac" element={<PAC />} />
             <Route path="/strategy" element={<Strategy />} />
             <Route path="/rebalancing" element={<Rebalancing />} />
             <Route path="/settings" element={<SettingsPage />} />

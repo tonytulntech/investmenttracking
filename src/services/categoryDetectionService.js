@@ -1,0 +1,637 @@
+import axios from 'axios';
+import ASSET_CLASSES from '../config/assetClasses';
+
+/**
+ * Category Detection Service
+ *
+ * Automatically detects MACRO and MICRO asset classes:
+ * - MACRO: ETF, ETC, ETN, Azioni, Obbligazioni, Crypto, Materie Prime, Monetario, Immobiliare, Cash
+ * - MICRO: Specific sub-categories for each macro (e.g., Azionario Mondiale, Bitcoin, BTP Italia)
+ *
+ * Uses pattern matching with 170+ tickers and free APIs when needed
+ */
+
+// Try multiple CORS proxies for better reliability
+const CORS_PROXIES = [
+  'https://corsproxy.io/?',
+  'https://api.allorigins.win/raw?url=',
+  'https://cors-anywhere.herokuapp.com/'
+];
+
+let currentProxyIndex = 0;
+
+function getCorsProxy() {
+  return CORS_PROXIES[currentProxyIndex];
+}
+
+/**
+ * Smart fallback: detect category from ticker name patterns
+ */
+function detectFromTickerName(ticker) {
+  // Normalize ticker: remove suffixes like .DE, .L, -USD, :USD, etc.
+  const t = ticker.toUpperCase()
+    .replace(/\.DE$|\.L$|\.MI$|\.PA$|\.AS$|\.SW$/g, '') // European exchanges
+    .replace(/-USD$|-EUR$|-GBP$|:USD$/g, '') // Currency suffixes
+    .trim();
+
+  // Common ETF patterns (expanded list for European/Italian investors)
+  const patterns = {
+    // === Equity/Azionario - World/Global ===
+    'VWCE': 'Azionario', 'VWRL': 'Azionario', 'SWDA': 'Azionario', 'IWDA': 'Azionario',
+    'IS3N': 'Azionario', 'EUNL': 'Azionario', 'LCWD': 'Azionario', 'VDEV': 'Azionario',
+
+    // === Equity/Azionario - USA ===
+    'SPY': 'Azionario', 'VOO': 'Azionario', 'VTI': 'Azionario', 'VUSA': 'Azionario',
+    'QQQ': 'Azionario', 'CSPX': 'Azionario', 'SXRV': 'Azionario', 'SPPW': 'Azionario',
+    'IVV': 'Azionario', 'VUAA': 'Azionario', 'SXR8': 'Azionario', 'CSSPX': 'Azionario',
+    'VUG': 'Azionario', 'VTV': 'Azionario', 'IWMO': 'Azionario',
+
+    // === Equity/Azionario - Europe ===
+    'VEUR': 'Azionario', 'MEUD': 'Azionario', 'IMEU': 'Azionario', 'EXS1': 'Azionario',
+    'IQQE': 'Azionario', 'EUNK': 'Azionario', 'VJPN': 'Azionario',
+
+    // === Equity/Azionario - Emerging Markets ===
+    'EIMI': 'Azionario', 'IEMM': 'Azionario', 'VFEM': 'Azionario', 'VWO': 'Azionario',
+    'IEEM': 'Azionario', 'AEEM': 'Azionario',
+
+    // === Equity/Azionario - Sectors ===
+    'XLK': 'Azionario', 'VGT': 'Azionario', 'XLF': 'Azionario', 'XLE': 'Azionario',
+    'XLV': 'Azionario', 'XLI': 'Azionario', 'XLP': 'Azionario', 'XLY': 'Azionario',
+    'ICLN': 'Azionario', 'TAN': 'Azionario', 'ESPO': 'Azionario',
+
+    // === Bond/Obbligazionario ===
+    'AGG': 'Obbligazionario', 'BND': 'Obbligazionario', 'TLT': 'Obbligazionario',
+    'VGLT': 'Obbligazionario', 'IBTA': 'Obbligazionario', 'AGGH': 'Obbligazionario',
+    'VWOB': 'Obbligazionario', 'IGLO': 'Obbligazionario', 'IEAG': 'Obbligazionario',
+    'VUCP': 'Obbligazionario', 'GOVI': 'Obbligazionario', 'IBTM': 'Obbligazionario',
+    'IS0J': 'Obbligazionario', 'IS0L': 'Obbligazionario', 'EUNU': 'Obbligazionario',
+
+    // === Commodities/Materie Prime ===
+    'GLD': 'Materie Prime', 'SLV': 'Materie Prime', 'DBC': 'Materie Prime',
+    'IAU': 'Materie Prime', 'GDX': 'Materie Prime', 'USO': 'Materie Prime',
+    'PDBC': 'Materie Prime', 'SGOL': 'Materie Prime', 'GLTR': 'Materie Prime',
+    'COMT': 'Materie Prime', 'GSG': 'Materie Prime',
+
+    // === Real Estate/Immobiliare ===
+    'VNQ': 'Immobiliare', 'VNQI': 'Immobiliare', 'IYR': 'Immobiliare',
+    'RWO': 'Immobiliare', 'REET': 'Immobiliare', 'EPRA': 'Immobiliare',
+
+    // === Balanced/Misto ===
+    'AOR': 'Misto', 'AOM': 'Misto', 'AOA': 'Misto', 'AOK': 'Misto',
+    'VBAL': 'Misto', 'VGRO': 'Misto'
+  };
+
+  // Direct match
+  if (patterns[t]) {
+    console.log(`✓ Matched ticker ${ticker} to ${patterns[t]} via pattern`);
+    return patterns[t];
+  }
+
+  // Keyword matching
+  if (t.includes('WORLD') || t.includes('MSCI') || t.includes('S&P') || t.includes('STOXX')) {
+    return 'Azionario';
+  }
+  if (t.includes('BOND') || t.includes('TREASURY') || t.includes('GILT')) {
+    return 'Obbligazionario';
+  }
+  if (t.includes('GOLD') || t.includes('SILVER') || t.includes('COMMODITY')) {
+    return 'Materie Prime';
+  }
+  if (t.includes('REIT') || t.includes('REAL')) {
+    return 'Immobiliare';
+  }
+
+  return null;
+}
+
+/**
+ * Detect ETF sub-category from Yahoo Finance data
+ */
+async function detectETFSubCategory(ticker) {
+  // First try: Smart fallback based on ticker name
+  const fallbackResult = detectFromTickerName(ticker);
+  if (fallbackResult) {
+    return fallbackResult;
+  }
+
+  try {
+    // Try direct call first (no CORS proxy)
+    const yahooURL = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=fundProfile,assetProfile,price`;
+
+    let response;
+    try {
+      response = await axios.get(yahooURL, { timeout: 10000 });
+    } catch (error) {
+      // If direct call fails, try with CORS proxy
+      console.log('Direct call failed, trying with CORS proxy...');
+      response = await axios.get(getCorsProxy() + encodeURIComponent(yahooURL), { timeout: 10000 });
+    }
+
+    if (response.data && response.data.quoteSummary && response.data.quoteSummary.result) {
+      const result = response.data.quoteSummary.result[0];
+      const fundProfile = result.fundProfile || {};
+      const assetProfile = result.assetProfile || {};
+      const price = result.price || {};
+
+      // Get category from Yahoo
+      const category = fundProfile.categoryName || assetProfile.category || '';
+      const longName = price.longName || price.shortName || '';
+
+      console.log(`ETF ${ticker} - Category: ${category}, Name: ${longName}`);
+
+      // Check for specific types based on category and name
+      const categoryLower = category.toLowerCase();
+      const nameLower = longName.toLowerCase();
+
+      // Money Market / Monetario
+      if (categoryLower.includes('money market') ||
+          nameLower.includes('money market') ||
+          nameLower.includes('cash')) {
+        return 'Monetario';
+      }
+
+      // Bond / Obbligazionario
+      if (categoryLower.includes('bond') ||
+          categoryLower.includes('fixed income') ||
+          categoryLower.includes('obblig') ||
+          nameLower.includes('bond') ||
+          nameLower.includes('treasury') ||
+          nameLower.includes('debt')) {
+        return 'Obbligazionario';
+      }
+
+      // Commodities / Materie Prime
+      if (categoryLower.includes('commodit') ||
+          categoryLower.includes('precious metal') ||
+          categoryLower.includes('gold') ||
+          categoryLower.includes('silver') ||
+          nameLower.includes('gold') ||
+          nameLower.includes('silver') ||
+          nameLower.includes('commodity') ||
+          nameLower.includes('oil') ||
+          nameLower.includes('energy')) {
+        return 'Materie Prime';
+      }
+
+      // Real Estate / Immobiliare
+      if (categoryLower.includes('real estate') ||
+          categoryLower.includes('reit') ||
+          nameLower.includes('reit') ||
+          nameLower.includes('real estate')) {
+        return 'Immobiliare';
+      }
+
+      // Check stock/bond position if available
+      if (fundProfile.stockPosition !== undefined && fundProfile.bondPosition !== undefined) {
+        const stockPos = fundProfile.stockPosition * 100;
+        const bondPos = fundProfile.bondPosition * 100;
+
+        console.log(`Stock: ${stockPos}%, Bond: ${bondPos}%`);
+
+        // Azionario (mostly equity)
+        if (stockPos > 80) {
+          return 'Azionario';
+        }
+
+        // Obbligazionario (mostly bonds)
+        if (bondPos > 80) {
+          return 'Obbligazionario';
+        }
+
+        // Misto (balanced)
+        if (stockPos > 20 && bondPos > 20) {
+          return 'Misto';
+        }
+      }
+
+      // Default: if contains "equity", "stock", "world", "all-world" → Azionario
+      if (categoryLower.includes('equity') ||
+          categoryLower.includes('stock') ||
+          nameLower.includes('equity') ||
+          nameLower.includes('world') ||
+          nameLower.includes('s&p') ||
+          nameLower.includes('msci')) {
+        return 'Azionario';
+      }
+
+      // Fallback
+      return null;
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`Error detecting ETF sub-category for ${ticker}:`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Detect Crypto sub-category from CoinGecko
+ */
+async function detectCryptoSubCategory(symbol) {
+  // Normalize crypto ticker: remove -USD, -EUR, etc.
+  const s = symbol.toUpperCase()
+    .replace(/-USD$|-EUR$|-USDT$|-BUSD$/g, '')
+    .replace(/USD$|EUR$/g, '') // Also remove without dash
+    .trim();
+
+  // Smart fallback for common cryptos (expanded)
+  const cryptoPatterns = {
+    // Bitcoin
+    'BTC': 'Bitcoin', 'BITCOIN': 'Bitcoin', 'XBT': 'Bitcoin',
+
+    // Layer 1
+    'ETH': 'Layer 1', 'ETHEREUM': 'Layer 1',
+    'SOL': 'Layer 1', 'SOLANA': 'Layer 1',
+    'ADA': 'Layer 1', 'CARDANO': 'Layer 1',
+    'AVAX': 'Layer 1', 'AVALANCHE': 'Layer 1',
+    'DOT': 'Layer 1', 'POLKADOT': 'Layer 1',
+    'ATOM': 'Layer 1', 'COSMOS': 'Layer 1',
+    'ALGO': 'Layer 1', 'ALGORAND': 'Layer 1',
+    'NEAR': 'Layer 1', 'TRX': 'Layer 1', 'TRON': 'Layer 1',
+    'APT': 'Layer 1', 'APTOS': 'Layer 1',
+    'SUI': 'Layer 1',
+
+    // Layer 2
+    'MATIC': 'Layer 2', 'POLYGON': 'Layer 2',
+    'ARB': 'Layer 2', 'ARBITRUM': 'Layer 2',
+    'OP': 'Layer 2', 'OPTIMISM': 'Layer 2',
+    'IMX': 'Layer 2', 'IMMUTABLE': 'Layer 2',
+    'LRC': 'Layer 2', 'LOOPRING': 'Layer 2',
+
+    // Stablecoins
+    'USDT': 'Stablecoin', 'TETHER': 'Stablecoin',
+    'USDC': 'Stablecoin', 'DAI': 'Stablecoin',
+    'BUSD': 'Stablecoin', 'TUSD': 'Stablecoin',
+    'USDD': 'Stablecoin', 'FRAX': 'Stablecoin',
+    'USDP': 'Stablecoin', 'GUSD': 'Stablecoin',
+    'LUSD': 'Stablecoin', 'SUSD': 'Stablecoin',
+
+    // Meme Coins
+    'DOGE': 'Meme Coin', 'DOGECOIN': 'Meme Coin',
+    'SHIB': 'Meme Coin', 'SHIBA': 'Meme Coin',
+    'PEPE': 'Meme Coin', 'FLOKI': 'Meme Coin',
+    'BONK': 'Meme Coin', 'WIF': 'Meme Coin',
+    'MEME': 'Meme Coin', 'ELON': 'Meme Coin',
+
+    // DeFi
+    'UNI': 'DeFi', 'UNISWAP': 'DeFi',
+    'AAVE': 'DeFi', 'COMP': 'DeFi', 'COMPOUND': 'DeFi',
+    'MKR': 'DeFi', 'MAKER': 'DeFi',
+    'SUSHI': 'DeFi', 'SUSHISWAP': 'DeFi',
+    'CRV': 'DeFi', 'CURVE': 'DeFi',
+    'SNX': 'DeFi', 'SYNTHETIX': 'DeFi',
+    'LINK': 'DeFi', 'CHAINLINK': 'DeFi',
+    'LDO': 'DeFi', 'LIDO': 'DeFi',
+    'CAKE': 'DeFi', 'PANCAKESWAP': 'DeFi',
+    'GMX': 'DeFi', 'DYDX': 'DeFi',
+
+    // Exchange Tokens
+    'BNB': 'Alt Coin', 'BINANCE': 'Alt Coin',
+    'FTT': 'Alt Coin', 'CRO': 'Alt Coin', 'CRONOS': 'Alt Coin',
+    'OKB': 'Alt Coin', 'HT': 'Alt Coin',
+
+    // Popular Alt Coins
+    'XRP': 'Alt Coin', 'RIPPLE': 'Alt Coin',
+    'LTC': 'Alt Coin', 'LITECOIN': 'Alt Coin',
+    'BCH': 'Alt Coin', 'BITCOINCASH': 'Alt Coin',
+    'XLM': 'Alt Coin', 'STELLAR': 'Alt Coin',
+    'XMR': 'Alt Coin', 'MONERO': 'Alt Coin',
+    'VET': 'Alt Coin', 'VECHAIN': 'Alt Coin',
+    'FIL': 'Alt Coin', 'FILECOIN': 'Alt Coin',
+    'ETC': 'Alt Coin', 'ETHEREUMCLASSIC': 'Alt Coin',
+    'HBAR': 'Alt Coin', 'HEDERA': 'Alt Coin',
+    'ICP': 'Alt Coin', 'INTERNET': 'Alt Coin',
+    'APE': 'Alt Coin', 'SAND': 'Alt Coin', 'MANA': 'Alt Coin',
+    'AXS': 'Alt Coin', 'GALA': 'Alt Coin'
+  };
+
+  if (cryptoPatterns[s]) {
+    console.log(`✓ Matched crypto ${symbol} to ${cryptoPatterns[s]} via pattern`);
+    return cryptoPatterns[s];
+  }
+
+  try {
+    // First search for the coin
+    const searchUrl = `https://api.coingecko.com/api/v3/search?query=${symbol}`;
+    const searchResponse = await axios.get(searchUrl, { timeout: 10000 });
+
+    if (searchResponse.data && searchResponse.data.coins && searchResponse.data.coins.length > 0) {
+      const coin = searchResponse.data.coins[0];
+      const coinId = coin.id;
+
+      // Get detailed coin data
+      const detailUrl = `https://api.coingecko.com/api/v3/coins/${coinId}`;
+      const detailResponse = await axios.get(detailUrl, { timeout: 10000 });
+
+      if (detailResponse.data) {
+        const categories = detailResponse.data.categories || [];
+        const symbol = detailResponse.data.symbol?.toUpperCase() || '';
+        const name = detailResponse.data.name?.toLowerCase() || '';
+
+        console.log(`Crypto ${symbol} - Categories:`, categories);
+
+        // Bitcoin
+        if (symbol === 'BTC' || coinId === 'bitcoin') {
+          return 'Bitcoin';
+        }
+
+        // Ethereum (treat as Layer 1)
+        if (symbol === 'ETH' || coinId === 'ethereum') {
+          return 'Layer 1';
+        }
+
+        // Check categories from CoinGecko
+        const categoryStr = categories.join(' ').toLowerCase();
+
+        // Stablecoin
+        if (categoryStr.includes('stablecoin') ||
+            name.includes('usd') ||
+            name.includes('tether') ||
+            name.includes('usdc') ||
+            name.includes('dai')) {
+          return 'Stablecoin';
+        }
+
+        // DeFi
+        if (categoryStr.includes('decentralized finance') ||
+            categoryStr.includes('defi') ||
+            categoryStr.includes('lending') ||
+            categoryStr.includes('dex')) {
+          return 'DeFi';
+        }
+
+        // Layer 1
+        if (categoryStr.includes('layer 1') ||
+            categoryStr.includes('smart contract platform') ||
+            categoryStr.includes('blockchain platform')) {
+          return 'Layer 1';
+        }
+
+        // Layer 2
+        if (categoryStr.includes('layer 2') ||
+            categoryStr.includes('scaling') ||
+            categoryStr.includes('rollup')) {
+          return 'Layer 2';
+        }
+
+        // Meme Coin
+        if (categoryStr.includes('meme') ||
+            name.includes('doge') ||
+            name.includes('shib') ||
+            name.includes('pepe') ||
+            name.includes('floki')) {
+          return 'Meme Coin';
+        }
+
+        // Default: Alt Coin
+        return 'Alt Coin';
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`Error detecting crypto sub-category for ${symbol}:`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Detect Stock sub-category from Yahoo Finance (market cap)
+ */
+async function detectStockSubCategory(ticker) {
+  try {
+    const yahooURL = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=price,summaryDetail`;
+    const response = await axios.get(CORS_PROXY + encodeURIComponent(yahooURL), { timeout: 10000 });
+
+    if (response.data && response.data.quoteSummary && response.data.quoteSummary.result) {
+      const result = response.data.quoteSummary.result[0];
+      const summaryDetail = result.summaryDetail || {};
+      const price = result.price || {};
+
+      // Get market cap
+      const marketCap = summaryDetail.marketCap?.raw || price.marketCap?.raw || 0;
+
+      console.log(`Stock ${ticker} - Market Cap: $${(marketCap / 1e9).toFixed(2)}B`);
+
+      // Classification based on market cap (in USD)
+      if (marketCap > 10e9) {
+        return 'Large Cap'; // > $10 billion
+      } else if (marketCap > 2e9) {
+        return 'Mid Cap'; // $2-10 billion
+      } else if (marketCap > 0) {
+        return 'Small Cap'; // < $2 billion
+      }
+
+      return null;
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`Error detecting stock sub-category for ${ticker}:`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Detect Bond sub-category from Yahoo Finance
+ */
+async function detectBondSubCategory(ticker) {
+  try {
+    const yahooURL = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=assetProfile,price`;
+    const response = await axios.get(CORS_PROXY + encodeURIComponent(yahooURL), { timeout: 10000 });
+
+    if (response.data && response.data.quoteSummary && response.data.quoteSummary.result) {
+      const result = response.data.quoteSummary.result[0];
+      const assetProfile = result.assetProfile || {};
+      const price = result.price || {};
+
+      const longName = price.longName || price.shortName || '';
+      const nameLower = longName.toLowerCase();
+
+      // Government bonds
+      if (nameLower.includes('treasury') ||
+          nameLower.includes('government') ||
+          nameLower.includes('sovereign') ||
+          nameLower.includes('btp') ||
+          nameLower.includes('bund')) {
+        return 'Governativi';
+      }
+
+      // Corporate bonds
+      if (nameLower.includes('corporate') ||
+          nameLower.includes('company')) {
+        return 'Corporativi';
+      }
+
+      // High yield
+      if (nameLower.includes('high yield') ||
+          nameLower.includes('junk')) {
+        return 'High Yield';
+      }
+
+      // Municipal
+      if (nameLower.includes('municipal') ||
+          nameLower.includes('muni')) {
+        return 'Municipali';
+      }
+
+      // Default corporate
+      return 'Corporativi';
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`Error detecting bond sub-category for ${ticker}:`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Main function: Auto-detect sub-category for any asset
+ *
+ * @param {string} ticker - Asset ticker/symbol
+ * @param {string} category - Main category (ETF, Crypto, Stock, Bond, etc.)
+ * @returns {Promise<string|null>} Detected sub-category or null
+ */
+export async function detectSubCategory(ticker, category) {
+  try {
+    console.log(`Auto-detecting sub-category for ${ticker} (${category})...`);
+
+    switch (category) {
+      case 'Azioni':
+        // Try ETF detection first (could be equity ETF), then stock detection
+        const etfAzioni = await detectETFSubCategory(ticker);
+        if (etfAzioni && etfAzioni === 'Azionario') {
+          return 'Azionario (ETF)';
+        }
+        return await detectStockSubCategory(ticker) || 'Azioni';
+
+      case 'Obbligazioni':
+        // Try ETF detection first (could be bond ETF), then bond detection
+        const etfObbligazioni = await detectETFSubCategory(ticker);
+        if (etfObbligazioni && etfObbligazioni === 'Obbligazionario') {
+          return 'Obbligazionario (ETF)';
+        }
+        return await detectBondSubCategory(ticker) || 'Obbligazioni';
+
+      case 'Materie Prime':
+        // Try ETF detection (commodity ETFs)
+        const etfMateriePrime = await detectETFSubCategory(ticker);
+        if (etfMateriePrime && etfMateriePrime === 'Materie Prime') {
+          return 'Materie Prime (ETF)';
+        }
+        return 'Materie Prime';
+
+      case 'Crypto':
+        return await detectCryptoSubCategory(ticker);
+
+      case 'Liquidità':
+        return 'Conto Corrente';
+
+      case 'Altro':
+        return null;
+
+      // Backward compatibility with old categories
+      case 'ETF':
+        return await detectETFSubCategory(ticker);
+      case 'Stock':
+        return await detectStockSubCategory(ticker);
+      case 'Bond':
+        return await detectBondSubCategory(ticker);
+      case 'Cash':
+        return 'Conto Corrente';
+
+      default:
+        return null;
+    }
+  } catch (error) {
+    console.error(`Error in detectSubCategory for ${ticker}:`, error);
+    return null;
+  }
+}
+
+/**
+ * NEW: Detect both MACRO and MICRO asset classes automatically from ticker
+ * Returns: { macroCategory, microCategory }
+ */
+export async function detectMacroAndMicro(ticker) {
+  try {
+    console.log(`Auto-detecting MACRO + MICRO for ticker: ${ticker}`);
+
+    const normalizedTicker = ticker.toUpperCase()
+      .replace(/\.DE$|\.L$|\.MI$|\.PA$|\.AS$|\.SW$/g, '')
+      .replace(/-USD$|-EUR$|-GBP$|:USD$/g, '')
+      .trim();
+
+    // Check each MACRO category's MICRO categories for ticker patterns
+    for (const [macroKey, config] of Object.entries(ASSET_CLASSES)) {
+      const microCategories = config.microCategories;
+
+      for (const [microKey, tickers] of Object.entries(microCategories)) {
+        if (tickers && tickers.some(t => {
+          const normalized = t.toUpperCase()
+            .replace(/\.DE$|\.L$|\.MI$|\.PA$|\.AS$|\.SW$/g, '')
+            .replace(/-USD$|-EUR$|-GBP$|:USD$/g, '')
+            .trim();
+          return normalizedTicker === normalized || ticker.toUpperCase().includes(normalized);
+        })) {
+          console.log(`✓ Matched ${ticker} to MACRO: ${macroKey}, MICRO: ${microKey}`);
+          return {
+            macroCategory: macroKey,
+            microCategory: microKey
+          };
+        }
+      }
+    }
+
+    // Fallback: detect macro from general patterns
+    const macro = detectMacroFromPattern(normalizedTicker);
+    if (macro) {
+      console.log(`✓ Detected MACRO: ${macro} for ${ticker} (no specific MICRO found)`);
+      return {
+        macroCategory: macro,
+        microCategory: null
+      };
+    }
+
+    console.log(`⚠️ Could not detect categories for ${ticker}`);
+    return { macroCategory: null, microCategory: null };
+  } catch (error) {
+    console.error(`Error detecting categories for ${ticker}:`, error);
+    return { macroCategory: null, microCategory: null };
+  }
+}
+
+/**
+ * Helper: Detect MACRO category from ticker pattern
+ */
+function detectMacroFromPattern(ticker) {
+  const t = ticker.toUpperCase();
+
+  // Crypto patterns
+  if (/^(BTC|ETH|SOL|ADA|DOT|USDT|USDC|DOGE|SHIB|MATIC|LINK|UNI|AAVE)/i.test(t)) {
+    return 'Crypto';
+  }
+
+  // ETF patterns (3-4 letter codes)
+  if (/^[A-Z]{3,4}$/.test(t) && !['BTC', 'ETH', 'SOL', 'ADA'].includes(t)) {
+    return 'ETF';
+  }
+
+  // ETC/Commodities
+  if (/^(GLD|SLV|USO|UNG|DBC|GSG)/.test(t)) {
+    return 'ETC';
+  }
+
+  return null;
+}
+
+export default {
+  detectSubCategory,
+  detectETFSubCategory,
+  detectCryptoSubCategory,
+  detectStockSubCategory,
+  detectBondSubCategory,
+  detectMacroAndMicro
+};

@@ -11,7 +11,7 @@
 import { isCrypto, fetchCryptoHistoricalPrices, fetchMultipleCryptoHistoricalPrices } from './coinGecko';
 
 // HARDCODED Google Apps Script URL
-const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxOnB9j5LNJrebcBTVbZhQQITv77hCdty5nv-6Oq20ahdEkt9x5R-I5Ci-8s4kQYLIX8Q/exec';
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzrNB1TkO1COP5DxUqxlbY-nwEPghn4bNqAgeKCGXHcBnIkXQc69_uCF6oxIX8lRczWDg/exec';
 
 // Timeout for fetch requests (10 seconds for historical data)
 const FETCH_TIMEOUT = 10000;

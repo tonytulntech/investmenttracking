@@ -210,16 +210,23 @@ function PortfolioPerformance() {
             const priceTable = priceTables[holding.ticker] || {};
             const historicalPrice = priceTable[monthKey];
 
-            // NEW: Get last available historical price as better fallback
+            // NEW: Get nearest available historical price as better fallback
             let lastKnownPrice = null;
             if (!historicalPrice && Object.keys(priceTable).length > 0) {
-              const availableMonths = Object.keys(priceTable).sort().reverse(); // Sort in descending order
-              // Find the most recent month that's before or equal to current month
-              for (const availableMonth of availableMonths) {
-                if (availableMonth <= monthKey) {
-                  lastKnownPrice = priceTable[availableMonth];
+              const availableMonths = Object.keys(priceTable).sort();
+
+              // First try: find the most recent month before or equal to current month
+              for (let i = availableMonths.length - 1; i >= 0; i--) {
+                if (availableMonths[i] <= monthKey) {
+                  lastKnownPrice = priceTable[availableMonths[i]];
                   break;
                 }
+              }
+
+              // If no previous month found, use the earliest available price (carry backward)
+              // This handles cases like Jan 2021 when data starts from Feb 2021
+              if (!lastKnownPrice && availableMonths.length > 0) {
+                lastKnownPrice = priceTable[availableMonths[0]];
               }
             }
 

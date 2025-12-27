@@ -260,7 +260,7 @@ function PAC() {
           ...item,
           modifiedPercentage: pct,
           allocatedAmount: Math.round(allocatedAmount * 100) / 100,
-          quantity: quantity ? Math.round(quantity * 100000000) / 100000000 : null
+          quantity: quantity // Full precision - no rounding
         };
       });
 

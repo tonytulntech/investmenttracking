@@ -10,7 +10,8 @@ import {
   deletePACTemplate,
   preparePACExecution,
   executePAC,
-  getTodayDate
+  getTodayDate,
+  checkAndAutoExecutePACs
 } from '../services/pacService';
 import { getTransactions } from '../services/localStorageService';
 import { getMacroAssetClasses, getMicroCategories } from '../config/assetClasses';
@@ -21,6 +22,7 @@ function PAC() {
   // State
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [autoExecuteResult, setAutoExecuteResult] = useState(null);
 
   // Modal states
   const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -45,11 +47,32 @@ function PAC() {
     loadData();
   }, []);
 
+  // Check for auto-execute PACs on page load
+  useEffect(() => {
+    const runAutoExecute = async () => {
+      try {
+        const result = await checkAndAutoExecutePACs();
+        if (result.executed > 0) {
+          setAutoExecuteResult(result);
+          loadData(); // Reload to show updated lastExecutedDate
+        }
+      } catch (error) {
+        console.error('Auto-execute check failed:', error);
+      }
+    };
+
+    // Small delay to ensure page is loaded
+    const timer = setTimeout(runAutoExecute, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
   function getEmptyTemplateForm() {
     return {
       name: '',
       totalAmount: '',
       reminderDay: '',
+      autoExecute: false,
+      executionDay: '',
       allocations: [
         { id: '1', ticker: '', name: '', macroCategory: 'ETF', microCategory: '', percentage: '' }
       ]
@@ -89,6 +112,8 @@ function PAC() {
       name: template.name,
       totalAmount: template.totalAmount.toString(),
       reminderDay: template.reminderDay?.toString() || '',
+      autoExecute: template.autoExecute || false,
+      executionDay: template.executionDay?.toString() || '',
       allocations: template.allocations.map((a, i) => ({
         ...a,
         id: a.id || (i + 1).toString(),
@@ -172,6 +197,8 @@ function PAC() {
       name: templateForm.name.trim(),
       totalAmount: parseFloat(templateForm.totalAmount),
       reminderDay: templateForm.reminderDay ? parseInt(templateForm.reminderDay) : null,
+      autoExecute: templateForm.autoExecute,
+      executionDay: templateForm.executionDay ? parseInt(templateForm.executionDay) : null,
       allocations: templateForm.allocations.map(a => ({
         id: a.id,
         ticker: a.ticker.toUpperCase().trim(),
@@ -325,6 +352,33 @@ function PAC() {
         </button>
       </div>
 
+      {/* Auto-execute notification */}
+      {autoExecuteResult && autoExecuteResult.executed > 0 && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2">
+              <Check className="w-5 h-5 text-green-600" />
+              <div>
+                <p className="font-medium text-green-800">
+                  PAC eseguiti automaticamente!
+                </p>
+                <div className="text-sm text-green-700 mt-1">
+                  {autoExecuteResult.executedPACs.map((pac, i) => (
+                    <p key={i}>• {pac.name}: €{pac.amount} ({pac.transactions} transazioni)</p>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setAutoExecuteResult(null)}
+              className="text-green-600 hover:text-green-800"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Templates Grid */}
       {templates.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border p-8 text-center">
@@ -360,6 +414,14 @@ function PAC() {
                   </div>
                 ))}
               </div>
+
+              {/* Auto-execute badge */}
+              {template.autoExecute && (
+                <div className="flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded mb-2 w-fit">
+                  <RefreshCw className="w-3 h-3" />
+                  Auto il giorno {template.executionDay}
+                </div>
+              )}
 
               {template.lastExecutedDate && (
                 <p className="text-xs text-gray-500 mb-3">
@@ -445,6 +507,49 @@ function PAC() {
                     max="31"
                   />
                 </div>
+              </div>
+
+              {/* Auto-Execute Toggle */}
+              <div className="bg-blue-50 rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="font-medium text-gray-900">Esecuzione Automatica</label>
+                    <p className="text-sm text-gray-600">Esegui automaticamente quando apri l'app</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTemplateForm(prev => ({ ...prev, autoExecute: !prev.autoExecute }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      templateForm.autoExecute ? 'bg-blue-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        templateForm.autoExecute ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {templateForm.autoExecute && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Giorno del mese per esecuzione automatica
+                    </label>
+                    <input
+                      type="number"
+                      value={templateForm.executionDay}
+                      onChange={(e) => setTemplateForm(prev => ({ ...prev, executionDay: e.target.value }))}
+                      className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="5"
+                      min="1"
+                      max="31"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Il PAC verrà eseguito automaticamente dal giorno {templateForm.executionDay || 'X'} del mese
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Allocations */}

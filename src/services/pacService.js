@@ -379,6 +379,95 @@ export const checkPACReminders = () => {
   };
 };
 
+/**
+ * Check and auto-execute PACs that are due
+ * Called on app load to automatically execute PACs with autoExecute enabled
+ *
+ * @returns {Promise<Object>} Results of auto-execution
+ */
+export const checkAndAutoExecutePACs = async () => {
+  const templates = getPACTemplates();
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  const currentDay = today.getDate();
+  const todayStr = getTodayDate();
+
+  console.log('🔄 Checking for auto-execute PACs...');
+
+  const results = {
+    checked: 0,
+    executed: 0,
+    skipped: 0,
+    errors: [],
+    executedPACs: []
+  };
+
+  for (const template of templates) {
+    results.checked++;
+
+    // Skip if not active or autoExecute is disabled
+    if (!template.isActive || !template.autoExecute) {
+      results.skipped++;
+      continue;
+    }
+
+    // Skip if no execution day set
+    if (!template.executionDay) {
+      results.skipped++;
+      continue;
+    }
+
+    // Skip if current day is before execution day
+    if (currentDay < template.executionDay) {
+      console.log(`⏳ ${template.name}: waiting for day ${template.executionDay} (today is ${currentDay})`);
+      results.skipped++;
+      continue;
+    }
+
+    // Skip if already executed this month
+    if (template.lastExecutedDate) {
+      const lastExec = new Date(template.lastExecutedDate);
+      if (lastExec.getMonth() === currentMonth && lastExec.getFullYear() === currentYear) {
+        console.log(`✓ ${template.name}: already executed this month`);
+        results.skipped++;
+        continue;
+      }
+    }
+
+    // This PAC needs to be auto-executed!
+    console.log(`🚀 Auto-executing PAC: ${template.name}`);
+
+    try {
+      // Prepare and execute
+      const preview = await preparePACExecution(template, todayStr, template.totalAmount);
+
+      if (preview.canExecute) {
+        const result = await executePAC(preview);
+        if (result.success) {
+          results.executed++;
+          results.executedPACs.push({
+            name: template.name,
+            amount: template.totalAmount,
+            transactions: result.transactionsCreated
+          });
+          console.log(`✅ Auto-executed ${template.name}: ${result.transactionsCreated} transactions`);
+        } else {
+          results.errors.push(`${template.name}: execution failed`);
+        }
+      } else {
+        results.errors.push(`${template.name}: cannot execute - ${preview.errors.join(', ')}`);
+      }
+    } catch (error) {
+      console.error(`❌ Auto-execute error for ${template.name}:`, error);
+      results.errors.push(`${template.name}: ${error.message}`);
+    }
+  }
+
+  console.log(`🏁 Auto-execute complete: ${results.executed} executed, ${results.skipped} skipped`);
+  return results;
+};
+
 // ============================================
 // EXPORTS
 // ============================================
@@ -395,6 +484,7 @@ export default {
   fetchPricesForPAC,
   preparePACExecution,
   executePAC,
+  checkAndAutoExecutePACs,
 
   // Utilities
   getTodayDate,

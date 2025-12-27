@@ -380,48 +380,43 @@ export const checkPACReminders = () => {
 };
 
 /**
- * Check and auto-execute PACs that are due
- * Called on app load to automatically execute PACs with autoExecute enabled
+ * Get PACs that are pending auto-execution (need user confirmation)
+ * Called on app load to check for PACs that should be executed
  *
- * @returns {Promise<Object>} Results of auto-execution
+ * @returns {Array} Array of pending PAC templates
  */
-export const checkAndAutoExecutePACs = async () => {
+export const getPendingAutoExecutePACs = () => {
   const templates = getPACTemplates();
   const today = new Date();
   const currentMonth = today.getMonth();
   const currentYear = today.getFullYear();
   const currentDay = today.getDate();
-  const todayStr = getTodayDate();
+  const currentYearMonth = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
 
-  console.log('🔄 Checking for auto-execute PACs...');
+  console.log('🔄 Checking for pending auto-execute PACs...');
 
-  const results = {
-    checked: 0,
-    executed: 0,
-    skipped: 0,
-    errors: [],
-    executedPACs: []
-  };
+  const pendingPACs = [];
 
   for (const template of templates) {
-    results.checked++;
-
     // Skip if not active or autoExecute is disabled
     if (!template.isActive || !template.autoExecute) {
-      results.skipped++;
       continue;
     }
 
     // Skip if no execution day set
     if (!template.executionDay) {
-      results.skipped++;
       continue;
     }
 
     // Skip if current day is before execution day
     if (currentDay < template.executionDay) {
       console.log(`⏳ ${template.name}: waiting for day ${template.executionDay} (today is ${currentDay})`);
-      results.skipped++;
+      continue;
+    }
+
+    // Skip if startMonth is set and we haven't reached it yet
+    if (template.startMonth && template.startMonth > currentYearMonth) {
+      console.log(`⏳ ${template.name}: starts from ${template.startMonth} (now is ${currentYearMonth})`);
       continue;
     }
 
@@ -430,42 +425,35 @@ export const checkAndAutoExecutePACs = async () => {
       const lastExec = new Date(template.lastExecutedDate);
       if (lastExec.getMonth() === currentMonth && lastExec.getFullYear() === currentYear) {
         console.log(`✓ ${template.name}: already executed this month`);
-        results.skipped++;
         continue;
       }
     }
 
-    // This PAC needs to be auto-executed!
-    console.log(`🚀 Auto-executing PAC: ${template.name}`);
-
-    try {
-      // Prepare and execute
-      const preview = await preparePACExecution(template, todayStr, template.totalAmount);
-
-      if (preview.canExecute) {
-        const result = await executePAC(preview);
-        if (result.success) {
-          results.executed++;
-          results.executedPACs.push({
-            name: template.name,
-            amount: template.totalAmount,
-            transactions: result.transactionsCreated
-          });
-          console.log(`✅ Auto-executed ${template.name}: ${result.transactionsCreated} transactions`);
-        } else {
-          results.errors.push(`${template.name}: execution failed`);
-        }
-      } else {
-        results.errors.push(`${template.name}: cannot execute - ${preview.errors.join(', ')}`);
-      }
-    } catch (error) {
-      console.error(`❌ Auto-execute error for ${template.name}:`, error);
-      results.errors.push(`${template.name}: ${error.message}`);
-    }
+    // This PAC needs to be executed!
+    console.log(`📋 ${template.name}: pending execution`);
+    pendingPACs.push(template);
   }
 
-  console.log(`🏁 Auto-execute complete: ${results.executed} executed, ${results.skipped} skipped`);
-  return results;
+  console.log(`🏁 Found ${pendingPACs.length} PACs pending execution`);
+  return pendingPACs;
+};
+
+/**
+ * Check and auto-execute PACs that are due (legacy - kept for compatibility)
+ * Now just returns pending PACs info without executing
+ *
+ * @returns {Promise<Object>} Results with pending PACs
+ */
+export const checkAndAutoExecutePACs = async () => {
+  const pendingPACs = getPendingAutoExecutePACs();
+
+  return {
+    checked: getPACTemplates().length,
+    pending: pendingPACs.length,
+    pendingPACs: pendingPACs,
+    executed: 0,
+    executedPACs: []
+  };
 };
 
 // ============================================
@@ -484,6 +472,7 @@ export default {
   fetchPricesForPAC,
   preparePACExecution,
   executePAC,
+  getPendingAutoExecutePACs,
   checkAndAutoExecutePACs,
 
   // Utilities

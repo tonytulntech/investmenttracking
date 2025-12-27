@@ -11,7 +11,7 @@ import {
   preparePACExecution,
   executePAC,
   getTodayDate,
-  checkAndAutoExecutePACs
+  getPendingAutoExecutePACs
 } from '../services/pacService';
 import { getTransactions } from '../services/localStorageService';
 import { getMacroAssetClasses, getMicroCategories } from '../config/assetClasses';
@@ -23,6 +23,10 @@ function PAC() {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [autoExecuteResult, setAutoExecuteResult] = useState(null);
+  const [pendingPACs, setPendingPACs] = useState([]);
+  const [showPendingModal, setShowPendingModal] = useState(false);
+  const [pendingPreview, setPendingPreview] = useState(null);
+  const [pendingLoading, setPendingLoading] = useState(false);
 
   // Modal states
   const [showTemplateModal, setShowTemplateModal] = useState(false);
@@ -47,14 +51,14 @@ function PAC() {
     loadData();
   }, []);
 
-  // Check for auto-execute PACs on page load
+  // Check for pending auto-execute PACs on page load
   useEffect(() => {
-    const runAutoExecute = async () => {
+    const checkPendingPACs = () => {
       try {
-        const result = await checkAndAutoExecutePACs();
-        if (result.executed > 0) {
-          setAutoExecuteResult(result);
-          loadData(); // Reload to show updated lastExecutedDate
+        const pending = getPendingAutoExecutePACs();
+        if (pending.length > 0) {
+          setPendingPACs(pending);
+          setShowPendingModal(true);
         }
       } catch (error) {
         console.error('Auto-execute check failed:', error);
@@ -62,7 +66,7 @@ function PAC() {
     };
 
     // Small delay to ensure page is loaded
-    const timer = setTimeout(runAutoExecute, 500);
+    const timer = setTimeout(checkPendingPACs, 500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -73,6 +77,7 @@ function PAC() {
       reminderDay: '',
       autoExecute: false,
       executionDay: '',
+      startMonth: '',
       allocations: [
         { id: '1', ticker: '', name: '', macroCategory: 'ETF', microCategory: '', percentage: '' }
       ]
@@ -114,6 +119,7 @@ function PAC() {
       reminderDay: template.reminderDay?.toString() || '',
       autoExecute: template.autoExecute || false,
       executionDay: template.executionDay?.toString() || '',
+      startMonth: template.startMonth || '',
       allocations: template.allocations.map((a, i) => ({
         ...a,
         id: a.id || (i + 1).toString(),
@@ -199,6 +205,7 @@ function PAC() {
       reminderDay: templateForm.reminderDay ? parseInt(templateForm.reminderDay) : null,
       autoExecute: templateForm.autoExecute,
       executionDay: templateForm.executionDay ? parseInt(templateForm.executionDay) : null,
+      startMonth: templateForm.startMonth || null,
       allocations: templateForm.allocations.map(a => ({
         id: a.id,
         ticker: a.ticker.toUpperCase().trim(),
@@ -319,6 +326,78 @@ function PAC() {
   };
 
   // ============================================
+  // PENDING PAC HANDLERS
+  // ============================================
+
+  const handlePreparePendingExecution = async (template) => {
+    setPendingLoading(true);
+    try {
+      const preview = await preparePACExecution(template, getTodayDate(), template.totalAmount);
+      setPendingPreview(preview);
+    } catch (error) {
+      console.error('Error preparing pending execution:', error);
+      alert('Errore nel recupero dei prezzi');
+    } finally {
+      setPendingLoading(false);
+    }
+  };
+
+  const handleConfirmPendingExecution = async () => {
+    if (!pendingPreview || !pendingPreview.canExecute) return;
+
+    setPendingLoading(true);
+    try {
+      const result = await executePAC(pendingPreview);
+
+      // Remove executed PAC from pending list
+      setPendingPACs(prev => prev.filter(p => p.id !== pendingPreview.pacTemplateId));
+      setPendingPreview(null);
+
+      // Show success notification
+      setAutoExecuteResult({
+        executed: 1,
+        executedPACs: [{
+          name: pendingPreview.pacTemplateName,
+          amount: result.totalInvested.toFixed(2),
+          transactions: result.transactionsCreated
+        }]
+      });
+
+      // Reload data to show updated lastExecutedDate
+      loadData();
+
+      // If no more pending PACs, close modal
+      if (pendingPACs.length <= 1) {
+        setShowPendingModal(false);
+      }
+    } catch (error) {
+      console.error('Error executing pending PAC:', error);
+      alert('Errore nell\'esecuzione del PAC');
+    } finally {
+      setPendingLoading(false);
+    }
+  };
+
+  const handleSkipPending = () => {
+    // Skip current PAC and move to next
+    if (pendingPACs.length > 1) {
+      const currentPacId = pendingPreview?.pacTemplateId || pendingPACs[0]?.id;
+      setPendingPACs(prev => prev.filter(p => p.id !== currentPacId));
+      setPendingPreview(null);
+    } else {
+      // Last one, close modal
+      setShowPendingModal(false);
+      setPendingPACs([]);
+      setPendingPreview(null);
+    }
+  };
+
+  const handleClosePendingModal = () => {
+    setShowPendingModal(false);
+    setPendingPreview(null);
+  };
+
+  // ============================================
   // RENDER
   // ============================================
 
@@ -420,6 +499,7 @@ function PAC() {
                 <div className="flex items-center gap-1 text-xs text-green-700 bg-green-100 px-2 py-1 rounded mb-2 w-fit">
                   <RefreshCw className="w-3 h-3" />
                   Auto il giorno {template.executionDay}
+                  {template.startMonth && ` (da ${template.startMonth})`}
                 </div>
               )}
 
@@ -532,21 +612,37 @@ function PAC() {
                 </div>
 
                 {templateForm.autoExecute && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Giorno del mese per esecuzione automatica
-                    </label>
-                    <input
-                      type="number"
-                      value={templateForm.executionDay}
-                      onChange={(e) => setTemplateForm(prev => ({ ...prev, executionDay: e.target.value }))}
-                      className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="5"
-                      min="1"
-                      max="31"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Giorno del mese
+                        </label>
+                        <input
+                          type="number"
+                          value={templateForm.executionDay}
+                          onChange={(e) => setTemplateForm(prev => ({ ...prev, executionDay: e.target.value }))}
+                          className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="5"
+                          min="1"
+                          max="31"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          A partire dal mese
+                        </label>
+                        <input
+                          type="month"
+                          value={templateForm.startMonth}
+                          onChange={(e) => setTemplateForm(prev => ({ ...prev, startMonth: e.target.value }))}
+                          className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500">
                       Il PAC verrà eseguito automaticamente dal giorno {templateForm.executionDay || 'X'} del mese
+                      {templateForm.startMonth && ` a partire da ${templateForm.startMonth}`}
                     </p>
                   </div>
                 )}
@@ -868,6 +964,191 @@ function PAC() {
                         <>
                           <Check className="w-5 h-5" />
                           Conferma e Crea Transazioni
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pending PACs Confirmation Modal */}
+      {showPendingModal && pendingPACs.length > 0 && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b flex justify-between items-center bg-blue-50">
+              <div>
+                <h2 className="text-xl font-semibold flex items-center gap-2 text-blue-900">
+                  <RefreshCw className="w-5 h-5" />
+                  PAC in Attesa di Esecuzione
+                </h2>
+                <p className="text-sm text-blue-700 mt-1">
+                  {pendingPACs.length} PAC {pendingPACs.length === 1 ? 'pronto' : 'pronti'} per l'esecuzione automatica
+                </p>
+              </div>
+              <button onClick={handleClosePendingModal} className="text-gray-500 hover:text-gray-700">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Current PAC to execute */}
+              {!pendingPreview && (
+                <>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="font-semibold text-lg mb-3">{pendingPACs[0]?.name}</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-500">Importo:</span>
+                        <span className="ml-2 font-medium">€{pendingPACs[0]?.totalAmount}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Data:</span>
+                        <span className="ml-2 font-medium">{getTodayDate()}</span>
+                      </div>
+                    </div>
+                    <div className="mt-3 space-y-1">
+                      {pendingPACs[0]?.allocations.map((alloc, i) => (
+                        <div key={i} className="flex justify-between text-sm">
+                          <span className="text-gray-600">{alloc.ticker} - {alloc.name}</span>
+                          <span className="font-medium">{alloc.percentage}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleSkipPending}
+                      className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50 text-gray-700"
+                    >
+                      Salta questo mese
+                    </button>
+                    <button
+                      onClick={() => handlePreparePendingExecution(pendingPACs[0])}
+                      disabled={pendingLoading}
+                      className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
+                    >
+                      {pendingLoading ? (
+                        <>
+                          <Loader className="w-5 h-5 animate-spin" />
+                          Recupero prezzi...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-5 h-5" />
+                          Calcola Anteprima
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* Preview */}
+              {pendingPreview && (
+                <>
+                  {/* Warnings */}
+                  {pendingPreview.errors.length > 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-yellow-800 font-medium mb-1">
+                        <AlertCircle className="w-5 h-5" />
+                        Attenzione
+                      </div>
+                      <ul className="text-sm text-yellow-700 list-disc list-inside">
+                        {pendingPreview.errors.map((err, i) => (
+                          <li key={i}>{err}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
+                    <span className="text-blue-800 font-medium">
+                      {pendingPreview.pacTemplateName} - €{pendingPreview.totalAmount}
+                    </span>
+                    <span className="text-sm text-blue-700">
+                      Prezzi attuali ({pendingPreview.executionDate})
+                    </span>
+                  </div>
+
+                  {/* Preview Table */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-gray-50 text-left">
+                          <th className="px-3 py-2 font-medium text-gray-600">Ticker</th>
+                          <th className="px-3 py-2 font-medium text-gray-600">%</th>
+                          <th className="px-3 py-2 font-medium text-gray-600 text-right">Importo €</th>
+                          <th className="px-3 py-2 font-medium text-gray-600 text-right">Prezzo €</th>
+                          <th className="px-3 py-2 font-medium text-gray-600 text-right">Quantità</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pendingPreview.items.map((item, i) => (
+                          <tr key={i} className="border-t">
+                            <td className="px-3 py-2">
+                              <span className="font-medium">{item.ticker}</span>
+                              <br />
+                              <span className="text-xs text-gray-500">{item.name}</span>
+                            </td>
+                            <td className="px-3 py-2">{item.modifiedPercentage}%</td>
+                            <td className="px-3 py-2 text-right font-medium">
+                              €{item.allocatedAmount?.toFixed(2) || '-'}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              {item.price ? `€${item.price.toFixed(2)}` : (
+                                <span className="text-red-500">N/D</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono">
+                              {item.quantity ? item.quantity.toFixed(8) : '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t-2 bg-gray-50 font-medium">
+                          <td className="px-3 py-2">TOTALE</td>
+                          <td className="px-3 py-2">{pendingPreview.totalPercentage}%</td>
+                          <td className="px-3 py-2 text-right">€{pendingPreview.totalAllocated.toFixed(2)}</td>
+                          <td className="px-3 py-2"></td>
+                          <td className="px-3 py-2"></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      onClick={() => setPendingPreview(null)}
+                      className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+                    >
+                      Indietro
+                    </button>
+                    <button
+                      onClick={handleSkipPending}
+                      className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-gray-700"
+                    >
+                      Salta
+                    </button>
+                    <button
+                      onClick={handleConfirmPendingExecution}
+                      disabled={pendingLoading || !pendingPreview.canExecute}
+                      className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
+                    >
+                      {pendingLoading ? (
+                        <>
+                          <Loader className="w-5 h-5 animate-spin" />
+                          Esecuzione...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-5 h-5" />
+                          Conferma ed Esegui
                         </>
                       )}
                     </button>

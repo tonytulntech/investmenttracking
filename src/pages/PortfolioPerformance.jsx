@@ -8,25 +8,48 @@ import { calculateAllMetrics, calculateCAGR, calculateMaxDrawdown, calculateShar
 import { format, startOfMonth, endOfMonth, eachMonthOfInterval, parseISO, isAfter } from 'date-fns';
 import { it } from 'date-fns/locale';
 
-// Benchmark configuration
-const BENCHMARKS = {
-  'MSCI World': {
-    ticker: 'SWDA.MI',
-    color: '#3b82f6', // blue
-    description: 'Azionario Globale (MSCI World)'
+// Benchmark configuration - organized by currency
+const BENCHMARK_TICKERS = {
+  EUR: {
+    'MSCI World': {
+      ticker: 'SWDA.MI',
+      color: '#3b82f6',
+      description: 'Azionario Globale (MSCI World ETF in EUR)'
+    },
+    'S&P 500': {
+      ticker: 'CSPX.L',  // iShares Core S&P 500 UCITS ETF in EUR
+      color: '#10b981',
+      description: 'Azionario USA (S&P 500 ETF in EUR)'
+    },
+    '60/40 Portfolio': {
+      ticker: null,
+      color: '#8b5cf6',
+      description: '60% Azionario + 40% Obbligazionario (EUR)',
+      composition: {
+        equity: { ticker: 'SWDA.MI', weight: 0.6 },
+        bond: { ticker: 'VAGF.MI', weight: 0.4 }
+      }
+    }
   },
-  'S&P 500': {
-    ticker: '^GSPC',
-    color: '#10b981', // green
-    description: 'Azionario USA (S&P 500)'
-  },
-  '60/40 Portfolio': {
-    ticker: null, // Calculated from SWDA.MI (60%) + bond proxy
-    color: '#8b5cf6', // purple
-    description: '60% Azionario + 40% Obbligazionario',
-    composition: {
-      equity: { ticker: 'SWDA.MI', weight: 0.6 },
-      bond: { ticker: 'VAGF.MI', weight: 0.4 } // Vanguard Global Aggregate Bond
+  USD: {
+    'MSCI World': {
+      ticker: 'URTH',  // iShares MSCI World ETF in USD
+      color: '#3b82f6',
+      description: 'Azionario Globale (MSCI World in USD)'
+    },
+    'S&P 500': {
+      ticker: '^GSPC',
+      color: '#10b981',
+      description: 'Azionario USA (S&P 500 Index in USD)'
+    },
+    '60/40 Portfolio': {
+      ticker: null,
+      color: '#8b5cf6',
+      description: '60% Azionario + 40% Obbligazionario (USD)',
+      composition: {
+        equity: { ticker: '^GSPC', weight: 0.6 },
+        bond: { ticker: 'BND', weight: 0.4 }
+      }
     }
   }
 };
@@ -79,6 +102,7 @@ function PortfolioPerformance() {
   const [benchmarkData, setBenchmarkData] = useState({});
   const [benchmarkLoading, setBenchmarkLoading] = useState(false);
   const [normalizedChartData, setNormalizedChartData] = useState([]);
+  const [benchmarkCurrency, setBenchmarkCurrency] = useState('EUR'); // EUR or USD
 
   useEffect(() => {
     calculatePerformance();
@@ -436,15 +460,18 @@ function PortfolioPerformance() {
   };
 
   // Calculate benchmark comparison when portfolio data is ready
-  const calculateBenchmarks = async (portfolioMonthlyData, portfolioMonthlyReturns, startDate) => {
+  const calculateBenchmarks = async (portfolioMonthlyData, portfolioMonthlyReturns, startDate, currency = 'EUR') => {
     if (!portfolioMonthlyData || portfolioMonthlyData.length === 0) return;
 
     setBenchmarkLoading(true);
-    console.log('📊 Starting benchmark calculation...');
+    console.log(`📊 Starting benchmark calculation (${currency})...`);
 
     try {
       const endDate = format(new Date(), 'yyyy-MM-dd');
       const startDateStr = format(startDate, 'yyyy-MM-dd');
+
+      // Get benchmarks for selected currency
+      const BENCHMARKS = BENCHMARK_TICKERS[currency];
 
       // Get all benchmark tickers we need to fetch
       const tickersToFetch = new Set();
@@ -600,27 +627,47 @@ function PortfolioPerformance() {
 
       // Build normalized chart data (portfolio + benchmarks, all starting at 100)
       const chartData = [];
-      const portfolioBaseValue = portfolioMonthlyData[0]?.total || 0;
+
+      // Find first non-zero portfolio value for normalization base
+      let portfolioBaseValue = 0;
+      for (const monthData of portfolioMonthlyData) {
+        if (monthData.total > 0) {
+          portfolioBaseValue = monthData.total;
+          break;
+        }
+      }
+
+      console.log(`📊 Portfolio base value for normalization: €${portfolioBaseValue.toFixed(2)}`);
 
       for (let i = 0; i < portfolioMonthlyData.length; i++) {
         const monthData = portfolioMonthlyData[i];
+
+        // Normalize portfolio to base 100
+        const portfolioNormalized = portfolioBaseValue > 0
+          ? (monthData.total / portfolioBaseValue) * 100
+          : 100;
+
         const dataPoint = {
           month: monthData.month,
           monthKey: monthData.monthKey,
-          'Il mio Portafoglio': portfolioBaseValue > 0
-            ? (monthData.total / portfolioBaseValue) * 100
-            : 100
+          'Il mio Portafoglio': Math.round(portfolioNormalized * 100) / 100 // Round to 2 decimals
         };
 
-        // Add benchmark values
+        // Add benchmark values (already normalized to 100)
         for (const [name, data] of Object.entries(benchmarkResults)) {
           const benchmarkMonth = data.monthlyValues.find(m => m.monthKey === monthData.monthKey);
           if (benchmarkMonth) {
-            dataPoint[name] = benchmarkMonth.value;
+            dataPoint[name] = Math.round(benchmarkMonth.value * 100) / 100;
           }
         }
 
         chartData.push(dataPoint);
+      }
+
+      // Debug: log first and last values to verify normalization
+      if (chartData.length > 0) {
+        console.log(`📊 Normalized chart - First month:`, chartData[0]);
+        console.log(`📊 Normalized chart - Last month:`, chartData[chartData.length - 1]);
       }
 
       setNormalizedChartData(chartData);
@@ -633,12 +680,12 @@ function PortfolioPerformance() {
     }
   };
 
-  // Trigger benchmark calculation when portfolio data changes
+  // Trigger benchmark calculation when portfolio data or currency changes
   useEffect(() => {
     if (monthlyData.length > 0 && statistics.startDate) {
-      calculateBenchmarks(monthlyData, monthlyReturns, statistics.startDate);
+      calculateBenchmarks(monthlyData, monthlyReturns, statistics.startDate, benchmarkCurrency);
     }
-  }, [monthlyData, statistics.startDate]);
+  }, [monthlyData, statistics.startDate, benchmarkCurrency]);
 
   // Transform monthlyData into format needed by heat maps
   const { monthlyCategoryValues, monthlyMicroCategoryValues, monthlyTickerValues } = useMemo(() => {
@@ -1071,9 +1118,38 @@ function PortfolioPerformance() {
       {/* Benchmark Comparison Section */}
       <div className="card">
         <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Target className="w-6 h-6 text-primary-600" />
-            <h2 className="text-xl font-bold text-gray-900">Confronto con Benchmark</h2>
+          <div className="flex items-center justify-between flex-wrap gap-4 mb-2">
+            <div className="flex items-center gap-3">
+              <Target className="w-6 h-6 text-primary-600" />
+              <h2 className="text-xl font-bold text-gray-900">Confronto con Benchmark</h2>
+            </div>
+
+            {/* Currency Selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-600">Valuta Benchmark:</span>
+              <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+                <button
+                  onClick={() => setBenchmarkCurrency('EUR')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    benchmarkCurrency === 'EUR'
+                      ? 'bg-white text-primary-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  🇪🇺 EUR
+                </button>
+                <button
+                  onClick={() => setBenchmarkCurrency('USD')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    benchmarkCurrency === 'USD'
+                      ? 'bg-white text-primary-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  🇺🇸 USD
+                </button>
+              </div>
+            </div>
           </div>
           <p className="text-sm text-gray-600">
             Come si è comportato il tuo portafoglio rispetto ai principali indici di mercato
@@ -1081,6 +1157,13 @@ function PortfolioPerformance() {
               <span className="font-medium"> (dal {format(statistics.startDate, 'MMMM yyyy', { locale: it })} ad oggi)</span>
             )}
           </p>
+          {benchmarkCurrency === 'USD' && (
+            <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-xs text-yellow-800">
+                ⚠️ <strong>Nota:</strong> I benchmark in USD includono l'effetto cambio EUR/USD. Un dollaro forte aumenta i rendimenti percepiti in euro.
+              </p>
+            </div>
+          )}
         </div>
 
         {benchmarkLoading ? (
@@ -1113,7 +1196,7 @@ function PortfolioPerformance() {
                       <th key={name} className="py-3 px-4 text-center font-semibold text-gray-900">
                         <span className="flex items-center justify-center gap-2">
                           <span className="w-3 h-3 rounded-full" style={{ backgroundColor: data.color }}></span>
-                          {name}
+                          {name} <span className="text-xs text-gray-500">({benchmarkCurrency})</span>
                         </span>
                       </th>
                     ))}

@@ -625,32 +625,42 @@ function PortfolioPerformance() {
 
       setBenchmarkData(benchmarkResults);
 
-      // Build normalized chart data (portfolio + benchmarks, all starting at 100)
+      // Build normalized chart data using CUMULATIVE TWR (Time-Weighted Return)
+      // This excludes the effect of cash flows (new investments/withdrawals)
+      // So we compare pure returns, not absolute portfolio growth
       const chartData = [];
 
-      // Find first non-zero portfolio value for normalization base
-      let portfolioBaseValue = 0;
-      for (const monthData of portfolioMonthlyData) {
-        if (monthData.total > 0) {
-          portfolioBaseValue = monthData.total;
-          break;
-        }
+      // Calculate cumulative TWR for portfolio (compound the monthly returns)
+      // Start at 100, then apply each month's TWR return percentage
+      let cumulativeTWR = 100;
+      const portfolioCumulativeReturns = [100]; // First month = 100
+
+      // portfolioMonthlyReturns contains TWR returns starting from month 2
+      // so portfolioCumulativeReturns[0] = 100 (first month)
+      // portfolioCumulativeReturns[1] = 100 * (1 + return_month_2/100)
+      // etc.
+      for (let i = 0; i < portfolioMonthlyReturns.length; i++) {
+        const monthReturn = portfolioMonthlyReturns[i].return;
+        cumulativeTWR = cumulativeTWR * (1 + monthReturn / 100);
+        portfolioCumulativeReturns.push(Math.round(cumulativeTWR * 100) / 100);
       }
 
-      console.log(`📊 Portfolio base value for normalization: €${portfolioBaseValue.toFixed(2)}`);
+      console.log(`📊 Portfolio cumulative TWR: started at 100, ended at ${cumulativeTWR.toFixed(2)}`);
+      console.log(`📊 This represents a ${((cumulativeTWR - 100)).toFixed(2)}% total return (excluding new investments)`);
 
+      // Build chart data - use cumulative TWR for portfolio, normalized values for benchmarks
       for (let i = 0; i < portfolioMonthlyData.length; i++) {
         const monthData = portfolioMonthlyData[i];
 
-        // Normalize portfolio to base 100
-        const portfolioNormalized = portfolioBaseValue > 0
-          ? (monthData.total / portfolioBaseValue) * 100
+        // Use cumulative TWR for portfolio (excludes cash flows effect)
+        const portfolioValue = portfolioCumulativeReturns[i] !== undefined
+          ? portfolioCumulativeReturns[i]
           : 100;
 
         const dataPoint = {
           month: monthData.month,
           monthKey: monthData.monthKey,
-          'Il mio Portafoglio': Math.round(portfolioNormalized * 100) / 100 // Round to 2 decimals
+          'Il mio Portafoglio': portfolioValue
         };
 
         // Add benchmark values (already normalized to 100)

@@ -1,12 +1,35 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Calendar, BarChart3, Activity, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Calendar, BarChart3, Activity, AlertCircle, Target } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, Cell } from 'recharts';
 import { getTransactions } from '../services/localStorageService';
 import { fetchMultipleHistoricalPrices, buildMonthlyPriceTable } from '../services/historicalPriceService';
 import { getCachedPrices } from '../services/priceCache';
-import { calculateAllMetrics } from '../services/advancedMetricsService';
+import { calculateAllMetrics, calculateCAGR, calculateMaxDrawdown, calculateSharpeRatio, calculateVolatility } from '../services/advancedMetricsService';
 import { format, startOfMonth, endOfMonth, eachMonthOfInterval, parseISO, isAfter } from 'date-fns';
 import { it } from 'date-fns/locale';
+
+// Benchmark configuration
+const BENCHMARKS = {
+  'MSCI World': {
+    ticker: 'SWDA.MI',
+    color: '#3b82f6', // blue
+    description: 'Azionario Globale (MSCI World)'
+  },
+  'S&P 500': {
+    ticker: '^GSPC',
+    color: '#10b981', // green
+    description: 'Azionario USA (S&P 500)'
+  },
+  '60/40 Portfolio': {
+    ticker: null, // Calculated from SWDA.MI (60%) + bond proxy
+    color: '#8b5cf6', // purple
+    description: '60% Azionario + 40% Obbligazionario',
+    composition: {
+      equity: { ticker: 'SWDA.MI', weight: 0.6 },
+      bond: { ticker: 'VAGF.MI', weight: 0.4 } // Vanguard Global Aggregate Bond
+    }
+  }
+};
 
 // Category colors for consistent visualization
 const CATEGORY_COLORS = {
@@ -51,6 +74,11 @@ function PortfolioPerformance() {
     sortinoRatio: 0,
     volatility: 0
   });
+
+  // Benchmark comparison state
+  const [benchmarkData, setBenchmarkData] = useState({});
+  const [benchmarkLoading, setBenchmarkLoading] = useState(false);
+  const [normalizedChartData, setNormalizedChartData] = useState([]);
 
   useEffect(() => {
     calculatePerformance();
@@ -406,6 +434,211 @@ function PortfolioPerformance() {
       setLoading(false);
     }
   };
+
+  // Calculate benchmark comparison when portfolio data is ready
+  const calculateBenchmarks = async (portfolioMonthlyData, portfolioMonthlyReturns, startDate) => {
+    if (!portfolioMonthlyData || portfolioMonthlyData.length === 0) return;
+
+    setBenchmarkLoading(true);
+    console.log('📊 Starting benchmark calculation...');
+
+    try {
+      const endDate = format(new Date(), 'yyyy-MM-dd');
+      const startDateStr = format(startDate, 'yyyy-MM-dd');
+
+      // Get all benchmark tickers we need to fetch
+      const tickersToFetch = new Set();
+      Object.values(BENCHMARKS).forEach(benchmark => {
+        if (benchmark.ticker) {
+          tickersToFetch.add(benchmark.ticker);
+        }
+        if (benchmark.composition) {
+          tickersToFetch.add(benchmark.composition.equity.ticker);
+          tickersToFetch.add(benchmark.composition.bond.ticker);
+        }
+      });
+
+      console.log(`📡 Fetching benchmark prices for: ${Array.from(tickersToFetch).join(', ')}`);
+
+      // Fetch historical prices for all benchmarks
+      const benchmarkPrices = await fetchMultipleHistoricalPrices(
+        Array.from(tickersToFetch),
+        startDateStr,
+        endDate
+      );
+
+      // Build price tables for each benchmark ticker
+      const priceTables = {};
+      tickersToFetch.forEach(ticker => {
+        priceTables[ticker] = buildMonthlyPriceTable(benchmarkPrices[ticker] || []);
+      });
+
+      // Get month keys from portfolio data
+      const monthKeys = portfolioMonthlyData.map(m => m.monthKey);
+
+      // Calculate metrics for each benchmark
+      const benchmarkResults = {};
+
+      for (const [benchmarkName, benchmarkConfig] of Object.entries(BENCHMARKS)) {
+        console.log(`📈 Calculating metrics for ${benchmarkName}...`);
+
+        let monthlyValues = [];
+        let monthlyReturnsArr = [];
+
+        if (benchmarkConfig.ticker) {
+          // Simple benchmark (single ticker)
+          const priceTable = priceTables[benchmarkConfig.ticker];
+
+          // Get first available price as base (normalize to 100)
+          let basePrice = null;
+          for (const monthKey of monthKeys) {
+            if (priceTable[monthKey]) {
+              basePrice = priceTable[monthKey];
+              break;
+            }
+          }
+
+          if (!basePrice) {
+            console.warn(`⚠️ No price data for ${benchmarkName}`);
+            continue;
+          }
+
+          // Calculate normalized values and returns
+          let prevValue = null;
+          for (const monthKey of monthKeys) {
+            const price = priceTable[monthKey];
+            if (price) {
+              const normalizedValue = (price / basePrice) * 100;
+              monthlyValues.push({ monthKey, value: normalizedValue, price });
+
+              if (prevValue !== null) {
+                const returnPct = ((normalizedValue - prevValue) / prevValue) * 100;
+                monthlyReturnsArr.push(returnPct);
+              }
+              prevValue = normalizedValue;
+            }
+          }
+        } else if (benchmarkConfig.composition) {
+          // Composite benchmark (e.g., 60/40)
+          const equityTable = priceTables[benchmarkConfig.composition.equity.ticker];
+          const bondTable = priceTables[benchmarkConfig.composition.bond.ticker];
+
+          // Get first available prices as base
+          let equityBasePrice = null;
+          let bondBasePrice = null;
+
+          for (const monthKey of monthKeys) {
+            if (!equityBasePrice && equityTable[monthKey]) {
+              equityBasePrice = equityTable[monthKey];
+            }
+            if (!bondBasePrice && bondTable[monthKey]) {
+              bondBasePrice = bondTable[monthKey];
+            }
+            if (equityBasePrice && bondBasePrice) break;
+          }
+
+          if (!equityBasePrice || !bondBasePrice) {
+            console.warn(`⚠️ Missing price data for ${benchmarkName} composite`);
+            continue;
+          }
+
+          // Calculate composite normalized values
+          let prevValue = null;
+          for (const monthKey of monthKeys) {
+            const equityPrice = equityTable[monthKey];
+            const bondPrice = bondTable[monthKey];
+
+            if (equityPrice && bondPrice) {
+              const equityNormalized = (equityPrice / equityBasePrice) * 100;
+              const bondNormalized = (bondPrice / bondBasePrice) * 100;
+              const compositeValue = (equityNormalized * benchmarkConfig.composition.equity.weight) +
+                                     (bondNormalized * benchmarkConfig.composition.bond.weight);
+
+              monthlyValues.push({ monthKey, value: compositeValue });
+
+              if (prevValue !== null) {
+                const returnPct = ((compositeValue - prevValue) / prevValue) * 100;
+                monthlyReturnsArr.push(returnPct);
+              }
+              prevValue = compositeValue;
+            }
+          }
+        }
+
+        if (monthlyValues.length < 2) {
+          console.warn(`⚠️ Insufficient data for ${benchmarkName}`);
+          continue;
+        }
+
+        // Calculate metrics
+        const values = monthlyValues.map(m => m.value);
+        const years = monthlyValues.length / 12;
+
+        const totalReturn = ((values[values.length - 1] - 100) / 100) * 100;
+        const cagr = calculateCAGR(100, values[values.length - 1], years);
+        const drawdownResult = calculateMaxDrawdown(values);
+        const volatility = calculateVolatility(monthlyReturnsArr);
+        const sharpeRatio = calculateSharpeRatio(monthlyReturnsArr, 2); // 2% risk-free rate
+
+        benchmarkResults[benchmarkName] = {
+          ...benchmarkConfig,
+          monthlyValues,
+          monthlyReturns: monthlyReturnsArr,
+          metrics: {
+            totalReturn,
+            cagr,
+            maxDrawdown: drawdownResult.maxDrawdown,
+            volatility,
+            sharpeRatio
+          }
+        };
+
+        console.log(`✅ ${benchmarkName}: Return ${totalReturn.toFixed(2)}%, CAGR ${cagr.toFixed(2)}%, Vol ${volatility.toFixed(2)}%`);
+      }
+
+      setBenchmarkData(benchmarkResults);
+
+      // Build normalized chart data (portfolio + benchmarks, all starting at 100)
+      const chartData = [];
+      const portfolioBaseValue = portfolioMonthlyData[0]?.total || 0;
+
+      for (let i = 0; i < portfolioMonthlyData.length; i++) {
+        const monthData = portfolioMonthlyData[i];
+        const dataPoint = {
+          month: monthData.month,
+          monthKey: monthData.monthKey,
+          'Il mio Portafoglio': portfolioBaseValue > 0
+            ? (monthData.total / portfolioBaseValue) * 100
+            : 100
+        };
+
+        // Add benchmark values
+        for (const [name, data] of Object.entries(benchmarkResults)) {
+          const benchmarkMonth = data.monthlyValues.find(m => m.monthKey === monthData.monthKey);
+          if (benchmarkMonth) {
+            dataPoint[name] = benchmarkMonth.value;
+          }
+        }
+
+        chartData.push(dataPoint);
+      }
+
+      setNormalizedChartData(chartData);
+      console.log('✅ Benchmark calculation complete');
+
+    } catch (error) {
+      console.error('Error calculating benchmarks:', error);
+    } finally {
+      setBenchmarkLoading(false);
+    }
+  };
+
+  // Trigger benchmark calculation when portfolio data changes
+  useEffect(() => {
+    if (monthlyData.length > 0 && statistics.startDate) {
+      calculateBenchmarks(monthlyData, monthlyReturns, statistics.startDate);
+    }
+  }, [monthlyData, statistics.startDate]);
 
   // Transform monthlyData into format needed by heat maps
   const { monthlyCategoryValues, monthlyMicroCategoryValues, monthlyTickerValues } = useMemo(() => {
@@ -833,6 +1066,226 @@ function PortfolioPerformance() {
             Sortino si concentra sul rischio negativo. Volatilità indica quanto variano i rendimenti.
           </p>
         </div>
+      </div>
+
+      {/* Benchmark Comparison Section */}
+      <div className="card">
+        <div className="mb-6">
+          <div className="flex items-center gap-3 mb-2">
+            <Target className="w-6 h-6 text-primary-600" />
+            <h2 className="text-xl font-bold text-gray-900">Confronto con Benchmark</h2>
+          </div>
+          <p className="text-sm text-gray-600">
+            Come si è comportato il tuo portafoglio rispetto ai principali indici di mercato
+            {statistics.startDate && (
+              <span className="font-medium"> (dal {format(statistics.startDate, 'MMMM yyyy', { locale: it })} ad oggi)</span>
+            )}
+          </p>
+        </div>
+
+        {benchmarkLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="w-10 h-10 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+              <p className="text-gray-600">Caricamento benchmark...</p>
+            </div>
+          </div>
+        ) : Object.keys(benchmarkData).length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <AlertCircle className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+            <p>Dati benchmark non disponibili</p>
+          </div>
+        ) : (
+          <>
+            {/* Comparison Table */}
+            <div className="overflow-x-auto mb-8">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-100 border-b-2 border-gray-300">
+                    <th className="py-3 px-4 text-left font-semibold text-gray-900">Metrica</th>
+                    <th className="py-3 px-4 text-center font-semibold text-gray-900 bg-primary-50">
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="w-3 h-3 rounded-full bg-gray-900"></span>
+                        Il mio Portafoglio
+                      </span>
+                    </th>
+                    {Object.entries(benchmarkData).map(([name, data]) => (
+                      <th key={name} className="py-3 px-4 text-center font-semibold text-gray-900">
+                        <span className="flex items-center justify-center gap-2">
+                          <span className="w-3 h-3 rounded-full" style={{ backgroundColor: data.color }}></span>
+                          {name}
+                        </span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Total Return */}
+                  <tr className="border-b border-gray-200 hover:bg-gray-50">
+                    <td className="py-3 px-4 font-medium text-gray-900">Rendimento Totale</td>
+                    <td className={`py-3 px-4 text-center font-bold bg-primary-50 ${statistics.totalReturnPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {statistics.totalReturnPercent >= 0 ? '+' : ''}{statistics.totalReturnPercent.toFixed(2)}%
+                    </td>
+                    {Object.entries(benchmarkData).map(([name, data]) => (
+                      <td key={name} className={`py-3 px-4 text-center font-semibold ${data.metrics.totalReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {data.metrics.totalReturn >= 0 ? '+' : ''}{data.metrics.totalReturn.toFixed(2)}%
+                      </td>
+                    ))}
+                  </tr>
+
+                  {/* CAGR */}
+                  <tr className="border-b border-gray-200 hover:bg-gray-50">
+                    <td className="py-3 px-4 font-medium text-gray-900">
+                      CAGR
+                      <span className="text-xs text-gray-500 ml-1">(annualizzato)</span>
+                    </td>
+                    <td className={`py-3 px-4 text-center font-bold bg-primary-50 ${statistics.cagr >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {statistics.cagr >= 0 ? '+' : ''}{statistics.cagr.toFixed(2)}%
+                    </td>
+                    {Object.entries(benchmarkData).map(([name, data]) => (
+                      <td key={name} className={`py-3 px-4 text-center font-semibold ${data.metrics.cagr >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {data.metrics.cagr >= 0 ? '+' : ''}{data.metrics.cagr.toFixed(2)}%
+                      </td>
+                    ))}
+                  </tr>
+
+                  {/* Volatility */}
+                  <tr className="border-b border-gray-200 hover:bg-gray-50">
+                    <td className="py-3 px-4 font-medium text-gray-900">
+                      Volatilità
+                      <span className="text-xs text-gray-500 ml-1">(annualizzata)</span>
+                    </td>
+                    <td className="py-3 px-4 text-center font-bold bg-primary-50 text-gray-900">
+                      {statistics.volatility.toFixed(2)}%
+                    </td>
+                    {Object.entries(benchmarkData).map(([name, data]) => (
+                      <td key={name} className="py-3 px-4 text-center font-semibold text-gray-900">
+                        {data.metrics.volatility.toFixed(2)}%
+                      </td>
+                    ))}
+                  </tr>
+
+                  {/* Max Drawdown */}
+                  <tr className="border-b border-gray-200 hover:bg-gray-50">
+                    <td className="py-3 px-4 font-medium text-gray-900">Drawdown Massimo</td>
+                    <td className="py-3 px-4 text-center font-bold bg-primary-50 text-red-600">
+                      -{statistics.maxDrawdown.toFixed(2)}%
+                    </td>
+                    {Object.entries(benchmarkData).map(([name, data]) => (
+                      <td key={name} className="py-3 px-4 text-center font-semibold text-red-600">
+                        -{data.metrics.maxDrawdown.toFixed(2)}%
+                      </td>
+                    ))}
+                  </tr>
+
+                  {/* Sharpe Ratio */}
+                  <tr className="hover:bg-gray-50">
+                    <td className="py-3 px-4 font-medium text-gray-900">Sharpe Ratio</td>
+                    <td className={`py-3 px-4 text-center font-bold bg-primary-50 ${statistics.sharpeRatio >= 1 ? 'text-green-600' : statistics.sharpeRatio >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+                      {statistics.sharpeRatio.toFixed(2)}
+                    </td>
+                    {Object.entries(benchmarkData).map(([name, data]) => (
+                      <td key={name} className={`py-3 px-4 text-center font-semibold ${data.metrics.sharpeRatio >= 1 ? 'text-green-600' : data.metrics.sharpeRatio >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
+                        {data.metrics.sharpeRatio.toFixed(2)}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Performance Difference Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+              {Object.entries(benchmarkData).map(([name, data]) => {
+                const diff = statistics.totalReturnPercent - data.metrics.totalReturn;
+                const isOutperforming = diff > 0;
+                return (
+                  <div key={name} className={`p-4 rounded-lg border-2 ${isOutperforming ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: data.color }}></span>
+                      <span className="font-medium text-gray-900">vs {name}</span>
+                    </div>
+                    <div className={`text-2xl font-bold ${isOutperforming ? 'text-green-600' : 'text-red-600'}`}>
+                      {isOutperforming ? '+' : ''}{diff.toFixed(2)}%
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {isOutperforming ? 'Stai battendo il benchmark' : 'Il benchmark ha fatto meglio'}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Normalized Performance Chart */}
+            {normalizedChartData.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Andamento Normalizzato (base 100)</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Confronto visivo della crescita partendo dallo stesso valore iniziale
+                </p>
+                <ResponsiveContainer width="100%" height={400}>
+                  <LineChart data={normalizedChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fontSize: 12 }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                    />
+                    <YAxis
+                      tickFormatter={(value) => value.toFixed(0)}
+                      tick={{ fontSize: 12 }}
+                      domain={['auto', 'auto']}
+                    />
+                    <Tooltip
+                      formatter={(value, name) => [`${value.toFixed(2)}`, name]}
+                      labelStyle={{ fontWeight: 'bold' }}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="Il mio Portafoglio"
+                      stroke="#1f2937"
+                      strokeWidth={3}
+                      dot={false}
+                      name="Il mio Portafoglio"
+                    />
+                    {Object.entries(benchmarkData).map(([name, data]) => (
+                      <Line
+                        key={name}
+                        type="monotone"
+                        dataKey={name}
+                        stroke={data.color}
+                        strokeWidth={2}
+                        dot={false}
+                        strokeDasharray="5 5"
+                        name={name}
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Benchmark Info */}
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <h4 className="font-semibold text-gray-900 mb-3">Informazioni Benchmark</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                {Object.entries(benchmarkData).map(([name, data]) => (
+                  <div key={name} className="flex items-start gap-2">
+                    <span className="w-3 h-3 rounded-full mt-1 flex-shrink-0" style={{ backgroundColor: data.color }}></span>
+                    <div>
+                      <p className="font-medium text-gray-900">{name}</p>
+                      <p className="text-gray-600">{data.description}</p>
+                      {data.ticker && <p className="text-xs text-gray-500">Ticker: {data.ticker}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Explanation Note */}

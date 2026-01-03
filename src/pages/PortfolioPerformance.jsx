@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Calendar, BarChart3, Activity, AlertCircle, Target } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Calendar, BarChart3, Activity, AlertCircle, Target, PieChart as PieChartIcon } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, Cell } from 'recharts';
 import { getTransactions } from '../services/localStorageService';
 import { fetchMultipleHistoricalPrices, buildMonthlyPriceTable } from '../services/historicalPriceService';
@@ -103,6 +103,15 @@ function PortfolioPerformance() {
   const [benchmarkLoading, setBenchmarkLoading] = useState(false);
   const [normalizedChartData, setNormalizedChartData] = useState([]);
   const [benchmarkCurrency, setBenchmarkCurrency] = useState('EUR'); // EUR or USD
+
+  // Contribution analysis state
+  const [contributionData, setContributionData] = useState({
+    byTicker: [],
+    byMicroCategory: [],
+    totalReturnEuro: 0,
+    totalReturnPercent: 0
+  });
+  const [contributionView, setContributionView] = useState('ticker'); // 'ticker' or 'micro'
 
   useEffect(() => {
     calculatePerformance();
@@ -446,6 +455,164 @@ function PortfolioPerformance() {
           sharpeRatio: advancedMetrics.sharpeRatio,
           sortinoRatio: advancedMetrics.sortinoRatio,
           volatility: advancedMetrics.volatility
+        });
+
+        // ============ CONTRIBUTION ANALYSIS ============
+        // Calculate per-ticker and per-MICRO category contributions
+        console.log('📊 Calculating contribution analysis...');
+
+        // Build ticker info map from transactions
+        const tickerInfoMap = {};
+        assetTransactions.forEach(tx => {
+          if (!tickerInfoMap[tx.ticker]) {
+            tickerInfoMap[tx.ticker] = {
+              name: tx.name || tx.ticker,
+              microCategory: tx.microCategory || tx.subCategory || 'N/A',
+              macroCategory: tx.macroCategory || tx.category || 'Altro'
+            };
+          }
+        });
+
+        // Calculate per-ticker metrics
+        const tickerContributions = [];
+        const allTickers = new Set();
+
+        // Collect all tickers that appear in any month
+        monthlyGrowth.forEach(month => {
+          Object.keys(month.byTicker).forEach(ticker => allTickers.add(ticker));
+        });
+
+        for (const ticker of allTickers) {
+          // Calculate average weight over time
+          let totalWeight = 0;
+          let weightCount = 0;
+          let monthlyTickerReturns = [];
+
+          for (let i = 0; i < monthlyGrowth.length; i++) {
+            const month = monthlyGrowth[i];
+            const tickerValue = month.byTicker[ticker] || 0;
+            const portfolioTotal = month.total || 0;
+
+            if (portfolioTotal > 0 && tickerValue > 0) {
+              const weight = (tickerValue / portfolioTotal) * 100;
+              totalWeight += weight;
+              weightCount++;
+            }
+
+            // Calculate monthly return for this ticker (from month 1 onwards)
+            if (i > 0) {
+              const prevMonth = monthlyGrowth[i - 1];
+              const prevTickerValue = prevMonth.byTicker[ticker] || 0;
+              const currTickerValue = tickerValue;
+
+              // Get net cash flow for this ticker this month
+              const [year, monthNum] = month.monthKey.split('-');
+              const tickerTxThisMonth = assetTransactions.filter(tx => {
+                if (!tx.date || tx.ticker !== ticker) return false;
+                const txDate = new Date(tx.date);
+                return txDate.getFullYear() === parseInt(year) &&
+                       (txDate.getMonth() + 1) === parseInt(monthNum);
+              });
+
+              let netCashFlow = 0;
+              tickerTxThisMonth.forEach(tx => {
+                const amount = tx.quantity * tx.price;
+                const commission = tx.commission || 0;
+                if (tx.type === 'buy') {
+                  netCashFlow += (amount + commission);
+                } else if (tx.type === 'sell') {
+                  netCashFlow -= (amount - commission);
+                }
+              });
+
+              // TWR for this ticker this month
+              const expectedValue = prevTickerValue + netCashFlow;
+              if (expectedValue > 0) {
+                const monthReturn = ((currTickerValue - expectedValue) / expectedValue) * 100;
+                monthlyTickerReturns.push({
+                  monthKey: month.monthKey,
+                  return: monthReturn,
+                  weight: portfolioTotal > 0 ? (currTickerValue / portfolioTotal) * 100 : 0
+                });
+              }
+            }
+          }
+
+          const avgWeight = weightCount > 0 ? totalWeight / weightCount : 0;
+
+          // Calculate cumulative TWR for this ticker
+          let cumulativeTWR = 100;
+          monthlyTickerReturns.forEach(m => {
+            cumulativeTWR = cumulativeTWR * (1 + m.return / 100);
+          });
+          const tickerTotalReturn = cumulativeTWR - 100; // percentage
+
+          // Calculate contribution to portfolio return
+          // Contribution ≈ Average Weight × Asset Return
+          const contributionPercent = (avgWeight / 100) * tickerTotalReturn;
+
+          // Calculate contribution in euros
+          // This is an approximation: contribution€ ≈ (contributionPercent / totalReturnPercent) × totalReturn€
+          const contributionEuro = totalReturnPercent !== 0
+            ? (contributionPercent / totalReturnPercent) * totalReturn
+            : 0;
+
+          if (avgWeight > 0.01) { // Only include tickers with meaningful weight
+            tickerContributions.push({
+              ticker,
+              name: tickerInfoMap[ticker]?.name || ticker,
+              microCategory: tickerInfoMap[ticker]?.microCategory || 'N/A',
+              macroCategory: tickerInfoMap[ticker]?.macroCategory || 'Altro',
+              avgWeight,
+              assetReturn: tickerTotalReturn,
+              contributionEuro,
+              contributionPercent
+            });
+          }
+        }
+
+        // Sort by contribution € descending
+        tickerContributions.sort((a, b) => b.contributionEuro - a.contributionEuro);
+
+        // Group by MICRO category
+        const microCategoryMap = {};
+        tickerContributions.forEach(tc => {
+          const micro = tc.microCategory || 'N/A';
+          if (!microCategoryMap[micro]) {
+            microCategoryMap[micro] = {
+              microCategory: micro,
+              macroCategory: tc.macroCategory,
+              tickers: [],
+              totalWeight: 0,
+              weightedReturn: 0,
+              contributionEuro: 0,
+              contributionPercent: 0
+            };
+          }
+          microCategoryMap[micro].tickers.push(tc.ticker);
+          microCategoryMap[micro].totalWeight += tc.avgWeight;
+          microCategoryMap[micro].weightedReturn += tc.avgWeight * tc.assetReturn;
+          microCategoryMap[micro].contributionEuro += tc.contributionEuro;
+          microCategoryMap[micro].contributionPercent += tc.contributionPercent;
+        });
+
+        // Calculate average return for each MICRO category
+        const microContributions = Object.values(microCategoryMap).map(mc => ({
+          ...mc,
+          avgWeight: mc.totalWeight,
+          assetReturn: mc.totalWeight > 0 ? mc.weightedReturn / mc.totalWeight : 0
+        }));
+
+        // Sort by contribution € descending
+        microContributions.sort((a, b) => b.contributionEuro - a.contributionEuro);
+
+        console.log(`📊 Contribution analysis: ${tickerContributions.length} tickers, ${microContributions.length} MICRO categories`);
+
+        setContributionData({
+          byTicker: tickerContributions,
+          byMicroCategory: microContributions,
+          totalReturnEuro: totalReturn,
+          totalReturnPercent
         });
       }
 
@@ -1380,6 +1547,178 @@ function PortfolioPerformance() {
           </>
         )}
       </div>
+
+      {/* Contribution Analysis Section */}
+      {contributionData.byTicker.length > 0 && (
+        <div className="card">
+          <div className="mb-6">
+            <div className="flex items-center justify-between flex-wrap gap-4 mb-2">
+              <div className="flex items-center gap-3">
+                <PieChartIcon className="w-6 h-6 text-primary-600" />
+                <h2 className="text-xl font-bold text-gray-900">Contribution Analysis</h2>
+              </div>
+
+              {/* View Toggle */}
+              <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+                <button
+                  onClick={() => setContributionView('ticker')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    contributionView === 'ticker'
+                      ? 'bg-white text-primary-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Per Ticker
+                </button>
+                <button
+                  onClick={() => setContributionView('micro')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    contributionView === 'micro'
+                      ? 'bg-white text-primary-700 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Per Categoria MICRO
+                </button>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600">
+              Contributo di ogni asset al rendimento totale del portafoglio
+              {statistics.startDate && (
+                <span className="font-medium"> (dal {format(statistics.startDate, 'MMMM yyyy', { locale: it })} ad oggi)</span>
+              )}
+            </p>
+          </div>
+
+          {/* Contribution Table - By Ticker */}
+          {contributionView === 'ticker' && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-100 border-b-2 border-gray-300">
+                    <th className="py-3 px-4 text-left font-semibold text-gray-900">Ticker</th>
+                    <th className="py-3 px-4 text-left font-semibold text-gray-900">Categoria</th>
+                    <th className="py-3 px-4 text-right font-semibold text-gray-900">Peso Medio %</th>
+                    <th className="py-3 px-4 text-right font-semibold text-gray-900">Rendimento Asset %</th>
+                    <th className="py-3 px-4 text-right font-semibold text-gray-900">Contributo €</th>
+                    <th className="py-3 px-4 text-right font-semibold text-gray-900">Contributo %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contributionData.byTicker.map((item, index) => (
+                    <tr key={item.ticker} className={`border-b border-gray-200 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                      <td className="py-3 px-4">
+                        <div className="font-mono font-semibold text-gray-900">{item.ticker}</div>
+                        <div className="text-xs text-gray-500">{item.name}</div>
+                      </td>
+                      <td className="py-3 px-4 text-gray-600 text-xs">{item.microCategory}</td>
+                      <td className="py-3 px-4 text-right font-medium text-gray-900">
+                        {item.avgWeight.toFixed(1)}%
+                      </td>
+                      <td className={`py-3 px-4 text-right font-semibold ${item.assetReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {item.assetReturn >= 0 ? '+' : ''}{item.assetReturn.toFixed(1)}%
+                      </td>
+                      <td className={`py-3 px-4 text-right font-bold ${item.contributionEuro >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {item.contributionEuro >= 0 ? '+' : ''}€{item.contributionEuro.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </td>
+                      <td className={`py-3 px-4 text-right font-bold ${item.contributionPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {item.contributionPercent >= 0 ? '+' : ''}{item.contributionPercent.toFixed(2)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-primary-50 border-t-2 border-primary-300">
+                    <td colSpan={2} className="py-3 px-4 font-bold text-primary-900">TOTALE</td>
+                    <td className="py-3 px-4 text-right font-bold text-primary-900">
+                      {contributionData.byTicker.reduce((sum, t) => sum + t.avgWeight, 0).toFixed(0)}%
+                    </td>
+                    <td className="py-3 px-4 text-right font-bold text-primary-900">-</td>
+                    <td className={`py-3 px-4 text-right font-bold ${contributionData.totalReturnEuro >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {contributionData.totalReturnEuro >= 0 ? '+' : ''}€{contributionData.totalReturnEuro.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </td>
+                    <td className={`py-3 px-4 text-right font-bold ${contributionData.totalReturnPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {contributionData.totalReturnPercent >= 0 ? '+' : ''}{contributionData.totalReturnPercent.toFixed(2)}%
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+
+          {/* Contribution Table - By MICRO Category */}
+          {contributionView === 'micro' && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-100 border-b-2 border-gray-300">
+                    <th className="py-3 px-4 text-left font-semibold text-gray-900">Categoria MICRO</th>
+                    <th className="py-3 px-4 text-left font-semibold text-gray-900">Ticker</th>
+                    <th className="py-3 px-4 text-right font-semibold text-gray-900">Peso Medio %</th>
+                    <th className="py-3 px-4 text-right font-semibold text-gray-900">Rendimento %</th>
+                    <th className="py-3 px-4 text-right font-semibold text-gray-900">Contributo €</th>
+                    <th className="py-3 px-4 text-right font-semibold text-gray-900">Contributo %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {contributionData.byMicroCategory.map((item, index) => (
+                    <tr key={item.microCategory} className={`border-b border-gray-200 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                      <td className="py-3 px-4">
+                        <div className="font-semibold text-gray-900">{item.microCategory}</div>
+                        <div className="text-xs text-gray-500">{item.macroCategory}</div>
+                      </td>
+                      <td className="py-3 px-4 text-xs text-gray-600 font-mono">
+                        {item.tickers.slice(0, 3).join(', ')}{item.tickers.length > 3 ? ` +${item.tickers.length - 3}` : ''}
+                      </td>
+                      <td className="py-3 px-4 text-right font-medium text-gray-900">
+                        {item.avgWeight.toFixed(1)}%
+                      </td>
+                      <td className={`py-3 px-4 text-right font-semibold ${item.assetReturn >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {item.assetReturn >= 0 ? '+' : ''}{item.assetReturn.toFixed(1)}%
+                      </td>
+                      <td className={`py-3 px-4 text-right font-bold ${item.contributionEuro >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {item.contributionEuro >= 0 ? '+' : ''}€{item.contributionEuro.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </td>
+                      <td className={`py-3 px-4 text-right font-bold ${item.contributionPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {item.contributionPercent >= 0 ? '+' : ''}{item.contributionPercent.toFixed(2)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-primary-50 border-t-2 border-primary-300">
+                    <td colSpan={2} className="py-3 px-4 font-bold text-primary-900">TOTALE</td>
+                    <td className="py-3 px-4 text-right font-bold text-primary-900">
+                      {contributionData.byMicroCategory.reduce((sum, t) => sum + t.avgWeight, 0).toFixed(0)}%
+                    </td>
+                    <td className="py-3 px-4 text-right font-bold text-primary-900">-</td>
+                    <td className={`py-3 px-4 text-right font-bold ${contributionData.totalReturnEuro >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {contributionData.totalReturnEuro >= 0 ? '+' : ''}€{contributionData.totalReturnEuro.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </td>
+                    <td className={`py-3 px-4 text-right font-bold ${contributionData.totalReturnPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {contributionData.totalReturnPercent >= 0 ? '+' : ''}{contributionData.totalReturnPercent.toFixed(2)}%
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+
+          {/* Legend */}
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <h4 className="font-semibold text-blue-900 mb-2">📖 Come leggere la tabella</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-blue-800">
+              <div><strong>Peso Medio %</strong>: peso medio dell'asset nel portafoglio durante il periodo</div>
+              <div><strong>Rendimento Asset %</strong>: rendimento Time-Weighted dell'asset singolo</div>
+              <div><strong>Contributo €</strong>: quanto quell'asset ha aggiunto (o tolto) in euro</div>
+              <div><strong>Contributo %</strong>: quota del rendimento totale attribuibile a quell'asset</div>
+            </div>
+            <p className="text-xs text-blue-800 mt-3 italic">
+              💡 La somma dei contributi % è uguale al rendimento totale del portafoglio ({contributionData.totalReturnPercent >= 0 ? '+' : ''}{contributionData.totalReturnPercent.toFixed(2)}%)
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Explanation Note */}
       {(statistics.bestMonth || statistics.worstMonth) && (

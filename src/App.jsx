@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { TrendingUp, LayoutDashboard, Wallet, FileText, Settings, Plus, Target, RefreshCcw, BarChart3, PiggyBank, CalendarCheck } from 'lucide-react';
+import { TrendingUp, LayoutDashboard, Wallet, FileText, Settings, Plus, Target, RefreshCcw, BarChart3, PiggyBank, CalendarCheck, History } from 'lucide-react';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -12,6 +12,7 @@ import Strategy from './pages/Strategy';
 import Rebalancing from './pages/Rebalancing';
 import Patrimonio from './pages/Patrimonio';
 import PAC from './pages/PAC';
+import Backtest from './pages/Backtest';
 
 function App() {
   const location = useLocation();
@@ -20,6 +21,7 @@ function App() {
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Portfolio', href: '/portfolio', icon: Wallet },
     { name: 'Performance', href: '/performance', icon: BarChart3 },
+    { name: 'Backtest', href: '/backtest', icon: History },
     { name: 'Patrimonio', href: '/patrimonio', icon: PiggyBank },
     { name: 'Transazioni', href: '/transactions', icon: FileText },
     { name: 'PAC', href: '/pac', icon: CalendarCheck },
@@ -93,6 +95,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/performance" element={<PortfolioPerformance />} />
+            <Route path="/backtest" element={<Backtest />} />
             <Route path="/patrimonio" element={<Patrimonio />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/transactions/new" element={<Transactions />} />

@@ -4,7 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { getTransactions } from '../services/localStorageService';
 import { fetchMultipleHistoricalPrices, buildMonthlyPriceTable } from '../services/historicalPriceService';
 import { getCachedPrices } from '../services/priceCache';
-import { calculateAllMetrics, calculateCAGR, calculateMaxDrawdown, calculateSharpeRatio, calculateVolatility } from '../services/advancedMetricsService';
+import { calculateAllMetrics, calculateCAGR, calculateMaxDrawdown, calculateSharpeRatio, calculateVolatility, calculateBeta, calculateAlpha, calculateTrackingError, calculateInformationRatio, calculateCalmarRatio, calculateRSquared } from '../services/advancedMetricsService';
 import { format, startOfMonth, endOfMonth, eachMonthOfInterval, parseISO, isAfter } from 'date-fns';
 import { it } from 'date-fns/locale';
 
@@ -122,6 +122,17 @@ function PortfolioPerformance() {
     all: null
   });
   const [rollingReturns, setRollingReturns] = useState([]); // 12-month rolling returns
+
+  // Advanced risk metrics state (calculated with benchmark)
+  const [riskMetrics, setRiskMetrics] = useState({
+    beta: null,
+    alpha: null,
+    trackingError: null,
+    informationRatio: null,
+    calmarRatio: null,
+    rSquared: null,
+    benchmarkUsed: null
+  });
 
   useEffect(() => {
     calculatePerformance();
@@ -982,6 +993,79 @@ function PortfolioPerformance() {
     }
   }, [monthlyData, statistics.startDate, benchmarkCurrency]);
 
+  // Calculate advanced risk metrics when benchmark data is available
+  useEffect(() => {
+    if (!benchmarkData || Object.keys(benchmarkData).length === 0 || monthlyReturns.length === 0) {
+      return;
+    }
+
+    console.log('📊 Calculating advanced risk metrics...');
+
+    // Use MSCI World as the primary benchmark for risk metrics
+    const primaryBenchmark = benchmarkData['MSCI World'] || Object.values(benchmarkData)[0];
+    if (!primaryBenchmark || !primaryBenchmark.monthlyReturns) {
+      console.warn('⚠️ No benchmark returns available for risk metrics');
+      return;
+    }
+
+    const benchmarkName = benchmarkData['MSCI World'] ? 'MSCI World' : Object.keys(benchmarkData)[0];
+    const benchmarkReturns = primaryBenchmark.monthlyReturns;
+    const portfolioReturns = monthlyReturns.map(m => m.return);
+
+    // Align returns by month key
+    const alignedPortfolioReturns = [];
+    const alignedBenchmarkReturns = [];
+
+    // Get benchmark month keys
+    const benchmarkMonthlyValues = primaryBenchmark.monthlyValues || [];
+
+    for (let i = 0; i < monthlyReturns.length && i < benchmarkReturns.length; i++) {
+      alignedPortfolioReturns.push(portfolioReturns[i]);
+      alignedBenchmarkReturns.push(benchmarkReturns[i]);
+    }
+
+    if (alignedPortfolioReturns.length < 3) {
+      console.warn('⚠️ Not enough aligned data for risk metrics');
+      return;
+    }
+
+    // Calculate Beta
+    const beta = calculateBeta(alignedPortfolioReturns, alignedBenchmarkReturns);
+
+    // Calculate annualized returns for Alpha calculation
+    const portfolioCAGR = statistics.cagr || 0;
+    const benchmarkCAGR = primaryBenchmark.metrics?.cagr || 0;
+
+    // Calculate Alpha
+    const alpha = calculateAlpha(portfolioCAGR, benchmarkCAGR, beta, 2); // 2% risk-free rate
+
+    // Calculate Tracking Error
+    const trackingError = calculateTrackingError(alignedPortfolioReturns, alignedBenchmarkReturns);
+
+    // Calculate Information Ratio
+    const informationRatio = calculateInformationRatio(portfolioCAGR, benchmarkCAGR, trackingError);
+
+    // Calculate Calmar Ratio
+    const calmarRatio = calculateCalmarRatio(portfolioCAGR, statistics.maxDrawdown || 0);
+
+    // Calculate R-Squared
+    const rSquared = calculateRSquared(alignedPortfolioReturns, alignedBenchmarkReturns);
+
+    const metrics = {
+      beta,
+      alpha,
+      trackingError,
+      informationRatio,
+      calmarRatio,
+      rSquared,
+      benchmarkUsed: benchmarkName
+    };
+
+    console.log('📊 Risk metrics calculated:', metrics);
+    setRiskMetrics(metrics);
+
+  }, [benchmarkData, monthlyReturns, statistics.cagr, statistics.maxDrawdown]);
+
   // Transform monthlyData into format needed by heat maps
   const { monthlyCategoryValues, monthlyMicroCategoryValues, monthlyTickerValues } = useMemo(() => {
     const categoryValues = {};
@@ -1408,6 +1492,135 @@ function PortfolioPerformance() {
             Sortino si concentra sul rischio negativo. Volatilità indica quanto variano i rendimenti.
           </p>
         </div>
+
+        {/* Advanced Risk Metrics (relative to benchmark) */}
+        {riskMetrics.beta !== null && (
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-primary-600" />
+              Metriche di Rischio Avanzate
+              <span className="text-xs font-normal text-gray-500 ml-2">
+                (vs {riskMetrics.benchmarkUsed})
+              </span>
+            </h3>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {/* Beta */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-600">Beta</span>
+                  <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">β</span>
+                </div>
+                <div className={`text-2xl font-bold ${
+                  riskMetrics.beta < 0.8 ? 'text-blue-600' :
+                  riskMetrics.beta > 1.2 ? 'text-red-600' :
+                  'text-gray-900'
+                }`}>
+                  {riskMetrics.beta.toFixed(2)}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {riskMetrics.beta < 0.8 ? 'Difensivo' :
+                   riskMetrics.beta > 1.2 ? 'Aggressivo' :
+                   'Neutro'}
+                </div>
+              </div>
+
+              {/* Alpha */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-600">Alpha</span>
+                  <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">α</span>
+                </div>
+                <div className={`text-2xl font-bold ${riskMetrics.alpha >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {riskMetrics.alpha >= 0 ? '+' : ''}{riskMetrics.alpha.toFixed(2)}%
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {riskMetrics.alpha > 0 ? 'Sovraperformance' : 'Sottoperformance'}
+                </div>
+              </div>
+
+              {/* R-Squared */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-600">R²</span>
+                  <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">R²</span>
+                </div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {riskMetrics.rSquared.toFixed(0)}%
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {riskMetrics.rSquared > 80 ? 'Alta correlazione' :
+                   riskMetrics.rSquared > 50 ? 'Media correlazione' :
+                   'Bassa correlazione'}
+                </div>
+              </div>
+
+              {/* Tracking Error */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-600">Tracking Error</span>
+                  <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">TE</span>
+                </div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {riskMetrics.trackingError.toFixed(1)}%
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Deviazione dal benchmark
+                </div>
+              </div>
+
+              {/* Information Ratio */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-600">Info Ratio</span>
+                  <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">IR</span>
+                </div>
+                <div className={`text-2xl font-bold ${
+                  riskMetrics.informationRatio > 0.5 ? 'text-green-600' :
+                  riskMetrics.informationRatio < -0.5 ? 'text-red-600' :
+                  'text-gray-900'
+                }`}>
+                  {riskMetrics.informationRatio.toFixed(2)}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {riskMetrics.informationRatio > 0.5 ? 'Buono' :
+                   riskMetrics.informationRatio > 1 ? 'Eccellente' :
+                   'Nella media'}
+                </div>
+              </div>
+
+              {/* Calmar Ratio */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-600">Calmar Ratio</span>
+                  <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">CR</span>
+                </div>
+                <div className={`text-2xl font-bold ${
+                  riskMetrics.calmarRatio > 1 ? 'text-green-600' :
+                  riskMetrics.calmarRatio < 0.5 ? 'text-red-600' :
+                  'text-gray-900'
+                }`}>
+                  {riskMetrics.calmarRatio === Infinity ? '∞' : riskMetrics.calmarRatio.toFixed(2)}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  CAGR / Max Drawdown
+                </div>
+              </div>
+            </div>
+
+            {/* Explanation */}
+            <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+              <p className="text-xs text-purple-700">
+                <strong>📊 Guida alle metriche:</strong><br/>
+                <strong>Beta</strong>: &lt;1 = meno volatile del mercato, &gt;1 = più volatile |
+                <strong> Alpha</strong>: rendimento extra rispetto al CAPM |
+                <strong> R²</strong>: % di movimento spiegato dal benchmark |
+                <strong> IR</strong>: &gt;0.5 è buono, &gt;1 è eccellente |
+                <strong> Calmar</strong>: &gt;1 è buono (rendimento vs rischio drawdown)
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Benchmark Comparison Section */}

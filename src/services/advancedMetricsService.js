@@ -239,6 +239,168 @@ export function calculateAllMetrics(monthlyData, riskFreeRate = 2, totalInvested
   };
 }
 
+/**
+ * Calculate Beta
+ * Measures portfolio's sensitivity to market movements
+ * Beta = Covariance(portfolio, benchmark) / Variance(benchmark)
+ *
+ * @param {Array} portfolioReturns - Array of portfolio returns (as percentages)
+ * @param {Array} benchmarkReturns - Array of benchmark returns (as percentages)
+ * @returns {number} Beta coefficient
+ */
+export function calculateBeta(portfolioReturns, benchmarkReturns) {
+  if (!portfolioReturns || !benchmarkReturns || portfolioReturns.length < 2) {
+    return 0;
+  }
+
+  // Align arrays to same length
+  const minLength = Math.min(portfolioReturns.length, benchmarkReturns.length);
+  const pReturns = portfolioReturns.slice(0, minLength);
+  const bReturns = benchmarkReturns.slice(0, minLength);
+
+  // Calculate means
+  const pMean = pReturns.reduce((s, r) => s + r, 0) / pReturns.length;
+  const bMean = bReturns.reduce((s, r) => s + r, 0) / bReturns.length;
+
+  // Calculate covariance and variance
+  let covariance = 0;
+  let benchmarkVariance = 0;
+
+  for (let i = 0; i < minLength; i++) {
+    covariance += (pReturns[i] - pMean) * (bReturns[i] - bMean);
+    benchmarkVariance += Math.pow(bReturns[i] - bMean, 2);
+  }
+
+  covariance /= minLength;
+  benchmarkVariance /= minLength;
+
+  if (benchmarkVariance === 0) return 0;
+
+  return covariance / benchmarkVariance;
+}
+
+/**
+ * Calculate Alpha (Jensen's Alpha)
+ * Measures excess return over what CAPM predicts
+ * Alpha = Portfolio Return - [Risk-Free Rate + Beta × (Benchmark Return - Risk-Free Rate)]
+ *
+ * @param {number} portfolioReturn - Portfolio's annualized return (percentage)
+ * @param {number} benchmarkReturn - Benchmark's annualized return (percentage)
+ * @param {number} beta - Portfolio's beta
+ * @param {number} riskFreeRate - Annual risk-free rate (default: 2%)
+ * @returns {number} Alpha percentage (annualized)
+ */
+export function calculateAlpha(portfolioReturn, benchmarkReturn, beta, riskFreeRate = 2) {
+  // CAPM expected return
+  const expectedReturn = riskFreeRate + beta * (benchmarkReturn - riskFreeRate);
+
+  // Alpha = actual return - expected return
+  return portfolioReturn - expectedReturn;
+}
+
+/**
+ * Calculate Tracking Error
+ * Standard deviation of the difference between portfolio and benchmark returns
+ *
+ * @param {Array} portfolioReturns - Array of portfolio returns (as percentages)
+ * @param {Array} benchmarkReturns - Array of benchmark returns (as percentages)
+ * @returns {number} Tracking error (annualized percentage)
+ */
+export function calculateTrackingError(portfolioReturns, benchmarkReturns) {
+  if (!portfolioReturns || !benchmarkReturns || portfolioReturns.length < 2) {
+    return 0;
+  }
+
+  // Align arrays
+  const minLength = Math.min(portfolioReturns.length, benchmarkReturns.length);
+
+  // Calculate excess returns (portfolio - benchmark)
+  const excessReturns = [];
+  for (let i = 0; i < minLength; i++) {
+    excessReturns.push(portfolioReturns[i] - benchmarkReturns[i]);
+  }
+
+  // Calculate standard deviation of excess returns
+  const mean = excessReturns.reduce((s, r) => s + r, 0) / excessReturns.length;
+  const variance = excessReturns.reduce((s, r) => s + Math.pow(r - mean, 2), 0) / excessReturns.length;
+  const monthlyTE = Math.sqrt(variance);
+
+  // Annualize
+  return monthlyTE * Math.sqrt(12);
+}
+
+/**
+ * Calculate Information Ratio
+ * Risk-adjusted excess return relative to benchmark
+ * IR = (Portfolio Return - Benchmark Return) / Tracking Error
+ *
+ * @param {number} portfolioReturn - Portfolio's annualized return (percentage)
+ * @param {number} benchmarkReturn - Benchmark's annualized return (percentage)
+ * @param {number} trackingError - Tracking error (annualized percentage)
+ * @returns {number} Information Ratio
+ */
+export function calculateInformationRatio(portfolioReturn, benchmarkReturn, trackingError) {
+  if (trackingError === 0) return 0;
+
+  return (portfolioReturn - benchmarkReturn) / trackingError;
+}
+
+/**
+ * Calculate Calmar Ratio
+ * Return relative to maximum drawdown risk
+ * Calmar = CAGR / Max Drawdown
+ *
+ * @param {number} cagr - Compound Annual Growth Rate (percentage)
+ * @param {number} maxDrawdown - Maximum drawdown (percentage, positive number)
+ * @returns {number} Calmar Ratio
+ */
+export function calculateCalmarRatio(cagr, maxDrawdown) {
+  if (maxDrawdown === 0) return cagr > 0 ? Infinity : 0;
+
+  return cagr / maxDrawdown;
+}
+
+/**
+ * Calculate R-Squared (Coefficient of Determination)
+ * Measures how much of portfolio's movement is explained by benchmark
+ *
+ * @param {Array} portfolioReturns - Array of portfolio returns
+ * @param {Array} benchmarkReturns - Array of benchmark returns
+ * @returns {number} R-squared (0 to 1, or 0 to 100 as percentage)
+ */
+export function calculateRSquared(portfolioReturns, benchmarkReturns) {
+  if (!portfolioReturns || !benchmarkReturns || portfolioReturns.length < 2) {
+    return 0;
+  }
+
+  const minLength = Math.min(portfolioReturns.length, benchmarkReturns.length);
+  const pReturns = portfolioReturns.slice(0, minLength);
+  const bReturns = benchmarkReturns.slice(0, minLength);
+
+  // Calculate correlation coefficient
+  const pMean = pReturns.reduce((s, r) => s + r, 0) / pReturns.length;
+  const bMean = bReturns.reduce((s, r) => s + r, 0) / bReturns.length;
+
+  let numerator = 0;
+  let pDenominator = 0;
+  let bDenominator = 0;
+
+  for (let i = 0; i < minLength; i++) {
+    const pDiff = pReturns[i] - pMean;
+    const bDiff = bReturns[i] - bMean;
+    numerator += pDiff * bDiff;
+    pDenominator += pDiff * pDiff;
+    bDenominator += bDiff * bDiff;
+  }
+
+  if (pDenominator === 0 || bDenominator === 0) return 0;
+
+  const correlation = numerator / Math.sqrt(pDenominator * bDenominator);
+
+  // R-squared is correlation squared
+  return Math.pow(correlation, 2) * 100; // Return as percentage
+}
+
 export default {
   calculateCAGR,
   calculateMaxDrawdown,
@@ -246,5 +408,11 @@ export default {
   calculateSharpeRatio,
   calculateSortinoRatio,
   calculateVolatility,
-  calculateAllMetrics
+  calculateAllMetrics,
+  calculateBeta,
+  calculateAlpha,
+  calculateTrackingError,
+  calculateInformationRatio,
+  calculateCalmarRatio,
+  calculateRSquared
 };

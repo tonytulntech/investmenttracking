@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Calendar, BarChart3, Activity, AlertCircle, Target, PieChart as PieChartIcon } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, Cell, ReferenceLine } from 'recharts';
 import { getTransactions } from '../services/localStorageService';
 import { fetchMultipleHistoricalPrices, buildMonthlyPriceTable } from '../services/historicalPriceService';
 import { getCachedPrices } from '../services/priceCache';
@@ -112,6 +112,16 @@ function PortfolioPerformance() {
     totalReturnPercent: 0
   });
   const [contributionView, setContributionView] = useState('ticker'); // 'ticker' or 'micro'
+
+  // Period analysis state
+  const [periodReturns, setPeriodReturns] = useState({
+    ytd: null,
+    '1y': null,
+    '3y': null,
+    '5y': null,
+    all: null
+  });
+  const [rollingReturns, setRollingReturns] = useState([]); // 12-month rolling returns
 
   useEffect(() => {
     calculatePerformance();
@@ -614,6 +624,114 @@ function PortfolioPerformance() {
           totalReturnEuro: totalReturn,
           totalReturnPercent
         });
+
+        // ============ PERIOD ANALYSIS ============
+        // Calculate returns for different time periods (YTD, 1Y, 3Y, 5Y, ALL)
+        console.log('📊 Calculating period returns...');
+
+        const now = new Date();
+        const currentYear = now.getFullYear();
+
+        // Helper function to calculate return for a specific period
+        const calculatePeriodReturn = (startMonthKey) => {
+          // Find the starting month index
+          const startIdx = monthlyGrowth.findIndex(m => m.monthKey >= startMonthKey);
+          if (startIdx === -1 || startIdx >= monthlyGrowth.length - 1) return null;
+
+          // Get relevant monthly returns for this period
+          const periodMonthlyReturns = calculatedMonthlyReturns.filter(r => r.monthKey >= startMonthKey);
+          if (periodMonthlyReturns.length === 0) return null;
+
+          // Calculate cumulative TWR for the period
+          let cumulativeTWR = 100;
+          periodMonthlyReturns.forEach(m => {
+            cumulativeTWR = cumulativeTWR * (1 + m.return / 100);
+          });
+
+          const periodReturn = cumulativeTWR - 100;
+          const years = periodMonthlyReturns.length / 12;
+          const annualizedReturn = years > 0 ? (Math.pow(cumulativeTWR / 100, 1 / years) - 1) * 100 : periodReturn;
+
+          return {
+            return: periodReturn,
+            annualized: annualizedReturn,
+            months: periodMonthlyReturns.length,
+            startDate: periodMonthlyReturns[0]?.month || 'N/A'
+          };
+        };
+
+        // Calculate period returns
+        const periodResults = {};
+
+        // YTD (Year to Date)
+        const ytdStartKey = `${currentYear}-01`;
+        periodResults.ytd = calculatePeriodReturn(ytdStartKey);
+
+        // 1 Year
+        const oneYearAgo = new Date(now);
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        const oneYearKey = format(oneYearAgo, 'yyyy-MM');
+        periodResults['1y'] = calculatePeriodReturn(oneYearKey);
+
+        // 3 Years
+        const threeYearsAgo = new Date(now);
+        threeYearsAgo.setFullYear(threeYearsAgo.getFullYear() - 3);
+        const threeYearKey = format(threeYearsAgo, 'yyyy-MM');
+        periodResults['3y'] = calculatePeriodReturn(threeYearKey);
+
+        // 5 Years
+        const fiveYearsAgo = new Date(now);
+        fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
+        const fiveYearKey = format(fiveYearsAgo, 'yyyy-MM');
+        periodResults['5y'] = calculatePeriodReturn(fiveYearKey);
+
+        // ALL (from beginning)
+        if (calculatedMonthlyReturns.length > 0) {
+          let allCumulativeTWR = 100;
+          calculatedMonthlyReturns.forEach(m => {
+            allCumulativeTWR = allCumulativeTWR * (1 + m.return / 100);
+          });
+          const allReturn = allCumulativeTWR - 100;
+          const allYears = calculatedMonthlyReturns.length / 12;
+          periodResults.all = {
+            return: allReturn,
+            annualized: allYears > 0 ? (Math.pow(allCumulativeTWR / 100, 1 / allYears) - 1) * 100 : allReturn,
+            months: calculatedMonthlyReturns.length,
+            startDate: calculatedMonthlyReturns[0]?.month || 'N/A'
+          };
+        }
+
+        setPeriodReturns(periodResults);
+        console.log('📊 Period returns:', periodResults);
+
+        // ============ ROLLING RETURNS ============
+        // Calculate 12-month rolling returns
+        console.log('📊 Calculating rolling returns...');
+
+        const rollingData = [];
+        if (calculatedMonthlyReturns.length >= 12) {
+          for (let i = 11; i < calculatedMonthlyReturns.length; i++) {
+            // Get the last 12 months of returns ending at index i
+            const last12Months = calculatedMonthlyReturns.slice(i - 11, i + 1);
+
+            // Calculate cumulative TWR for these 12 months
+            let rolling12mTWR = 100;
+            last12Months.forEach(m => {
+              rolling12mTWR = rolling12mTWR * (1 + m.return / 100);
+            });
+
+            const rolling12mReturn = rolling12mTWR - 100;
+
+            rollingData.push({
+              month: calculatedMonthlyReturns[i].month,
+              monthKey: calculatedMonthlyReturns[i].monthKey,
+              rolling12m: Math.round(rolling12mReturn * 100) / 100
+            });
+          }
+        }
+
+        setRollingReturns(rollingData);
+        console.log(`📊 Rolling returns: ${rollingData.length} data points`);
       }
 
       console.log('✅ Performance calculation complete');
@@ -1716,6 +1834,182 @@ function PortfolioPerformance() {
             <p className="text-xs text-blue-800 mt-3 italic">
               💡 La somma dei contributi % è uguale al rendimento totale del portafoglio ({contributionData.totalReturnPercent >= 0 ? '+' : ''}{contributionData.totalReturnPercent.toFixed(2)}%)
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Period Analysis Section */}
+      {(periodReturns.ytd || periodReturns['1y'] || periodReturns.all) && (
+        <div className="card">
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-2">
+              <Calendar className="w-6 h-6 text-primary-600" />
+              <h2 className="text-xl font-bold text-gray-900">Rendimenti per Periodo</h2>
+            </div>
+            <p className="text-sm text-gray-600">
+              Performance del portafoglio su diversi orizzonti temporali (rendimenti TWR)
+            </p>
+          </div>
+
+          {/* Period Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+            {/* YTD */}
+            <div className={`p-4 rounded-xl border-2 ${periodReturns.ytd ? (periodReturns.ytd.return >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200') : 'bg-gray-50 border-gray-200'}`}>
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">YTD</div>
+              <div className="text-sm text-gray-600 mb-2">{new Date().getFullYear()}</div>
+              {periodReturns.ytd ? (
+                <>
+                  <div className={`text-2xl font-bold ${periodReturns.ytd.return >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {periodReturns.ytd.return >= 0 ? '+' : ''}{periodReturns.ytd.return.toFixed(1)}%
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">{periodReturns.ytd.months} mesi</div>
+                </>
+              ) : (
+                <div className="text-lg text-gray-400">N/A</div>
+              )}
+            </div>
+
+            {/* 1 Year */}
+            <div className={`p-4 rounded-xl border-2 ${periodReturns['1y'] ? (periodReturns['1y'].return >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200') : 'bg-gray-50 border-gray-200'}`}>
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">1 Anno</div>
+              <div className="text-sm text-gray-600 mb-2">Ultimi 12 mesi</div>
+              {periodReturns['1y'] ? (
+                <>
+                  <div className={`text-2xl font-bold ${periodReturns['1y'].return >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {periodReturns['1y'].return >= 0 ? '+' : ''}{periodReturns['1y'].return.toFixed(1)}%
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">{periodReturns['1y'].months} mesi</div>
+                </>
+              ) : (
+                <div className="text-lg text-gray-400">N/A</div>
+              )}
+            </div>
+
+            {/* 3 Years */}
+            <div className={`p-4 rounded-xl border-2 ${periodReturns['3y'] ? (periodReturns['3y'].return >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200') : 'bg-gray-50 border-gray-200'}`}>
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">3 Anni</div>
+              <div className="text-sm text-gray-600 mb-2">
+                {periodReturns['3y'] ? `Ann: ${periodReturns['3y'].annualized >= 0 ? '+' : ''}${periodReturns['3y'].annualized.toFixed(1)}%/y` : 'Ultimi 36 mesi'}
+              </div>
+              {periodReturns['3y'] ? (
+                <>
+                  <div className={`text-2xl font-bold ${periodReturns['3y'].return >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {periodReturns['3y'].return >= 0 ? '+' : ''}{periodReturns['3y'].return.toFixed(1)}%
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">{periodReturns['3y'].months} mesi</div>
+                </>
+              ) : (
+                <div className="text-lg text-gray-400">N/A</div>
+              )}
+            </div>
+
+            {/* 5 Years */}
+            <div className={`p-4 rounded-xl border-2 ${periodReturns['5y'] ? (periodReturns['5y'].return >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200') : 'bg-gray-50 border-gray-200'}`}>
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">5 Anni</div>
+              <div className="text-sm text-gray-600 mb-2">
+                {periodReturns['5y'] ? `Ann: ${periodReturns['5y'].annualized >= 0 ? '+' : ''}${periodReturns['5y'].annualized.toFixed(1)}%/y` : 'Ultimi 60 mesi'}
+              </div>
+              {periodReturns['5y'] ? (
+                <>
+                  <div className={`text-2xl font-bold ${periodReturns['5y'].return >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {periodReturns['5y'].return >= 0 ? '+' : ''}{periodReturns['5y'].return.toFixed(1)}%
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">{periodReturns['5y'].months} mesi</div>
+                </>
+              ) : (
+                <div className="text-lg text-gray-400">N/A</div>
+              )}
+            </div>
+
+            {/* ALL */}
+            <div className={`p-4 rounded-xl border-2 ${periodReturns.all ? (periodReturns.all.return >= 0 ? 'bg-primary-50 border-primary-200' : 'bg-red-50 border-red-200') : 'bg-gray-50 border-gray-200'}`}>
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Totale</div>
+              <div className="text-sm text-gray-600 mb-2">
+                {periodReturns.all ? `Ann: ${periodReturns.all.annualized >= 0 ? '+' : ''}${periodReturns.all.annualized.toFixed(1)}%/y` : 'Dall\'inizio'}
+              </div>
+              {periodReturns.all ? (
+                <>
+                  <div className={`text-2xl font-bold ${periodReturns.all.return >= 0 ? 'text-primary-600' : 'text-red-600'}`}>
+                    {periodReturns.all.return >= 0 ? '+' : ''}{periodReturns.all.return.toFixed(1)}%
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">{periodReturns.all.months} mesi</div>
+                </>
+              ) : (
+                <div className="text-lg text-gray-400">N/A</div>
+              )}
+            </div>
+          </div>
+
+          {/* Rolling Returns Chart */}
+          {rollingReturns.length > 0 && (
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Rolling Returns (12 mesi)</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Rendimento cumulativo degli ultimi 12 mesi, calcolato per ogni mese
+              </p>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={rollingReturns}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 11 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={70}
+                  />
+                  <YAxis
+                    tickFormatter={(value) => `${value}%`}
+                    tick={{ fontSize: 12 }}
+                  />
+                  <Tooltip
+                    formatter={(value) => [`${value.toFixed(2)}%`, 'Rolling 12m']}
+                    labelStyle={{ fontWeight: 'bold' }}
+                  />
+                  <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="5 5" />
+                  <Line
+                    type="monotone"
+                    dataKey="rolling12m"
+                    stroke="#6366f1"
+                    strokeWidth={2}
+                    dot={false}
+                    name="Rolling 12m Return"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+
+              {/* Rolling Returns Stats */}
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                <div className="p-3 bg-gray-50 rounded-lg text-center">
+                  <div className="text-xs text-gray-500 mb-1">Media</div>
+                  <div className={`text-lg font-bold ${(rollingReturns.reduce((s, r) => s + r.rolling12m, 0) / rollingReturns.length) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {((rollingReturns.reduce((s, r) => s + r.rolling12m, 0) / rollingReturns.length) >= 0 ? '+' : '')}
+                    {(rollingReturns.reduce((s, r) => s + r.rolling12m, 0) / rollingReturns.length).toFixed(1)}%
+                  </div>
+                </div>
+                <div className="p-3 bg-green-50 rounded-lg text-center">
+                  <div className="text-xs text-gray-500 mb-1">Massimo</div>
+                  <div className="text-lg font-bold text-green-600">
+                    +{Math.max(...rollingReturns.map(r => r.rolling12m)).toFixed(1)}%
+                  </div>
+                </div>
+                <div className="p-3 bg-red-50 rounded-lg text-center">
+                  <div className="text-xs text-gray-500 mb-1">Minimo</div>
+                  <div className="text-lg font-bold text-red-600">
+                    {Math.min(...rollingReturns.map(r => r.rolling12m)).toFixed(1)}%
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Info */}
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <h4 className="font-semibold text-blue-900 mb-2">📖 Come leggere i dati</h4>
+            <div className="text-xs text-blue-800 space-y-1">
+              <p><strong>Rendimento %</strong>: rendimento TWR cumulativo del periodo (esclude effetto versamenti)</p>
+              <p><strong>Ann:</strong>: rendimento annualizzato (CAGR) per periodi superiori a 1 anno</p>
+              <p><strong>Rolling 12m</strong>: per ogni mese, mostra il rendimento degli ultimi 12 mesi consecutivi</p>
+            </div>
           </div>
         </div>
       )}

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Search, FileText, X, Calendar, DollarSign, Hash, Tag, FileDown, FileUp, Loader } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, FileText, X, Calendar, DollarSign, Hash, Tag, FileDown, FileUp, Loader, Sparkles } from 'lucide-react';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction, exportTransactions, bulkImportTransactions } from '../services/localStorageService';
 import { searchSecurity } from '../services/priceService';
 import { detectSubCategory } from '../services/categoryDetectionService';
 import { cacheTER, getTER } from '../services/terDetectionService';
 import { getMacroAssetClasses, getMicroCategories } from '../config/assetClasses';
+import { getAssetInfo, isTickerMapped } from '../config/assetTickerMapping';
 import { checkCashAvailability } from '../services/cashFlowService';
 import { isCrypto } from '../services/coinGecko';
 import { format } from 'date-fns';
@@ -20,6 +21,7 @@ function Transactions() {
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [formData, setFormData] = useState(getEmptyForm());
   const [availableMicroCategories, setAvailableMicroCategories] = useState({});
+  const [autoFillSource, setAutoFillSource] = useState(null); // 'mapping', 'history', or null
 
   useEffect(() => {
     loadTransactions();
@@ -71,22 +73,47 @@ function Transactions() {
     }
   }, [formData.macroCategory]);
 
-  // Auto-fill form when ticker changes (from last transaction for that ticker)
+  // Auto-fill form when ticker changes
+  // Priority: 1) Central mapping (assetTickerMapping.js), 2) Last transaction for same ticker
   const handleTickerChange = (newTicker) => {
-    setFormData(prev => ({ ...prev, ticker: newTicker.toUpperCase() }));
+    const normalizedTicker = newTicker.toUpperCase().trim();
+    setFormData(prev => ({ ...prev, ticker: normalizedTicker }));
+    setAutoFillSource(null);
 
     if (!newTicker || editingTransaction) return; // Don't auto-fill when editing
 
-    // Find last transaction for this ticker
+    // PRIORITY 1: Check central asset mapping
+    const mappingInfo = getAssetInfo(normalizedTicker);
+    if (mappingInfo) {
+      console.log(`✨ Auto-filling from central mapping for ${normalizedTicker}:`, mappingInfo);
+      setAutoFillSource('mapping');
+      setFormData(prev => ({
+        ...prev,
+        ticker: normalizedTicker,
+        name: mappingInfo.name || prev.name,
+        isin: mappingInfo.isin || prev.isin,
+        macroCategory: mappingInfo.macro || prev.macroCategory,
+        microCategory: mappingInfo.micro || prev.microCategory,
+        // Keep current date, price, quantity, commission (user will update these)
+        date: new Date().toISOString().split('T')[0],
+        price: '',
+        quantity: '',
+        commission: ''
+      }));
+      return; // Don't check history if mapping found
+    }
+
+    // PRIORITY 2: Fall back to last transaction for this ticker
     const lastTransaction = transactions
-      .filter(tx => tx.ticker.toUpperCase() === newTicker.toUpperCase())
+      .filter(tx => tx.ticker.toUpperCase() === normalizedTicker)
       .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
 
     if (lastTransaction) {
       console.log(`📋 Auto-filling from last transaction for ${newTicker}`);
+      setAutoFillSource('history');
       setFormData(prev => ({
         ...prev,
-        ticker: newTicker.toUpperCase(),
+        ticker: normalizedTicker,
         name: lastTransaction.name || prev.name,
         isin: lastTransaction.isin || prev.isin,
         macroCategory: lastTransaction.macroCategory || lastTransaction.category || prev.macroCategory,
@@ -151,11 +178,13 @@ function Transactions() {
   const handleAdd = () => {
     setEditingTransaction(null);
     setFormData(getEmptyForm());
+    setAutoFillSource(null);
     setShowModal(true);
   };
 
   const handleEdit = (transaction) => {
     setEditingTransaction(transaction);
+    setAutoFillSource(null);
     setFormData({
       name: transaction.name || '',
       ticker: transaction.ticker || '',
@@ -596,7 +625,13 @@ function Transactions() {
                     className="input"
                     required
                   />
-                  {!editingTransaction && formData.macroCategory !== 'Cash' && formData.ticker && transactions.some(tx => tx.ticker.toUpperCase() === formData.ticker.toUpperCase()) && (
+                  {!editingTransaction && formData.macroCategory !== 'Cash' && autoFillSource === 'mapping' && (
+                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      Riconosciuto dal database centrale - MACRO/MICRO auto-compilati
+                    </p>
+                  )}
+                  {!editingTransaction && formData.macroCategory !== 'Cash' && autoFillSource === 'history' && (
                     <p className="text-xs text-blue-600 mt-1">
                       📋 Form auto-compilato dall'ultima transazione
                     </p>

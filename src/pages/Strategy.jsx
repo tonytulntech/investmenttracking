@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Target, TrendingUp, DollarSign, Calendar, AlertCircle, TrendingDown, Clock, Zap, Plus, X, Layers, Activity, Info } from 'lucide-react';
+import { Target, TrendingUp, DollarSign, Calendar, AlertCircle, TrendingDown, Clock, Zap, Plus, X, Layers, Activity, Info, Tag } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line, ComposedChart, PieChart, Pie, Cell } from 'recharts';
 import {
   ASSET_CATEGORIES_DATA,
@@ -11,6 +11,7 @@ import {
   calculatePortfolioVolatility,
   getRiskLevelDescription
 } from '../config/assetCategoriesData';
+import { getTickersForMicroCategory } from '../config/assetTickerMapping';
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16', '#6366f1', '#14b8a6'];
 
@@ -611,6 +612,7 @@ function Strategy() {
               {Object.entries(strategyData.microAllocation).map(([microCat, value]) => {
                 const data = getMicroCategoryData(microCat);
                 const macro = findMacroFromMicro(microCat);
+                const associatedTickers = getTickersForMicroCategory(microCat);
                 return (
                   <div key={microCat} className="bg-white border border-gray-200 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
@@ -618,7 +620,7 @@ function Strategy() {
                         <label className="font-medium text-gray-900">
                           {microCat}
                         </label>
-                        <div className="flex gap-3 text-xs mt-1">
+                        <div className="flex flex-wrap gap-2 text-xs mt-1">
                           <span className="text-purple-600 bg-purple-100 px-2 py-0.5 rounded">{macro}</span>
                           {data && (
                             <>
@@ -627,6 +629,20 @@ function Strategy() {
                             </>
                           )}
                         </div>
+                        {associatedTickers.length > 0 && (
+                          <div className="flex items-center gap-1 mt-2 flex-wrap">
+                            <Tag className="w-3 h-3 text-gray-400" />
+                            <span className="text-xs text-gray-500">Ticker:</span>
+                            {associatedTickers.slice(0, 5).map((ticker, idx) => (
+                              <span key={ticker} className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-mono">
+                                {ticker}
+                              </span>
+                            ))}
+                            {associatedTickers.length > 5 && (
+                              <span className="text-xs text-gray-400">+{associatedTickers.length - 5} altri</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <button
                         onClick={() => handleRemoveMicroCategory(microCat)}

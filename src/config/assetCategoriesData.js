@@ -38,6 +38,7 @@ export const ASSET_CATEGORIES_DATA = {
       'Azionario Emergenti Asia': { expectedReturn: 8.5, volatility: 25, description: 'MSCI EM Asia' },
       'Azionario Emergenti LatAm': { expectedReturn: 7.5, volatility: 28, description: 'MSCI EM Latin America' },
       'Azionario Emergenti EMEA': { expectedReturn: 7.0, volatility: 26, description: 'MSCI EM EMEA' },
+      'Azionario Emergenti ex-China': { expectedReturn: 8.5, volatility: 24, description: 'MSCI EM ex-China' },
       'Azionario China': { expectedReturn: 7.0, volatility: 28, description: 'MSCI China, CSI 300' },
       'Azionario China A-Shares': { expectedReturn: 7.5, volatility: 30, description: 'CSI 300 A-Shares' },
       'Azionario India': { expectedReturn: 9.0, volatility: 25, description: 'MSCI India, Nifty 50' },
@@ -74,6 +75,9 @@ export const ASSET_CATEGORIES_DATA = {
       'Multi-Factor Europa': { expectedReturn: 6.5, volatility: 17, description: 'MSCI Europe Multi-Factor' },
       'Equal Weight USA': { expectedReturn: 7.5, volatility: 18, description: 'S&P 500 Equal Weight' },
       'Equal Weight Europa': { expectedReturn: 6.0, volatility: 19, description: 'STOXX Europe 600 EW' },
+      'Small Cap Value USA': { expectedReturn: 9.0, volatility: 23, description: 'MSCI USA Small Cap Value Weighted' },
+      'Small Cap Value Europa': { expectedReturn: 8.5, volatility: 24, description: 'MSCI Europe Small Cap Value Weighted' },
+      'Small Cap Value Mondiale': { expectedReturn: 8.5, volatility: 23, description: 'MSCI World Small Cap Value' },
 
       // Settoriali
       'Technology Mondiale': { expectedReturn: 10.0, volatility: 25, description: 'MSCI World IT' },

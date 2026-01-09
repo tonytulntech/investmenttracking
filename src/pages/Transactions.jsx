@@ -4,7 +4,7 @@ import { getTransactions, addTransaction, updateTransaction, deleteTransaction, 
 import { searchSecurity } from '../services/priceService';
 import { detectSubCategory } from '../services/categoryDetectionService';
 import { cacheTER, getTER } from '../services/terDetectionService';
-import { getMacroAssetClasses, getMicroCategories } from '../config/assetClasses';
+import { getAllMacroCategories, getMicroCategoriesForMacro } from '../config/assetCategoriesData';
 import { getAssetInfo, isTickerMapped } from '../config/assetTickerMapping';
 import { checkCashAvailability } from '../services/cashFlowService';
 import { isCrypto } from '../services/coinGecko';
@@ -53,7 +53,7 @@ function Transactions() {
   // Update micro categories when macro category changes
   useEffect(() => {
     if (formData.macroCategory) {
-      const microCats = getMicroCategories(formData.macroCategory);
+      const microCats = getMicroCategoriesForMacro(formData.macroCategory);
       setAvailableMicroCategories(microCats);
 
       // Special handling for Cash: auto-fill microCategory and name
@@ -415,7 +415,7 @@ function Transactions() {
             className="select w-32 sm:w-40"
           >
             <option value="all">Tutte le categorie</option>
-            {getMacroAssetClasses().map(category => (
+            {getAllMacroCategories().map(category => (
               <option key={category} value={category}>{category}</option>
             ))}
           </select>
@@ -685,7 +685,7 @@ function Transactions() {
                   className="select"
                   required
                 >
-                  {getMacroAssetClasses().map(macro => (
+                  {getAllMacroCategories().map(macro => (
                     <option key={macro} value={macro}>{macro}</option>
                   ))}
                 </select>

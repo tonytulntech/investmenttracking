@@ -14,7 +14,7 @@ import {
   getPendingAutoExecutePACs
 } from '../services/pacService';
 import { getTransactions } from '../services/localStorageService';
-import { getMacroAssetClasses, getMicroCategories } from '../config/assetClasses';
+import { getAllMacroCategories, getMicroCategoriesForMacro } from '../config/assetCategoriesData';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 
@@ -710,7 +710,7 @@ function PAC() {
                             onChange={(e) => handleAllocationChange(alloc.id, 'macroCategory', e.target.value)}
                             className="w-full border rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-blue-500"
                           >
-                            {Object.keys(getMacroAssetClasses()).map(cat => (
+                            {getAllMacroCategories().map(cat => (
                               <option key={cat} value={cat}>{cat}</option>
                             ))}
                           </select>

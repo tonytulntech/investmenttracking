@@ -3,6 +3,7 @@ import { RefreshCcw, AlertTriangle, TrendingUp, TrendingDown, Calendar, DollarSi
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { calculatePortfolio, getTransactions } from '../services/localStorageService';
 import { fetchMultiplePrices } from '../services/priceService';
+import { getMicroFromTicker } from '../config/assetTickerMapping';
 import { format, addMonths } from 'date-fns';
 import { it } from 'date-fns/locale';
 
@@ -140,14 +141,17 @@ function Rebalancing() {
     const totalValue = investableHoldings.reduce((sum, h) => sum + (h.marketValue || 0), 0);
 
     // Group holdings by ticker for detailed view
+    // Use central mapping to get canonical MICRO category, fall back to transaction data
     const tickerData = {};
     investableHoldings.forEach(h => {
       const key = h.ticker;
       if (!tickerData[key]) {
+        // PRIORITY: Use central mapping first, then fall back to transaction data
+        const mappedMicro = getMicroFromTicker(h.ticker);
         tickerData[key] = {
           ticker: h.ticker,
           name: h.name || h.ticker,
-          microCategory: h.microCategory || h.subCategory || 'Non categorizzato',
+          microCategory: mappedMicro || h.microCategory || h.subCategory || 'Non categorizzato',
           macroCategory: h.macroCategory || h.category,
           value: 0,
           currentPrice: h.currentPrice,
@@ -242,13 +246,15 @@ function Rebalancing() {
     const investableHoldings = portfolio.filter(h => !h.isCash);
 
     // Get ticker info from holdings
+    // Use central mapping to get canonical MICRO category
     const tickerInfo = {};
     investableHoldings.forEach(h => {
       if (!tickerInfo[h.ticker]) {
+        const mappedMicro = getMicroFromTicker(h.ticker);
         tickerInfo[h.ticker] = {
           ticker: h.ticker,
           name: h.name || h.ticker,
-          microCategory: h.microCategory || h.subCategory,
+          microCategory: mappedMicro || h.microCategory || h.subCategory,
           macroCategory: h.macroCategory || h.category,
           currentPrice: h.currentPrice || h.avgPrice,
           quantity: h.quantity

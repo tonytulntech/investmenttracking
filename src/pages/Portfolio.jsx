@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, RefreshCw, ArrowUpDown, Wallet } from 'lucide-react';
-import { calculatePortfolio, getTransactions } from '../services/localStorageService';
+import { Blur } from '../context/PrivacyContext';
+import { calculatePortfolio, getTransactions, portfolioSnapshot } from '../services/localStorageService';
 import { fetchMultiplePrices } from '../services/priceService';
-import { getCachedPrices, cachePrices } from '../services/priceCache';
+import { getCachedPrices, cachePrices, clearPriceCache } from '../services/priceCache';
 import { calculateAnnualTERCost, getTERBadgeColor } from '../services/terDetectionService';
+import { getDividendInfo } from '../data/dividendData';
+import { getStockDefaults } from '../data/stockDividendData';
+import AllocationBreakdown from '../components/AllocationBreakdown';
+import { classifyHolding } from '../services/classificationService';
 import { isCrypto } from '../services/coinGecko';
+import { calculateXIRR } from '../services/twrrService';
 
 function Portfolio() {
   const [loading, setLoading] = useState(true);
@@ -20,6 +26,8 @@ function Portfolio() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [sortBy, setSortBy] = useState('marketValue');
   const [sortOrder, setSortOrder] = useState('desc');
+  const [twrr, setTwrr] = useState(null);
+  const [realizedPL, setRealizedPL] = useState(0);
 
   // Get TER from the most recent transaction for a ticker (instead of cache)
   const getTERFromTransactions = (ticker) => {
@@ -71,6 +79,7 @@ function Portfolio() {
 
       // If we have cached prices, use them immediately to show data faster
       const holdings = calculatePortfolio();
+      setRealizedPL(calculatePortfolio._lastRealizedPL || 0);
       if (holdings.length > 0 && Object.keys(priceCache).length > 0) {
         console.log('⚡ Using cached prices for instant display');
         const quickPortfolio = calculatePortfolioWithPrices(holdings, priceCache);
@@ -121,6 +130,17 @@ function Portfolio() {
       const ter = isCryptoAsset ? null : getTERFromTransactions(holding.ticker);
       const annualTERCost = ter ? calculateAnnualTERCost(marketValue, ter) : 0;
 
+      // Dividend yield: ETF → DB yield%, azioni → DPS/price*100
+      const etfDiv   = getDividendInfo(holding.ticker);
+      const stockDiv = getStockDefaults(holding.ticker);
+      let dividendYield = null;
+      if (etfDiv?.yield > 0) {
+        dividendYield = etfDiv.yield;
+      } else if (stockDiv?.dividendPerShare > 0 && currentPrice > 0) {
+        dividendYield = (stockDiv.dividendPerShare / currentPrice) * 100;
+      }
+      const annualDividend = dividendYield != null ? (marketValue * dividendYield / 100) : null;
+
       return {
         ...holding,
         currentPrice,
@@ -131,47 +151,62 @@ function Portfolio() {
         dayChange: priceData?.change || 0,
         dayChangePercent: priceData?.changePercent || 0,
         ter,
-        annualTERCost
+        annualTERCost,
+        dividendYield,
+        annualDividend
       };
     });
   };
 
-  const updatePrices = async () => {
+  const updatePrices = async (forceFlush = false) => {
+    if (forceFlush) clearPriceCache();
     setRefreshing(true);
 
-    const holdings = calculatePortfolio();
-
-    if (holdings.length === 0) {
+    // Usa portfolioSnapshot per calcolo unificato (commissioni, excludeFromStats)
+    const snap = portfolioSnapshot({});
+    if (snap.holdings.length === 0) {
       setPortfolio([]);
+      setRealizedPL(0);
       setRefreshing(false);
       return;
     }
 
-    // Filter out cash from price fetching (cash price is always 1)
-    const nonCashHoldings = holdings.filter(h => !h.isCash);
-    const tickers = nonCashHoldings.map(h => h.ticker);
-    const categoriesMap = nonCashHoldings.reduce((acc, h) => {
-      acc[h.ticker] = h.category;
-      return acc;
-    }, {});
-
+    const tickers = [...new Set(snap.holdings.map(h => h.ticker))];
+    const categoriesMap = snap.holdings.reduce((acc, h) => { acc[h.ticker] = h.macroCategory; return acc; }, {});
     const prices = tickers.length > 0 ? await fetchMultiplePrices(tickers, categoriesMap) : {};
 
-    // Update price cache with newly fetched prices
-    const newPriceCache = { ...priceCache };
-    Object.keys(prices).forEach(ticker => {
-      newPriceCache[ticker] = prices[ticker];
-    });
+    // Aggiorna cache prezzi condivisa
+    const newPriceCache = { ...priceCache, ...prices };
     setPriceCache(newPriceCache);
-
-    // Save to localStorage using priceCache service
     cachePrices(newPriceCache);
-    console.log('💾 Portfolio price cache updated and saved with', Object.keys(prices).length, 'prices');
 
-    // Use helper function to calculate portfolio with prices
-    const updatedPortfolio = calculatePortfolioWithPrices(holdings, newPriceCache);
+    // Ricalcola snapshot con prezzi aggiornati
+    const freshSnap = portfolioSnapshot(newPriceCache);
+    setRealizedPL(freshSnap.realizedPL);
+
+    // Aggiungi TER e yield per la visualizzazione tabella
+    const updatedPortfolio = freshSnap.holdings.map(h => {
+      const isCryptoAsset = isCrypto(h.ticker) || h.macroCategory === 'Crypto';
+      const ter = isCryptoAsset ? null : getTERFromTransactions(h.ticker);
+      const annualTERCost = ter ? calculateAnnualTERCost(h.marketValue, ter) : 0;
+      const etfDiv   = getDividendInfo(h.ticker);
+      const stockDiv = getStockDefaults(h.ticker);
+      let dividendYield = null;
+      if (etfDiv?.yield > 0) dividendYield = etfDiv.yield;
+      else if (stockDiv?.dividendPerShare > 0 && h.currentPrice > 0)
+        dividendYield = (stockDiv.dividendPerShare / h.currentPrice) * 100;
+      const annualDividend = dividendYield != null ? h.marketValue * dividendYield / 100 : null;
+      return { ...h, ter, annualTERCost, dividendYield, annualDividend };
+    });
 
     setPortfolio(updatedPortfolio);
+
+    // Calcola TWRR usando tutti i depositi/prelievi e il valore totale attuale (incluso cash)
+    const totalValueInclCash = updatedPortfolio.reduce((sum, h) => sum + (h.marketValue || 0), 0);
+    const allTx = getTransactions();
+    const twrrResult = calculateXIRR(allTx, totalValueInclCash);
+    setTwrr(twrrResult);
+
     setRefreshing(false);
 
     // TER auto-fetching removed - TER now comes from cache only (manually entered by user)
@@ -257,7 +292,7 @@ function Portfolio() {
         </div>
         {portfolio.length > 0 && (
           <button
-            onClick={updatePrices}
+            onClick={() => updatePrices(true)}
             disabled={refreshing}
             className="btn-secondary flex items-center gap-2"
           >
@@ -282,6 +317,9 @@ function Portfolio() {
         </div>
       ) : (
         <>
+          {/* Allocazione derivata — torta grande + filtro portafoglio */}
+          <AllocationBreakdown holdings={portfolio} title="Allocazione patrimonio" />
+
           {/* Filters */}
           <div className="card">
             <div className="flex flex-col sm:flex-row gap-4">
@@ -381,6 +419,18 @@ function Portfolio() {
                         <ArrowUpDown className="w-3 h-3" />
                       </div>
                     </th>
+                    <th onClick={() => handleSort('dividendYield')} className="text-right cursor-pointer hover:bg-gray-100">
+                      <div className="flex items-center justify-end gap-1">
+                        Yield %
+                        <ArrowUpDown className="w-3 h-3" />
+                      </div>
+                    </th>
+                    <th onClick={() => handleSort('annualDividend')} className="text-right cursor-pointer hover:bg-gray-100">
+                      <div className="flex items-center justify-end gap-1">
+                        Div./anno
+                        <ArrowUpDown className="w-3 h-3" />
+                      </div>
+                    </th>
                     <th onClick={() => handleSort('ter')} className="text-right cursor-pointer hover:bg-gray-100">
                       <div className="flex items-center justify-end gap-1">
                         TER %
@@ -396,21 +446,23 @@ function Portfolio() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredPortfolio.map((holding, index) => (
+                  {filteredPortfolio.map((holding, index) => {
+                    const cls = classifyHolding(holding);
+                    return (
                     <tr key={index}>
-                      <td className="font-semibold">{holding.ticker}</td>
-                      <td className="text-gray-600 max-w-xs truncate">{holding.name}</td>
+                      <td className="font-semibold"><Blur>{holding.ticker}</Blur></td>
+                      <td className="text-gray-600 max-w-xs truncate"><Blur>{holding.name}</Blur></td>
                       <td>
-                        <span className="badge badge-primary">{holding.category}</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: cls.macroColor + '1e', color: cls.macroColor, borderRadius: 6, padding: '2px 8px', fontSize: '0.72rem', fontWeight: 600 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: cls.macroColor }} />
+                          {cls.macroLabel}
+                        </span>
                       </td>
                       <td>
-                        {holding.subCategory ? (
-                          <span className="text-sm text-gray-700 bg-gray-100 px-2 py-1 rounded">
-                            {holding.subCategory}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400 italic">Non rilevata</span>
-                        )}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-2, #374151)', background: cls.color + '18', borderRadius: 6, padding: '2px 8px' }}>
+                          {cls.microLabel}
+                          {!cls.derived && <span title="Classificazione da confermare" style={{ color: '#FF9F0A' }}>⚠</span>}
+                        </span>
                       </td>
                       <td className="text-right">{holding.quantity.toFixed(4)}</td>
                       <td className="text-right">
@@ -429,6 +481,30 @@ function Portfolio() {
                         {holding.roi >= 0 ? '+' : ''}{holding.roi.toFixed(2)}%
                       </td>
                       <td className="text-right">
+                        {holding.dividendYield != null ? (
+                          <span style={{
+                            fontWeight: 600,
+                            color: holding.dividendYield >= 7 ? '#FF9F0A'
+                                 : holding.dividendYield >= 4 ? '#30D158'
+                                 : holding.dividendYield >= 1 ? '#0A84FF'
+                                 : 'var(--text-3)'
+                          }}>
+                            {holding.dividendYield.toFixed(2)}%
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="text-right">
+                        {holding.annualDividend != null && holding.annualDividend > 0 ? (
+                          <Blur><span style={{ color:'#30D158', fontWeight:500 }}>
+                            €{holding.annualDividend.toLocaleString('it-IT', { minimumFractionDigits:2, maximumFractionDigits:2 })}
+                          </span></Blur>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="text-right">
                         {holding.ter ? (
                           <span className={`badge ${getTERBadgeColor(holding.ter)}`}>
                             {holding.ter.toFixed(2)}%
@@ -445,7 +521,8 @@ function Portfolio() {
                         )}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
 
@@ -464,7 +541,7 @@ function Portfolio() {
                 ℹ️ Statistiche calcolate <strong>escludendo il Cash</strong>
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Valore Totale</p>
                 <p className="text-2xl font-bold text-gray-900">
@@ -478,10 +555,39 @@ function Portfolio() {
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600 mb-1">P/L Totale</p>
+                <p className="text-sm text-gray-600 mb-1">P/L Non Realizzato</p>
                 <p className={`text-2xl font-bold ${summary.totalPL >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
                   {summary.totalPL >= 0 ? '+' : ''}€{summary.totalPL.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
+                {summary.totalCost > 0 && (
+                  <p className={`text-sm font-medium mt-1 ${summary.totalPL >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
+                    ROI {summary.totalPL >= 0 ? '+' : ''}{((summary.totalPL / summary.totalCost) * 100).toFixed(2)}%
+                  </p>
+                )}
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 mb-1">P/L Realizzato</p>
+                <p className={`text-2xl font-bold ${realizedPL >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
+                  {realizedPL >= 0 ? '+' : ''}€{realizedPL.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Da posizioni chiuse
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 mb-1">TWRR Annualizzato</p>
+                {twrr?.rate !== null && twrr?.rate !== undefined ? (
+                  <>
+                    <p className={`text-2xl font-bold ${twrr.rate >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
+                      {twrr.rate >= 0 ? '+' : ''}{twrr.pct}%
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Considera timing depositi
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-2xl font-bold text-gray-400">—</p>
+                )}
               </div>
               <div>
                 <p className="text-sm text-gray-600 mb-1">Costo TER Annuale</p>
@@ -493,6 +599,25 @@ function Portfolio() {
                 </p>
               </div>
             </div>
+            {/* P/L Totale (Realizzato + Non Realizzato) */}
+            {(summary.totalPL !== 0 || realizedPL !== 0) && (
+              <div className="mt-4 pt-4 border-t border-gray-200 flex items-center gap-6">
+                <div>
+                  <span className="text-sm text-gray-600">P/L Totale (realizz. + non realizz.): </span>
+                  <span className={`text-lg font-bold ${(summary.totalPL + realizedPL) >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
+                    {(summary.totalPL + realizedPL) >= 0 ? '+' : ''}€{(summary.totalPL + realizedPL).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                {summary.totalCost > 0 && (
+                  <div>
+                    <span className="text-sm text-gray-600">ROI Totale: </span>
+                    <span className={`text-lg font-bold ${(summary.totalPL + realizedPL) >= 0 ? 'text-success-600' : 'text-danger-600'}`}>
+                      {(summary.totalPL + realizedPL) >= 0 ? '+' : ''}{(((summary.totalPL + realizedPL) / summary.totalCost) * 100).toFixed(2)}%
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </>
       )}

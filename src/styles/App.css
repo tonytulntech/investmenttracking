@@ -867,3 +867,5 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* Privacy mode styles moved to index.css (the only imported stylesheet) */

@@ -535,7 +535,8 @@ export async function detectSubCategory(ticker, category) {
       // Backward compatibility with old categories
       case 'ETF':
         return await detectETFSubCategory(ticker);
-      case 'Stock':
+      case 'Stock':   // legacy English
+      case 'Azioni':
         return await detectStockSubCategory(ticker);
       case 'Bond':
         return await detectBondSubCategory(ticker);

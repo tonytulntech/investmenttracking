@@ -20,6 +20,94 @@ const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzrNB1Tk
 // Timeout for fetch requests (10 seconds for historical data)
 const FETCH_TIMEOUT = 10000;
 
+// ── Historical price cache ───────────────────────────────────────────────────
+// Stale-While-Revalidate: serve cached data immediately (even if expired),
+// then refresh silently in the background so the next visit is instant.
+// TTL: 7 days for completed past months (prices are immutable);
+//      2 hours for the current month (intraday movements acceptable lag).
+const HIST_CACHE_PREFIX = 'hist_v2_'; // bump version to invalidate old entries
+const HIST_CACHE_TTL_PAST    = 7 * 24 * 60 * 60 * 1000;  // 7 days
+const HIST_CACHE_TTL_CURRENT =      2 * 60 * 60 * 1000;  // 2 hours
+
+function _histCacheKey(ticker, startDate) {
+  return `${HIST_CACHE_PREFIX}${ticker}_${startDate}`;
+}
+
+/**
+ * Returns { data, isStale } if a cache entry exists (fresh or expired),
+ * or null if no entry exists at all.
+ * Stale entries are intentionally kept so the SWR path can serve them
+ * while a background refresh runs.
+ */
+function _getHistCached(ticker, startDate) {
+  try {
+    const raw = localStorage.getItem(_histCacheKey(ticker, startDate));
+    if (!raw) return null;
+    const { ts, data, miss } = JSON.parse(raw);
+    const now = Date.now();
+    // Cached misses (ticker that returned no data from any source) use 30-min TTL
+    if (miss) {
+      return { data: [], isStale: now - ts >= 30 * 60 * 1000 };
+    }
+    const currentMonth = new Date().toISOString().substring(0, 7); // 'YYYY-MM'
+    // Use shorter TTL if cache contains data for the current month
+    const hasCurrentMonth = data.some(d => d.date.startsWith(currentMonth));
+    const ttl = hasCurrentMonth ? HIST_CACHE_TTL_CURRENT : HIST_CACHE_TTL_PAST;
+    const isStale = now - ts >= ttl;
+    return { data, isStale };
+  } catch { return null; }
+}
+
+/**
+ * Background refresh — fire-and-forget after serving stale data.
+ * Updates the cache silently so the next load is instant.
+ */
+async function _refreshInBackground(ticker, startDate, endDate) {
+  try {
+    console.log(`🔄 Background refresh started for ${ticker}`);
+    // Use exchange fallbacks (.MI → .DE → .L) just like the cold-fetch path
+    const yahooPrices = await _fetchYahooWithExchangeFallback(ticker, startDate, endDate);
+    if (yahooPrices && yahooPrices.length > 0) {
+      _setHistCached(ticker, startDate, yahooPrices);
+      console.log(`✅ Background refresh complete for ${ticker}`);
+      return;
+    }
+    if (isCrypto(ticker)) {
+      const cgPrices = await fetchCryptoHistoricalPrices(ticker, startDate, endDate, 'eur');
+      if (cgPrices && cgPrices.length > 0) _setHistCached(ticker, startDate, cgPrices);
+      return;
+    }
+    const gasPrices = await fetchHistoricalPricesFromGAS(ticker, startDate, endDate);
+    if (gasPrices && gasPrices.length > 0) _setHistCached(ticker, startDate, gasPrices);
+  } catch (e) {
+    console.warn(`⚠️ Background refresh failed for ${ticker}:`, e.message);
+  }
+}
+
+function _setHistCached(ticker, startDate, prices) {
+  try {
+    localStorage.setItem(
+      _histCacheKey(ticker, startDate),
+      JSON.stringify({
+        ts: Date.now(),
+        data: prices,
+        // Flag empty results so the cache applies a short (30-min) TTL
+        miss: prices.length === 0
+      })
+    );
+  } catch (e) {
+    // localStorage full — silently skip caching
+    console.warn('⚠️ Could not cache historical prices (storage full?):', e.message);
+  }
+}
+
+/** Clear all historical price cache entries (call when user forces refresh) */
+export function clearHistoricalPriceCache() {
+  const keys = Object.keys(localStorage).filter(k => k.startsWith(HIST_CACHE_PREFIX));
+  keys.forEach(k => localStorage.removeItem(k));
+  console.log(`🗑️ Historical price cache cleared (${keys.length} entries)`);
+}
+
 /**
  * Normalize ticker to standard format for Yahoo Finance / CoinGecko
  * Handles various input formats:
@@ -32,10 +120,43 @@ const FETCH_TIMEOUT = 10000;
  * @param {string} ticker - Raw ticker symbol
  * @returns {string} Normalized ticker
  */
+// ── TABELLA DI RISOLUZIONE TICKER ─────────────────────────────────────────────
+// Mappa un ticker "come appare nel CSV / broker" → ticker Yahoo Finance che
+// restituisce il prezzo corretto. Serve quando lo stesso simbolo indica sia un
+// fondo USA sia la versione UCITS europea, o quando il broker usa un codice locale.
+//
+// ►► QUESTO È IL PUNTO UNICO DA AGGIORNARE quando arriva una segnalazione. ◄◄
+// Aggiungi una riga: 'TICKER_UTENTE': 'TICKER_YAHOO_FUNZIONANTE'
+// Al prossimo "Aggiorna prezzi" dell'utente il titolo viene prezzato correttamente.
+//
+// Come trovare il ticker Yahoo giusto da una segnalazione (ticker + ISIN + nome):
+//   1. Cerca l'ISIN su justetf.com o finance.yahoo.com
+//   2. Prendi il ticker della borsa quotata (es. .MI Milano, .DE Xetra, .L Londra, .PA Parigi)
+//   3. Verifica che finance.yahoo.com/quote/TICKER mostri un prezzo
+const UCITS_TICKER_OVERRIDES = {
+  // VanEck Semiconductor UCITS Acc (IE00BMC38736) — non il fondo USA
+  'SMH':  'SMH.MI',
+  'SMGB': 'SMH.MI',
+  'VVSM': 'SMH.MI',
+  // Amundi MSCI Water UCITS — listato a Londra
+  'WATL': 'WATL.L',
+  // Micron Technology — stessa società del ticker USA MU
+  'MTE':  'MU',
+  // Global X Copper Miners UCITS — Xetra
+  '4COP': '4COP.DE',
+};
+
 export function normalizeTicker(ticker) {
   if (!ticker) return ticker;
 
   let normalized = ticker.trim().toUpperCase();
+
+  // Override UCITS (deve precedere ogni altra logica)
+  if (UCITS_TICKER_OVERRIDES[normalized]) {
+    const mapped = UCITS_TICKER_OVERRIDES[normalized];
+    console.log(`🔄 UCITS override ${ticker} → ${mapped}`);
+    return mapped;
+  }
 
   // Handle BIT: prefix (Italian stocks) → convert to .MI suffix
   if (normalized.startsWith('BIT:')) {
@@ -92,33 +213,91 @@ async function fetchWithTimeout(url, timeout = FETCH_TIMEOUT) {
 }
 
 /**
- * Fetch historical prices for a ticker
- * Automatically routes to the correct API based on ticker type
- *
- * @param {string} ticker - Ticker symbol (e.g., 'VWCE.DE', 'BTC-EUR')
- * @param {string} startDate - Start date in YYYY-MM-DD format
- * @param {string} endDate - End date in YYYY-MM-DD format
- * @returns {Promise<Array>} Array of {date, price} objects
+ * Try Yahoo Finance for a ticker, with automatic exchange fallback for .MI tickers.
+ * Mirrors the logic in the current-price service: .MI → .DE → .L
+ * @returns {Array|null} prices or null if not found
  */
+async function _fetchYahooWithExchangeFallback(ticker, startDate, endDate) {
+  // Primary attempt
+  const prices = await fetchHistoricalPricesFromYahooDirect(ticker, startDate, endDate);
+  if (prices && prices.length > 0) return prices;
+
+  // For Borsa Italiana tickers that Yahoo doesn't carry, try Xetra (.DE) then London (.L)
+  if (ticker.endsWith('.MI')) {
+    const base = ticker.slice(0, -3);
+
+    const dePrices = await fetchHistoricalPricesFromYahooDirect(`${base}.DE`, startDate, endDate);
+    if (dePrices && dePrices.length > 0) {
+      console.log(`✅ Historical .DE fallback: ${ticker} → ${base}.DE`);
+      return dePrices;
+    }
+
+    const lPrices = await fetchHistoricalPricesFromYahooDirect(`${base}.L`, startDate, endDate);
+    if (lPrices && lPrices.length > 0) {
+      console.log(`✅ Historical .L fallback: ${ticker} → ${base}.L`);
+      return lPrices;
+    }
+  }
+
+  return null;
+}
+
 export async function fetchHistoricalPrices(ticker, startDate, endDate) {
   // Normalize the ticker first
   const normalizedTicker = normalizeTicker(ticker);
 
-  // Try Yahoo Finance first for ALL tickers (including crypto like BTC-EUR, ETH-EUR)
-  // Yahoo Finance supports crypto pairs like BTC-EUR, ETH-EUR, etc.
-  const yahooPrices = await fetchHistoricalPricesFromYahooDirect(normalizedTicker, startDate, endDate);
+  // ── Stale-While-Revalidate cache check ──────────────────────────────────
+  const cached = _getHistCached(normalizedTicker, startDate);
+
+  if (cached && !cached.isStale) {
+    // Fresh cache — return immediately, no network call (including cached misses)
+    if (cached.data.length > 0) {
+      console.log(`💾 Historical cache hit for ${normalizedTicker} (${cached.data.length} months)`);
+    } else {
+      console.log(`⏭️ Skipping ${normalizedTicker} — no data available (cached miss, retrying in 30 min)`);
+    }
+    return cached.data;
+  }
+
+  if (cached && cached.isStale) {
+    // Stale cache — return stored data instantly, refresh silently in background
+    console.log(`⚡ Stale-While-Revalidate: serving stale data for ${normalizedTicker}, refreshing in background`);
+    _refreshInBackground(normalizedTicker, startDate, endDate); // intentionally no await
+    return cached.data;
+  }
+
+  // ── No cache at all — cold fetch ─────────────────────────────────────────
+  // Try Yahoo Finance with .MI→.DE→.L exchange fallbacks
+  const yahooPrices = await _fetchYahooWithExchangeFallback(normalizedTicker, startDate, endDate);
   if (yahooPrices && yahooPrices.length > 0) {
+    _setHistCached(normalizedTicker, startDate, yahooPrices);
     return yahooPrices;
   }
 
   // Fallback to CoinGecko for crypto if Yahoo Finance fails
   if (isCrypto(normalizedTicker)) {
     console.log(`🪙 ${normalizedTicker} - Yahoo failed, trying CoinGecko API`);
-    return await fetchCryptoHistoricalPrices(normalizedTicker, startDate, endDate, 'eur');
+    const cgPrices = await fetchCryptoHistoricalPrices(normalizedTicker, startDate, endDate, 'eur');
+    if (cgPrices && cgPrices.length > 0) {
+      _setHistCached(normalizedTicker, startDate, cgPrices);
+      return cgPrices;
+    }
+    // Cache the miss
+    _setHistCached(normalizedTicker, startDate, []);
+    return [];
   }
 
-  // Fallback to Google Apps Script for traditional assets
-  return await fetchHistoricalPricesFromGAS(normalizedTicker, startDate, endDate);
+  // Last resort: Google Apps Script (direct, no Yahoo retry)
+  const gasPrices = await fetchHistoricalPricesFromGAS(normalizedTicker, startDate, endDate);
+  if (gasPrices && gasPrices.length > 0) {
+    _setHistCached(normalizedTicker, startDate, gasPrices);
+    return gasPrices;
+  }
+
+  // All sources exhausted — cache the miss so we don't hammer the network for 30 min
+  console.log(`⚠️ No historical data found for ${normalizedTicker} from any source — caching miss for 30 min`);
+  _setHistCached(normalizedTicker, startDate, []);
+  return [];
 }
 
 /**
@@ -145,7 +324,7 @@ async function fetchHistoricalPricesFromYahooDirect(ticker, startDate, endDate) 
 
     console.log(`📡 Fetching historical prices for ${ticker} via Yahoo Finance (direct)`);
 
-    const response = await fetchWithTimeout(url, 15000); // 15 second timeout
+    const response = await fetchWithTimeout(url, 8000); // 8 second timeout
 
     if (!response.ok) {
       console.warn(`⚠️ Yahoo Finance request failed for ${ticker}: ${response.status}`);
@@ -164,6 +343,21 @@ async function fetchHistoricalPricesFromYahooDirect(ticker, startDate, endDate) 
     const quotes = result.indicators.quote[0];
     const closePrices = quotes.close || [];
 
+    // Detect currency and compute conversion factor to EUR
+    const currency = result.meta?.currency || 'EUR';
+    let conversionFactor = 1.0;
+    if (currency === 'GBp' || currency === 'GBX') {
+      // GBX (pence) → GBP → EUR: ÷100 × ~1.18
+      conversionFactor = (1 / 100) * 1.18;
+      console.log(`💱 Historical ${ticker}: GBX → EUR conversion applied (÷100 × 1.18)`);
+    } else if (currency === 'GBP') {
+      conversionFactor = 1.18;
+      console.log(`💱 Historical ${ticker}: GBP → EUR conversion applied (× 1.18)`);
+    } else if (currency === 'USD') {
+      conversionFactor = 0.93;
+      console.log(`💱 Historical ${ticker}: USD → EUR conversion applied (× 0.93)`);
+    }
+
     const prices = [];
 
     for (let i = 0; i < timestamps.length; i++) {
@@ -176,12 +370,12 @@ async function fetchHistoricalPricesFromYahooDirect(ticker, startDate, endDate) 
 
         prices.push({
           date: dateStr,
-          price: closePrice
+          price: closePrice * conversionFactor
         });
       }
     }
 
-    console.log(`✅ Received ${prices.length} monthly prices from Yahoo Finance for ${ticker}`);
+    console.log(`✅ Received ${prices.length} monthly prices from Yahoo Finance for ${ticker} (currency: ${currency})`);
 
     return prices;
 
@@ -192,7 +386,9 @@ async function fetchHistoricalPricesFromYahooDirect(ticker, startDate, endDate) 
 }
 
 /**
- * Fetch historical prices - tries Yahoo Finance direct first, then Google Apps Script
+ * Fetch historical prices from Google Apps Script (last-resort fallback).
+ * NOTE: Yahoo Finance (with exchange fallbacks) must already have been tried
+ * by the caller — this function goes DIRECTLY to GAS without retrying Yahoo.
  *
  * @param {string} ticker - Ticker symbol (e.g., 'VWCE.DE', 'SWDA.MI')
  * @param {string} startDate - Start date in YYYY-MM-DD format
@@ -200,52 +396,54 @@ async function fetchHistoricalPricesFromYahooDirect(ticker, startDate, endDate) 
  * @returns {Promise<Array>} Array of {date, price} objects
  */
 async function fetchHistoricalPricesFromGAS(ticker, startDate, endDate) {
-  // Try Yahoo Finance direct first (faster)
-  const yahooPrices = await fetchHistoricalPricesFromYahooDirect(ticker, startDate, endDate);
-  if (yahooPrices && yahooPrices.length > 0) {
-    return yahooPrices;
-  }
-
-  // Fallback to Google Apps Script
   console.log(`🔄 Falling back to Google Apps Script for ${ticker}`);
-
   try {
-    // Build URL with parameters
     const url = `${GOOGLE_APPS_SCRIPT_URL}?ticker=${encodeURIComponent(ticker)}&startDate=${startDate}&endDate=${endDate}`;
-
     console.log(`📡 Fetching historical prices for ${ticker} via Google Apps Script`);
-
-    const response = await fetchWithTimeout(url, 30000); // 30 second timeout for GAS
-
+    const response = await fetchWithTimeout(url, 8000); // 8s — same as Yahoo
     if (!response.ok) {
-      console.warn(`⚠️ API request failed for ${ticker}: ${response.status} ${response.statusText}`);
+      console.warn(`⚠️ GAS request failed for ${ticker}: ${response.status}`);
       return [];
     }
-
     const data = await response.json();
-
-    if (data.error) {
-      console.warn(`⚠️ API returned error for ${ticker}:`, data.error);
+    if (data.error || !data.historicalPrices || !Array.isArray(data.historicalPrices)) {
+      console.warn(`⚠️ GAS returned no usable data for ${ticker}`);
       return [];
     }
-
-    if (!data.historicalPrices || !Array.isArray(data.historicalPrices)) {
-      console.warn(`⚠️ Invalid response format for ${ticker}`);
-      return [];
-    }
-
     console.log(`✅ Received ${data.historicalPrices.length} historical prices for ${ticker} (source: GAS)`);
-
     return data.historicalPrices;
-
   } catch (error) {
-    if (error.name === 'AbortError') {
-      console.warn(`⏱️ Timeout fetching historical prices for ${ticker}`);
-    } else {
-      console.warn(`⚠️ Error fetching historical prices for ${ticker}:`, error.message);
-    }
+    if (error.name === 'AbortError') console.warn(`⏱️ Timeout fetching historical prices for ${ticker}`);
+    else console.warn(`⚠️ Error fetching historical prices for ${ticker}:`, error.message);
     return [];
   }
+}
+
+/**
+ * Run async tasks with a maximum concurrency limit.
+ * Prevents overwhelming the CORS proxy with too many simultaneous requests.
+ * @param {Array<Function>} fns - Array of async functions (no args) to run
+ * @param {number} limit - Max simultaneous tasks
+ * @returns {Promise<Array>} Results in the same order as fns
+ */
+async function withConcurrencyLimit(fns, limit) {
+  const results = new Array(fns.length);
+  let nextIdx = 0;
+
+  async function worker() {
+    while (nextIdx < fns.length) {
+      const i = nextIdx++;
+      try { results[i] = await fns[i](); }
+      catch { results[i] = null; }
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(limit, fns.length) },
+    () => worker()
+  );
+  await Promise.all(workers);
+  return results;
 }
 
 /**
@@ -272,20 +470,21 @@ export async function fetchMultipleHistoricalPrices(tickers, startDate, endDate)
     // Remove duplicates after normalization
     const uniqueNormalized = [...new Set(normalizedTickers)];
 
-    console.log(`📈 Fetching ${uniqueNormalized.length} unique tickers via Yahoo Finance`);
+    console.log(`📈 Fetching ${uniqueNormalized.length} unique tickers (max 4 concurrent) via Yahoo Finance`);
 
-    // Fetch ALL tickers via Yahoo Finance (supports both stocks and crypto like BTC-EUR)
-    const promises = uniqueNormalized.map(ticker =>
+    // Fetch with concurrency limit of 4 to avoid CORS proxy rate-limiting.
+    // Cached tickers resolve in microseconds so the limit doesn't slow them down.
+    const fns = uniqueNormalized.map(ticker => () =>
       fetchHistoricalPrices(ticker, startDate, endDate)
         .then(prices => ({ ticker, prices }))
     );
 
-    const results = await Promise.all(promises);
+    const results = await withConcurrencyLimit(fns, 4);
 
-    // Build normalized prices map
+    // Build normalized prices map (guard against null results from failed fetches)
     const normalizedPricesMap = {};
-    results.forEach(({ ticker, prices }) => {
-      normalizedPricesMap[ticker] = prices;
+    results.forEach(r => {
+      if (r) normalizedPricesMap[r.ticker] = r.prices;
     });
 
     // Map back to original ticker names for backward compatibility

@@ -213,11 +213,14 @@ export function calculateAllMetrics(monthlyData, riskFreeRate = 2, totalInvested
   const finalValue = values[values.length - 1];
   const cagr = calculateCAGR(initialValue, finalValue, years);
 
-  // Maximum Drawdown
-  const drawdownDetails = calculateMaxDrawdown(values);
+  // Maximum Drawdown — use cumulative TWR so deposits don't mask real drawdowns
+  const cumulativeTWR = [100];
+  returns.forEach(r => cumulativeTWR.push(cumulativeTWR[cumulativeTWR.length - 1] * (1 + r / 100)));
+  const ddSeries = cumulativeTWR.length > 1 ? cumulativeTWR : values;
+  const drawdownDetails = calculateMaxDrawdown(ddSeries);
 
   // Recovery Time
-  const recoveryTime = calculateRecoveryTime(values, drawdownDetails);
+  const recoveryTime = calculateRecoveryTime(ddSeries, drawdownDetails);
 
   // Sharpe Ratio
   const sharpeRatio = calculateSharpeRatio(returns, riskFreeRate);

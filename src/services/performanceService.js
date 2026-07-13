@@ -80,8 +80,13 @@ export function calculateInvestmentMetrics(filteredPortfolio, allTransactions = 
     new Date(a.date) - new Date(b.date)
   );
 
-  // First transaction date
-  const startDate = new Date(sortedTransactions[0].date);
+  // Tempo investito: usa la PRIMA transazione asset in assoluto (non solo dei ticker ancora in portafoglio).
+  // Altrimenti se un ticker vecchio è stato venduto interamente / non risolto, la startDate slitta in avanti
+  // e il tempo diventa sottostimato (era il caso in Dashboard che mostrava sempre ~0.7 anni).
+  const allAssetTxs = transactions
+    .filter(tx => !(tx.isCash || tx.macroCategory === 'Cash') && tx.date)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  const startDate = new Date((allAssetTxs[0] || sortedTransactions[0]).date);
   const today = new Date();
   const daysInvesting = Math.floor((today - startDate) / (1000 * 60 * 60 * 24));
   const yearsInvesting = daysInvesting / 365.25;

@@ -318,8 +318,8 @@ async function fetchHistoricalPricesFromYahooDirect(ticker, startDate, endDate) 
     // Yahoo Finance API v8 endpoint with monthly interval
     const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?period1=${startTimestamp}&period2=${endTimestamp}&interval=1mo`;
 
-    // Use CORS proxy
-    const corsProxy = 'https://corsproxy.io/?';
+    // Use CORS proxy (serverless function in prod, public proxy in dev)
+    const corsProxy = import.meta.env.DEV ? 'https://corsproxy.io/?' : '/api/price?url=';
     const url = corsProxy + encodeURIComponent(yahooUrl);
 
     console.log(`📡 Fetching historical prices for ${ticker} via Yahoo Finance (direct)`);

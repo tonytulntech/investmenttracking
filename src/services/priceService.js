@@ -16,8 +16,11 @@ import { isCrypto } from './coinGecko';
 
 console.log('📦 priceService.js v3 loaded - Yahoo Finance primary, NO Google Apps Script');
 
-const CORS_PROXY = 'https://corsproxy.io/?';
-const CORS_PROXY_FALLBACK = 'https://api.allorigins.win/raw?url=';
+// In produzione (Vercel) usa la serverless function /api/price che fa proxy lato server.
+// In locale usa corsproxy.io come fallback.
+const IS_PROD = !import.meta.env.DEV;
+const CORS_PROXY = IS_PROD ? '/api/price?url=' : 'https://corsproxy.io/?';
+const CORS_PROXY_FALLBACK = IS_PROD ? '/api/price?url=' : 'https://api.allorigins.win/raw?url=';
 
 // Concorrenza max simultanea per non saturare il proxy CORS gratuito
 const FETCH_CONCURRENCY = 4;

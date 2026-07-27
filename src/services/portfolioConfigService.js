@@ -71,7 +71,7 @@ export const getPortfolioConfig = getConfig;
  * Crea un nuovo portafoglio.
  * @returns {Object} il portafoglio creato
  */
-export function createPortfolio({ name, color, emoji, description, targetAllocation, rebalanceThreshold }) {
+export function createPortfolio({ name, color, emoji, description, targetAllocation, rebalanceThreshold, goalAmount, goalYear, tickerTargets }) {
   const config = getConfig();
   const portfolio = {
     id: `port_${Date.now()}`,
@@ -79,8 +79,11 @@ export function createPortfolio({ name, color, emoji, description, targetAllocat
     color: color || PORTFOLIO_COLORS[config.portfolios.length % PORTFOLIO_COLORS.length],
     emoji: emoji || '📈',
     description: description?.trim() || '',
-    targetAllocation: targetAllocation || null,  // null = nessun target
+    targetAllocation: targetAllocation || null,
     rebalanceThreshold: rebalanceThreshold ?? 5,
+    goalAmount: goalAmount ?? null,
+    goalYear: goalYear ?? null,
+    tickerTargets: tickerTargets ?? [],
     createdAt: new Date().toISOString(),
   };
   config.portfolios.push(portfolio);

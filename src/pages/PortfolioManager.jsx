@@ -87,6 +87,38 @@ function AllocRow({ cat, current, target, threshold }) {
   );
 }
 
+// ── Goal progress bar ─────────────────────────────────────────────────────────
+
+function GoalProgressBar({ current, goal, year }) {
+  const pct = Math.min(100, (current / goal) * 100);
+  const yearsLeft = year ? year - new Date().getFullYear() : null;
+  return (
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-3)', marginBottom: 5 }}>
+        <span>🎯 Obiettivo{year ? ` entro ${year}` : ''}</span>
+        <span style={{ fontWeight: 700, color: 'var(--text-1)' }}>
+          {fmtEur(current)} / {fmtEur(goal)}
+        </span>
+      </div>
+      <div style={{ height: 5, background: 'var(--surface-2)', borderRadius: 99, overflow: 'hidden' }}>
+        <div style={{
+          height: '100%', width: `${pct}%`,
+          background: pct >= 100 ? '#30D158' : 'linear-gradient(90deg, #0A84FF, #30D158)',
+          borderRadius: 99, transition: 'width 0.4s',
+        }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: 'var(--text-3)', marginTop: 4 }}>
+        <span style={{ color: pct >= 100 ? '#30D158' : 'var(--text-3)', fontWeight: pct >= 100 ? 700 : 400 }}>
+          {pct >= 100 ? '✓ Obiettivo raggiunto!' : `${pct.toFixed(1)}% raggiunto`}
+        </span>
+        {yearsLeft != null && (
+          <span>{yearsLeft > 0 ? `${yearsLeft} anni rimasti` : yearsLeft === 0 ? 'Quest\'anno!' : 'Scaduto'}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Portfolio card ────────────────────────────────────────────────────────────
 
 function PortfolioCard({ portfolio, holdings, prices, config, onEdit, onDelete }) {
@@ -243,6 +275,44 @@ function PortfolioCard({ portfolio, holdings, prices, config, onEdit, onDelete }
           <div style={{ marginTop: 10, fontSize: '0.72rem', color: 'var(--text-3)', fontStyle: 'italic' }}>
             Nessun target di allocazione impostato
           </div>
+        )}
+
+        {/* Ticker targets */}
+        {portfolio.tickerTargets?.length > 0 && totalValue > 0 && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-3)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Target ticker
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {portfolio.tickerTargets.map(({ ticker, pct }) => {
+                const holding = portfolioHoldings.find(h => h.ticker === ticker);
+                const actual = holding ? Math.round((holding.marketValue / totalValue) * 1000) / 10 : 0;
+                const diff = actual - pct;
+                const ok = Math.abs(diff) <= (portfolio.rebalanceThreshold ?? 5);
+                return (
+                  <div key={ticker} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.74rem' }}>
+                    <span style={{ flex: 1, fontWeight: 600, color: 'var(--text-1)' }}>{ticker}</span>
+                    <span style={{ color: 'var(--text-2)', fontVariantNumeric: 'tabular-nums' }}>{actual}%</span>
+                    <span style={{ color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>/ {pct}%</span>
+                    <span style={{
+                      fontVariantNumeric: 'tabular-nums', fontWeight: ok ? 400 : 600, minWidth: 36, textAlign: 'right',
+                      color: ok ? 'var(--text-3)' : diff > 0 ? '#ff9f0a' : '#30d158',
+                    }}>
+                      {diff > 0 ? '+' : ''}{diff.toFixed(1)}%
+                    </span>
+                    {ok
+                      ? <CheckCircle2 size={11} color="#30d158" />
+                      : <AlertCircle size={11} color={diff > 0 ? '#ff9f0a' : '#30d158'} />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Goal progress */}
+        {portfolio.goalAmount > 0 && (
+          <GoalProgressBar current={totalValue} goal={portfolio.goalAmount} year={portfolio.goalYear} />
         )}
 
         {numTickers === 0 && (
@@ -454,9 +524,23 @@ function PortfolioModal({ editing, onSave, onClose }) {
   const [target, setTarget] = useState(editing?.targetAllocation ?? { ...EMPTY_TARGET });
   const [threshold, setThreshold] = useState(editing?.rebalanceThreshold ?? 5);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  // Goal
+  const [goalAmount, setGoalAmount] = useState(editing?.goalAmount ?? '');
+  const [goalYear, setGoalYear] = useState(editing?.goalYear ?? '');
+  // Ticker targets
+  const [tickerTargets, setTickerTargets] = useState(editing?.tickerTargets ?? []);
+  const [tickerInput, setTickerInput] = useState('');
 
   const total = MACRO_CATEGORIES.reduce((s, c) => s + (target[c.key] ?? 0), 0);
+  const tickerPctTotal = tickerTargets.reduce((s, t) => s + (parseFloat(t.pct) || 0), 0);
   const canSave = name.trim().length > 0 && (!hasTarget || total === 100);
+
+  function addTickerTarget() {
+    const t = tickerInput.trim().toUpperCase();
+    if (!t || tickerTargets.find(x => x.ticker === t)) return;
+    setTickerTargets(prev => [...prev, { ticker: t, pct: 0 }]);
+    setTickerInput('');
+  }
 
   function handleSave() {
     onSave({
@@ -466,6 +550,9 @@ function PortfolioModal({ editing, onSave, onClose }) {
       description: description.trim(),
       targetAllocation: hasTarget ? target : null,
       rebalanceThreshold: threshold,
+      goalAmount: goalAmount !== '' ? parseFloat(goalAmount) : null,
+      goalYear: goalYear !== '' ? parseInt(goalYear) : null,
+      tickerTargets: tickerTargets.filter(t => t.pct > 0),
     });
   }
 
@@ -583,6 +670,102 @@ function PortfolioModal({ editing, onSave, onClose }) {
                 />
               ))}
             </div>
+          </div>
+
+          {/* Goal section */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginBottom: 8, fontWeight: 600 }}>Obiettivo</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 2, position: 'relative' }}>
+                <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', fontSize: '0.85rem' }}>€</span>
+                <input
+                  type="number"
+                  placeholder="Target (es. 50000)"
+                  value={goalAmount}
+                  onChange={e => setGoalAmount(e.target.value)}
+                  style={{
+                    width: '100%', padding: '10px 12px 10px 26px', borderRadius: 10,
+                    border: '1px solid var(--border)', background: 'var(--surface-2)',
+                    color: 'var(--text-1)', fontSize: '0.875rem', boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              <input
+                type="number"
+                placeholder={`Anno (es. ${new Date().getFullYear() + 10})`}
+                value={goalYear}
+                onChange={e => setGoalYear(e.target.value)}
+                min={new Date().getFullYear()}
+                max={2100}
+                style={{
+                  flex: 1, padding: '10px 12px', borderRadius: 10,
+                  border: '1px solid var(--border)', background: 'var(--surface-2)',
+                  color: 'var(--text-1)', fontSize: '0.875rem', boxSizing: 'border-box',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Ticker targets section */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginBottom: 8, fontWeight: 600 }}>
+              Target ticker{tickerTargets.length > 0 && (
+                <span style={{ marginLeft: 8, color: tickerPctTotal === 100 ? '#30D158' : '#FF9F0A', fontWeight: 700 }}>
+                  {tickerPctTotal}% / 100%
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: tickerTargets.length > 0 ? 8 : 0 }}>
+              <input
+                type="text"
+                placeholder="Aggiungi ticker (es. VWCE)"
+                value={tickerInput}
+                onChange={e => setTickerInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addTickerTarget()}
+                style={{
+                  flex: 1, padding: '9px 12px', borderRadius: 10,
+                  border: '1px solid var(--border)', background: 'var(--surface-2)',
+                  color: 'var(--text-1)', fontSize: '0.875rem',
+                }}
+              />
+              <button
+                onClick={addTickerTarget}
+                style={{
+                  padding: '9px 14px', borderRadius: 10, border: 'none',
+                  background: '#0A84FF', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem',
+                }}
+              >
+                +
+              </button>
+            </div>
+            {tickerTargets.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {tickerTargets.map(({ ticker, pct }) => (
+                  <div key={ticker} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ flex: 1, fontSize: '0.825rem', fontWeight: 600, color: 'var(--text-1)' }}>{ticker}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={pct}
+                      onChange={e => setTickerTargets(prev => prev.map(t => t.ticker === ticker ? { ...t, pct: parseFloat(e.target.value) || 0 } : t))}
+                      style={{
+                        width: 64, padding: '6px 8px', borderRadius: 8, textAlign: 'right',
+                        border: '1px solid var(--border)', background: 'var(--surface-2)',
+                        color: 'var(--text-1)', fontSize: '0.825rem',
+                      }}
+                    />
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-3)' }}>%</span>
+                    <button
+                      onClick={() => setTickerTargets(prev => prev.filter(t => t.ticker !== ticker))}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, lineHeight: 1 }}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Target allocation toggle */}
@@ -843,6 +1026,157 @@ function AssignmentRow({ holding, portfolios, assignments, onAssign }) {
   );
 }
 
+// ── Smart assign modal (nuovi ticker non assegnati) ──────────────────────────
+
+function SmartAssignModal({ unassigned, portfolios, onSave, onClose }) {
+  const [rows, setRows] = useState(() =>
+    unassigned.map(h => ({ key: h.holdingKey ?? h.ticker, ticker: h.ticker, name: h.name, portfolioId: '', targetPct: '' }))
+  );
+  const [dismissed, setDismissed] = useState([]);
+
+  const visible = rows.filter(r => !dismissed.includes(r.key));
+
+  function setRow(key, field, val) {
+    setRows(prev => prev.map(r => r.key === key ? { ...r, [field]: val } : r));
+  }
+
+  function handleSave() {
+    const config = getPortfolioConfig();
+    rows.filter(r => r.portfolioId).forEach(r => {
+      assignTicker(r.key, r.portfolioId);
+      if (r.targetPct !== '' && parseFloat(r.targetPct) > 0) {
+        const portfolio = config.portfolios.find(p => p.id === r.portfolioId);
+        const existing = (portfolio?.tickerTargets ?? []).filter(t => t.ticker !== r.ticker);
+        updatePortfolio(r.portfolioId, { tickerTargets: [...existing, { ticker: r.ticker, pct: parseFloat(r.targetPct) }] });
+      }
+    });
+    onSave();
+  }
+
+  const anyAssigned = rows.some(r => r.portfolioId && !dismissed.includes(r.key));
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+    }}>
+      <div style={{
+        background: 'var(--card-bg)', borderRadius: 20, border: '1px solid var(--border)',
+        width: '100%', maxWidth: 560, maxHeight: '85vh', overflowY: 'auto',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+      }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '1.1rem 1.2rem', borderBottom: '1px solid var(--border)',
+          position: 'sticky', top: 0, background: 'var(--card-bg)', zIndex: 1,
+        }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>
+              🆕 {unassigned.length} nuov{unassigned.length === 1 ? 'o titolo' : 'i titoli'} rilevat{unassigned.length === 1 ? 'o' : 'i'}
+            </h2>
+            <p style={{ margin: '3px 0 0', fontSize: '0.75rem', color: 'var(--text-3)' }}>
+              Assegnali a un portafoglio e imposta il target % in un colpo solo
+            </p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div style={{ padding: '1rem 1.2rem', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* Header */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 90px 32px', gap: 8, fontSize: '0.68rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', padding: '0 4px' }}>
+            <span>Titolo</span>
+            <span>Portafoglio</span>
+            <span>Target %</span>
+            <span />
+          </div>
+
+          {visible.map(r => (
+            <div key={r.key} style={{ display: 'grid', gridTemplateColumns: '1fr 160px 90px 32px', gap: 8, alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-1)' }}>{r.ticker}</div>
+                {r.name && r.name !== r.ticker && (
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+                )}
+              </div>
+              <select
+                value={r.portfolioId}
+                onChange={e => setRow(r.key, 'portfolioId', e.target.value)}
+                style={{
+                  width: '100%', padding: '7px 8px', borderRadius: 8,
+                  border: '1px solid var(--border)', background: 'var(--surface-2)',
+                  color: r.portfolioId ? 'var(--text-1)' : 'var(--text-3)', fontSize: '0.78rem', cursor: 'pointer',
+                }}
+              >
+                <option value="">— Scegli —</option>
+                {portfolios.map(p => <option key={p.id} value={p.id}>{p.emoji} {p.name}</option>)}
+              </select>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  placeholder="0"
+                  value={r.targetPct}
+                  onChange={e => setRow(r.key, 'targetPct', e.target.value)}
+                  style={{
+                    width: '100%', padding: '7px 8px', borderRadius: 8, textAlign: 'right',
+                    border: '1px solid var(--border)', background: 'var(--surface-2)',
+                    color: 'var(--text-1)', fontSize: '0.825rem',
+                  }}
+                />
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-3)', flexShrink: 0 }}>%</span>
+              </div>
+              <button
+                onClick={() => setDismissed(d => [...d, r.key])}
+                title="Ignora questo titolo"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 4 }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+
+          {visible.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-3)', fontSize: '0.85rem' }}>
+              Tutti i titoli sono stati ignorati.
+            </div>
+          )}
+        </div>
+
+        <div style={{
+          padding: '1rem 1.2rem', borderTop: '1px solid var(--border)',
+          display: 'flex', gap: 8, justifyContent: 'flex-end',
+          position: 'sticky', bottom: 0, background: 'var(--card-bg)',
+        }}>
+          <button
+            onClick={onClose}
+            style={{ padding: '8px 16px', borderRadius: 10, border: '1px solid var(--border)', background: 'none', cursor: 'pointer', color: 'var(--text-2)', fontSize: '0.875rem' }}
+          >
+            Dopo
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!anyAssigned}
+            style={{
+              padding: '8px 20px', borderRadius: 10, border: 'none',
+              background: anyAssigned ? '#0A84FF' : 'var(--surface-2)',
+              color: anyAssigned ? '#fff' : 'var(--text-3)',
+              cursor: anyAssigned ? 'pointer' : 'default',
+              fontSize: '0.875rem', fontWeight: 600,
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            <Check size={15} /> Salva assegnazioni
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function PortfolioManager() {
@@ -854,6 +1188,7 @@ export default function PortfolioManager() {
   // Modals
   const [editingPortfolio, setEditingPortfolio] = useState(null); // null | portfolio obj | 'new'
   const [globalModalOpen, setGlobalModalOpen] = useState(false);
+  const [smartModalOpen, setSmartModalOpen] = useState(false);
 
   // Assignment tab state
   const [search, setSearch] = useState('');
@@ -996,6 +1331,37 @@ export default function PortfolioManager() {
           <Plus size={15} /> Nuovo portafoglio
         </button>
       </div>
+
+      {/* Smart banner — nuovi ticker non assegnati */}
+      {unassignedCount > 0 && config.portfolios.length > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '12px 16px', borderRadius: 12, marginBottom: 16,
+          background: 'rgba(10,132,255,0.08)', border: '1px solid rgba(10,132,255,0.25)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: '1.1rem' }}>🆕</span>
+            <div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-1)' }}>
+                {unassignedCount} titol{unassignedCount === 1 ? 'o non assegnato' : 'i non assegnati'}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>
+                Assegnali a un portafoglio e imposta il target in pochi secondi
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setSmartModalOpen(true)}
+            style={{
+              padding: '7px 14px', borderRadius: 8, border: 'none',
+              background: '#0A84FF', color: '#fff',
+              fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', flexShrink: 0,
+            }}
+          >
+            Assegna ora →
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
@@ -1346,6 +1712,15 @@ export default function PortfolioManager() {
           config={config}
           onSave={handleSaveGlobal}
           onClose={() => setGlobalModalOpen(false)}
+        />
+      )}
+
+      {smartModalOpen && (
+        <SmartAssignModal
+          unassigned={rawHoldings.filter(h => !config.assignments[h.holdingKey ?? h.ticker])}
+          portfolios={config.portfolios}
+          onSave={() => { refreshConfig(); setSmartModalOpen(false); }}
+          onClose={() => setSmartModalOpen(false)}
         />
       )}
 

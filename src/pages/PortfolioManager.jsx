@@ -511,348 +511,468 @@ function AllocationSliders({ target, onChange }) {
   );
 }
 
-// ── Portfolio Create/Edit Modal ────────────────────────────────────────────────
+// ── Portfolio Create/Edit Modal — wizard 3 step ───────────────────────────────
 
 const EMPTY_TARGET = { equity: 0, bond: 0, commodity: 0, realEstate: 0, crypto: 0, cash: 0 };
 
-function PortfolioModal({ editing, onSave, onClose }) {
+const STEP_LABELS = ['Info', 'Titoli', 'Allocazione %'];
+
+function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
+  const [step, setStep] = useState(1);
+
+  // Step 1 — Info
   const [name, setName] = useState(editing?.name ?? '');
   const [emoji, setEmoji] = useState(editing?.emoji ?? '📈');
   const [color, setColor] = useState(editing?.color ?? PORTFOLIO_COLORS[0]);
   const [description, setDescription] = useState(editing?.description ?? '');
-  const [hasTarget, setHasTarget] = useState(editing ? editing.targetAllocation != null : false);
-  const [target, setTarget] = useState(editing?.targetAllocation ?? { ...EMPTY_TARGET });
-  const [threshold, setThreshold] = useState(editing?.rebalanceThreshold ?? 5);
-  const [emojiOpen, setEmojiOpen] = useState(false);
-  // Goal
   const [goalAmount, setGoalAmount] = useState(editing?.goalAmount ?? '');
   const [goalYear, setGoalYear] = useState(editing?.goalYear ?? '');
-  // Ticker targets
-  const [tickerTargets, setTickerTargets] = useState(editing?.tickerTargets ?? []);
-  const [tickerInput, setTickerInput] = useState('');
+  const [emojiOpen, setEmojiOpen] = useState(false);
 
-  const total = MACRO_CATEGORIES.reduce((s, c) => s + (target[c.key] ?? 0), 0);
-  const tickerPctTotal = tickerTargets.reduce((s, t) => s + (parseFloat(t.pct) || 0), 0);
-  const canSave = name.trim().length > 0 && (!hasTarget || total === 100);
+  // Step 2 — Ticker selection
+  const [search2, setSearch2] = useState('');
+  const existingTickers = new Set((editing?.tickerTargets ?? []).map(t => t.ticker));
+  const [selected, setSelected] = useState(() => new Set(existingTickers));
 
-  function addTickerTarget() {
-    const t = tickerInput.trim().toUpperCase();
-    if (!t || tickerTargets.find(x => x.ticker === t)) return;
-    setTickerTargets(prev => [...prev, { ticker: t, pct: 0 }]);
-    setTickerInput('');
+  const selectableHoldings = useMemo(() => {
+    return availableHoldings
+      .filter(h => {
+        const q = search2.toLowerCase();
+        return !q || h.ticker.toLowerCase().includes(q) || (h.name || '').toLowerCase().includes(q);
+      })
+      .sort((a, b) => (b.marketValue ?? 0) - (a.marketValue ?? 0));
+  }, [availableHoldings, search2]);
+
+  function toggleTicker(ticker) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(ticker) ? next.delete(ticker) : next.add(ticker);
+      return next;
+    });
   }
+
+  // Step 3 — Allocation %
+  const [tickerPcts, setTickerPcts] = useState(() => {
+    const map = {};
+    (editing?.tickerTargets ?? []).forEach(({ ticker, pct }) => { map[ticker] = pct; });
+    return map;
+  });
+
+  const selectedList = useMemo(() =>
+    availableHoldings.filter(h => selected.has(h.ticker)),
+    [availableHoldings, selected]
+  );
+
+  const pctTotal = selectedList.reduce((s, h) => s + (parseFloat(tickerPcts[h.ticker]) || 0), 0);
+
+  function distributeEvenly() {
+    if (selectedList.length === 0) return;
+    const each = Math.floor(100 / selectedList.length);
+    const rem = 100 - each * selectedList.length;
+    const map = {};
+    selectedList.forEach((h, i) => { map[h.ticker] = each + (i === 0 ? rem : 0); });
+    setTickerPcts(map);
+  }
+
+  // Shared threshold
+  const [threshold, setThreshold] = useState(editing?.rebalanceThreshold ?? 5);
+
+  const canNext1 = name.trim().length > 0;
 
   function handleSave() {
     onSave({
       name: name.trim(),
-      emoji,
-      color,
+      emoji, color,
       description: description.trim(),
-      targetAllocation: hasTarget ? target : null,
+      targetAllocation: null,
       rebalanceThreshold: threshold,
       goalAmount: goalAmount !== '' ? parseFloat(goalAmount) : null,
       goalYear: goalYear !== '' ? parseInt(goalYear) : null,
-      tickerTargets: tickerTargets.filter(t => t.pct > 0),
+      tickerTargets: selectedList
+        .map(h => ({ ticker: h.ticker, pct: parseFloat(tickerPcts[h.ticker]) || 0 }))
+        .filter(t => t.pct > 0),
     });
   }
 
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9999,
-      background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '1rem',
+      background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
     }}>
       <div style={{
-        background: 'var(--card-bg)', borderRadius: 20,
-        border: '1px solid var(--border)',
-        width: '100%', maxWidth: 520,
-        maxHeight: '90vh', overflowY: 'auto',
+        background: 'var(--card-bg)', borderRadius: 20, border: '1px solid var(--border)',
+        width: '100%', maxWidth: 520, maxHeight: '90vh',
+        display: 'flex', flexDirection: 'column',
         boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
       }}>
-        {/* Modal header */}
+
+        {/* Header */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '1.1rem 1.2rem', borderBottom: '1px solid var(--border)',
-          position: 'sticky', top: 0, background: 'var(--card-bg)', zIndex: 1,
+          padding: '1rem 1.2rem', borderBottom: '1px solid var(--border)', flexShrink: 0,
         }}>
-          <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>
-            {editing ? 'Modifica portafoglio' : 'Nuovo portafoglio'}
-          </h2>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>
+              {editing ? 'Modifica portafoglio' : 'Nuovo portafoglio'}
+            </h2>
+            <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: 'var(--text-3)' }}>
+              Step {step} di 3 — {STEP_LABELS[step - 1]}
+            </p>
+          </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
             <X size={18} />
           </button>
         </div>
 
-        <div style={{ padding: '1.2rem' }}>
-          {/* Emoji + Name row */}
-          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={() => setEmojiOpen(o => !o)}
+        {/* Step indicator */}
+        <div style={{ display: 'flex', gap: 0, padding: '0 1.2rem', flexShrink: 0, borderBottom: '1px solid var(--border)' }}>
+          {STEP_LABELS.map((label, i) => {
+            const s = i + 1;
+            const active = s === step;
+            const done = s < step;
+            return (
+              <div
+                key={s}
+                onClick={() => done && setStep(s)}
                 style={{
-                  width: 48, height: 48, borderRadius: 12,
-                  border: '1px solid var(--border)', background: 'var(--surface-2)',
-                  fontSize: '1.5rem', cursor: 'pointer', lineHeight: 1,
+                  flex: 1, padding: '10px 0', textAlign: 'center',
+                  fontSize: '0.75rem', fontWeight: active ? 700 : 400,
+                  color: active ? '#0A84FF' : done ? 'var(--text-2)' : 'var(--text-3)',
+                  borderBottom: active ? '2px solid #0A84FF' : '2px solid transparent',
+                  cursor: done ? 'pointer' : 'default',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                  marginBottom: -1,
                 }}
               >
-                {emoji}
-              </button>
-              {emojiOpen && (
-                <div style={{
-                  position: 'absolute', top: 52, left: 0, zIndex: 10,
-                  background: 'var(--card-bg)', border: '1px solid var(--border)',
-                  borderRadius: 12, padding: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-                  display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 4,
+                <span style={{
+                  width: 18, height: 18, borderRadius: 99, fontSize: '0.65rem', fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: active ? '#0A84FF' : done ? '#30D158' : 'var(--surface-2)',
+                  color: active || done ? '#fff' : 'var(--text-3)',
+                  flexShrink: 0,
                 }}>
-                  {PORTFOLIO_EMOJIS.map(e => (
-                    <button
-                      key={e}
-                      onClick={() => { setEmoji(e); setEmojiOpen(false); }}
-                      style={{
-                        background: emoji === e ? 'var(--surface-2)' : 'none',
-                        border: 'none', cursor: 'pointer', borderRadius: 8,
-                        padding: '4px 6px', fontSize: '1.2rem',
-                      }}
-                    >
-                      {e}
-                    </button>
-                  ))}
+                  {done ? '✓' : s}
+                </span>
+                {label}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Body — scrollable */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '1.2rem' }}>
+
+          {/* ── STEP 1: Info ─────────────────────────────── */}
+          {step === 1 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Emoji + Name */}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => setEmojiOpen(o => !o)}
+                    style={{
+                      width: 48, height: 48, borderRadius: 12,
+                      border: '1px solid var(--border)', background: 'var(--surface-2)',
+                      fontSize: '1.5rem', cursor: 'pointer',
+                    }}
+                  >
+                    {emoji}
+                  </button>
+                  {emojiOpen && (
+                    <div style={{
+                      position: 'absolute', top: 52, left: 0, zIndex: 10,
+                      background: 'var(--card-bg)', border: '1px solid var(--border)',
+                      borderRadius: 12, padding: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                      display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 4,
+                    }}>
+                      {PORTFOLIO_EMOJIS.map(e => (
+                        <button key={e} onClick={() => { setEmoji(e); setEmojiOpen(false); }}
+                          style={{ background: emoji === e ? 'var(--surface-2)' : 'none', border: 'none', cursor: 'pointer', borderRadius: 8, padding: '4px 6px', fontSize: '1.2rem' }}>
+                          {e}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <div style={{ flex: 1 }}>
-              <input
-                type="text"
-                placeholder="Nome portafoglio *"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                style={{
-                  width: '100%', padding: '12px 14px', borderRadius: 10,
-                  border: '1px solid var(--border)', background: 'var(--surface-2)',
-                  color: 'var(--text-1)', fontSize: '0.875rem',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Description */}
-          <div style={{ marginBottom: 14 }}>
-            <input
-              type="text"
-              placeholder="Descrizione (opzionale)"
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              style={{
-                width: '100%', padding: '10px 14px', borderRadius: 10,
-                border: '1px solid var(--border)', background: 'var(--surface-2)',
-                color: 'var(--text-1)', fontSize: '0.875rem',
-                boxSizing: 'border-box',
-              }}
-            />
-          </div>
-
-          {/* Color picker */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginBottom: 6 }}>Colore</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {PORTFOLIO_COLORS.map(c => (
-                <button
-                  key={c}
-                  onClick={() => setColor(c)}
-                  style={{
-                    width: 28, height: 28, borderRadius: 8, background: c,
-                    border: color === c ? '2px solid var(--text-1)' : '2px solid transparent',
-                    cursor: 'pointer', boxSizing: 'border-box',
-                    boxShadow: color === c ? '0 0 0 2px var(--card-bg), 0 0 0 4px ' + c : 'none',
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Goal section */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginBottom: 8, fontWeight: 600 }}>Obiettivo</div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <div style={{ flex: 2, position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', fontSize: '0.85rem' }}>€</span>
                 <input
-                  type="number"
-                  placeholder="Target (es. 50000)"
-                  value={goalAmount}
-                  onChange={e => setGoalAmount(e.target.value)}
+                  type="text" placeholder="Nome portafoglio *" value={name}
+                  onChange={e => setName(e.target.value)}
+                  autoFocus
                   style={{
-                    width: '100%', padding: '10px 12px 10px 26px', borderRadius: 10,
+                    flex: 1, padding: '12px 14px', borderRadius: 10,
                     border: '1px solid var(--border)', background: 'var(--surface-2)',
-                    color: 'var(--text-1)', fontSize: '0.875rem', boxSizing: 'border-box',
+                    color: 'var(--text-1)', fontSize: '0.875rem',
                   }}
                 />
               </div>
+
               <input
-                type="number"
-                placeholder={`Anno (es. ${new Date().getFullYear() + 10})`}
-                value={goalYear}
-                onChange={e => setGoalYear(e.target.value)}
-                min={new Date().getFullYear()}
-                max={2100}
+                type="text" placeholder="Descrizione (opzionale)" value={description}
+                onChange={e => setDescription(e.target.value)}
                 style={{
-                  flex: 1, padding: '10px 12px', borderRadius: 10,
+                  width: '100%', padding: '10px 14px', borderRadius: 10,
                   border: '1px solid var(--border)', background: 'var(--surface-2)',
                   color: 'var(--text-1)', fontSize: '0.875rem', boxSizing: 'border-box',
                 }}
               />
-            </div>
-          </div>
 
-          {/* Ticker targets section */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginBottom: 8, fontWeight: 600 }}>
-              Target ticker{tickerTargets.length > 0 && (
-                <span style={{ marginLeft: 8, color: tickerPctTotal === 100 ? '#30D158' : '#FF9F0A', fontWeight: 700 }}>
-                  {tickerPctTotal}% / 100%
-                </span>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: tickerTargets.length > 0 ? 8 : 0 }}>
-              <input
-                type="text"
-                placeholder="Aggiungi ticker (es. VWCE)"
-                value={tickerInput}
-                onChange={e => setTickerInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && addTickerTarget()}
-                style={{
-                  flex: 1, padding: '9px 12px', borderRadius: 10,
-                  border: '1px solid var(--border)', background: 'var(--surface-2)',
-                  color: 'var(--text-1)', fontSize: '0.875rem',
-                }}
-              />
-              <button
-                onClick={addTickerTarget}
-                style={{
-                  padding: '9px 14px', borderRadius: 10, border: 'none',
-                  background: '#0A84FF', color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem',
-                }}
-              >
-                +
-              </button>
-            </div>
-            {tickerTargets.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {tickerTargets.map(({ ticker, pct }) => (
-                  <div key={ticker} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ flex: 1, fontSize: '0.825rem', fontWeight: 600, color: 'var(--text-1)' }}>{ticker}</span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={pct}
-                      onChange={e => setTickerTargets(prev => prev.map(t => t.ticker === ticker ? { ...t, pct: parseFloat(e.target.value) || 0 } : t))}
+              {/* Color */}
+              <div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginBottom: 6 }}>Colore</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {PORTFOLIO_COLORS.map(c => (
+                    <button key={c} onClick={() => setColor(c)} style={{
+                      width: 28, height: 28, borderRadius: 8, background: c,
+                      border: color === c ? '2px solid var(--text-1)' : '2px solid transparent',
+                      cursor: 'pointer', boxSizing: 'border-box',
+                      boxShadow: color === c ? '0 0 0 2px var(--card-bg), 0 0 0 4px ' + c : 'none',
+                    }} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Goal */}
+              <div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginBottom: 6, fontWeight: 600 }}>
+                  🎯 Obiettivo (opzionale)
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ flex: 2, position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', fontSize: '0.85rem' }}>€</span>
+                    <input type="number" placeholder="Target (es. 50000)" value={goalAmount}
+                      onChange={e => setGoalAmount(e.target.value)}
                       style={{
-                        width: 64, padding: '6px 8px', borderRadius: 8, textAlign: 'right',
+                        width: '100%', padding: '10px 12px 10px 26px', borderRadius: 10,
                         border: '1px solid var(--border)', background: 'var(--surface-2)',
-                        color: 'var(--text-1)', fontSize: '0.825rem',
+                        color: 'var(--text-1)', fontSize: '0.875rem', boxSizing: 'border-box',
                       }}
                     />
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-3)' }}>%</span>
-                    <button
-                      onClick={() => setTickerTargets(prev => prev.filter(t => t.ticker !== ticker))}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', padding: 2, lineHeight: 1 }}
-                    >
-                      <X size={14} />
-                    </button>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Target allocation toggle */}
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '10px 14px', borderRadius: 10,
-            background: 'var(--surface-2)', marginBottom: hasTarget ? 14 : 4,
-          }}>
-            <div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>Target di allocazione</div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>
-                Definisci la % target per ogni macro-categoria
+                  <input type="number" placeholder={`Anno (es. ${new Date().getFullYear() + 10})`}
+                    value={goalYear} onChange={e => setGoalYear(e.target.value)}
+                    min={new Date().getFullYear()} max={2100}
+                    style={{
+                      flex: 1, padding: '10px 12px', borderRadius: 10,
+                      border: '1px solid var(--border)', background: 'var(--surface-2)',
+                      color: 'var(--text-1)', fontSize: '0.875rem', boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
               </div>
             </div>
-            <button
-              onClick={() => setHasTarget(h => !h)}
-              style={{
-                width: 40, height: 22, borderRadius: 99,
-                background: hasTarget ? '#30d158' : 'var(--surface-3, #3a3a3c)',
-                border: 'none', cursor: 'pointer', position: 'relative', transition: 'background 0.2s',
-              }}
-            >
-              <div style={{
-                position: 'absolute', top: 2, left: hasTarget ? 20 : 2,
-                width: 18, height: 18, borderRadius: 99, background: '#fff',
-                transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-              }} />
-            </button>
-          </div>
-
-          {hasTarget && (
-            <AllocationSliders target={target} onChange={setTarget} />
           )}
 
-          {/* Threshold */}
-          <div style={{ marginTop: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <label style={{ fontSize: '0.8rem', color: 'var(--text-2)' }}>
-                Soglia alert ribilanciamento
-              </label>
-              <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>±{threshold}%</span>
+          {/* ── STEP 2: Selezione ticker ──────────────────── */}
+          {step === 2 && (
+            <div>
+              <p style={{ margin: '0 0 12px', fontSize: '0.82rem', color: 'var(--text-2)' }}>
+                Seleziona i titoli che vuoi includere in <strong>{name}</strong>. Puoi modificare in qualsiasi momento.
+              </p>
+              <input
+                type="text" placeholder="Cerca ticker o nome…" value={search2}
+                onChange={e => setSearch2(e.target.value)}
+                style={{
+                  width: '100%', padding: '9px 14px', borderRadius: 10, boxSizing: 'border-box',
+                  border: '1px solid var(--border)', background: 'var(--surface-2)',
+                  color: 'var(--text-1)', fontSize: '0.875rem', marginBottom: 10,
+                }}
+              />
+
+              {availableHoldings.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-3)', fontSize: '0.85rem' }}>
+                  Nessun titolo disponibile — importa prima le transazioni
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {/* Select all */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>
+                      {selected.size} selezionat{selected.size === 1 ? 'o' : 'i'}
+                    </span>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button onClick={() => setSelected(new Set(availableHoldings.map(h => h.ticker)))}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0A84FF', fontSize: '0.75rem', fontWeight: 600 }}>
+                        Tutti
+                      </button>
+                      <button onClick={() => setSelected(new Set())}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)', fontSize: '0.75rem' }}>
+                        Nessuno
+                      </button>
+                    </div>
+                  </div>
+
+                  {selectableHoldings.map(h => {
+                    const isSel = selected.has(h.ticker);
+                    return (
+                      <div
+                        key={h.holdingKey ?? h.ticker}
+                        onClick={() => toggleTicker(h.ticker)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 12,
+                          padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
+                          border: `1px solid ${isSel ? color + '66' : 'var(--border)'}`,
+                          background: isSel ? color + '11' : 'var(--surface-2)',
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        <div style={{
+                          width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+                          border: `2px solid ${isSel ? color : 'var(--text-3)'}`,
+                          background: isSel ? color : 'transparent',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          {isSel && <Check size={11} color="#fff" strokeWidth={3} />}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-1)' }}>{h.ticker}</div>
+                          {h.name && h.name !== h.ticker && (
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</div>
+                          )}
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-1)' }}>
+                            {fmtEur(h.marketValue ?? 0)}
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-3)' }}>
+                            {h.quantity ?? 0} pz
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-            <input
-              type="range"
-              min={1}
-              max={20}
-              step={1}
-              value={threshold}
-              onChange={e => setThreshold(parseInt(e.target.value))}
-              style={{ width: '100%', accentColor: '#0A84FF' }}
-            />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-3)' }}>
-              <span>1% (preciso)</span>
-              <span>20% (ampio)</span>
+          )}
+
+          {/* ── STEP 3: Allocazione % ────────────────────── */}
+          {step === 3 && (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-2)' }}>
+                  Imposta il peso % target per ogni titolo.
+                </p>
+                <button
+                  onClick={distributeEvenly}
+                  style={{
+                    padding: '5px 12px', borderRadius: 8, border: '1px solid var(--border)',
+                    background: 'none', cursor: 'pointer', color: 'var(--text-2)',
+                    fontSize: '0.75rem', fontWeight: 600, flexShrink: 0,
+                  }}
+                >
+                  Dividi equamente
+                </button>
+              </div>
+
+              {selectedList.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-3)', fontSize: '0.85rem' }}>
+                  Nessun titolo selezionato — torna allo step 2
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {selectedList.map(h => {
+                    const pct = parseFloat(tickerPcts[h.ticker]) || 0;
+                    return (
+                      <div key={h.ticker} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-1)' }}>{h.ticker}</div>
+                          <div style={{ height: 4, background: 'var(--surface-2)', borderRadius: 99, marginTop: 4, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${Math.min(100, pct)}%`, background: color, borderRadius: 99, transition: 'width 0.2s' }} />
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                          <input
+                            type="number" min={0} max={100} value={tickerPcts[h.ticker] ?? ''}
+                            placeholder="0"
+                            onChange={e => setTickerPcts(prev => ({ ...prev, [h.ticker]: e.target.value }))}
+                            style={{
+                              width: 60, padding: '7px 8px', borderRadius: 8, textAlign: 'right',
+                              border: '1px solid var(--border)', background: 'var(--surface-2)',
+                              color: 'var(--text-1)', fontSize: '0.875rem',
+                            }}
+                          />
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-3)' }}>%</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Total */}
+                  <div style={{
+                    marginTop: 8, padding: '10px 14px', borderRadius: 10,
+                    background: pctTotal === 100 ? '#30D15811' : pctTotal > 100 ? '#FF453A11' : 'var(--surface-2)',
+                    border: `1px solid ${pctTotal === 100 ? '#30D15844' : pctTotal > 100 ? '#FF453A44' : 'var(--border)'}`,
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-2)', fontWeight: 600 }}>Totale</span>
+                    <span style={{
+                      fontSize: '0.9rem', fontWeight: 800,
+                      color: pctTotal === 100 ? '#30D158' : pctTotal > 100 ? '#FF453A' : 'var(--text-1)',
+                    }}>
+                      {pctTotal.toFixed(1)}%
+                    </span>
+                  </div>
+
+                  {/* Soglia */}
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <label style={{ fontSize: '0.78rem', color: 'var(--text-2)' }}>Soglia alert ribilanciamento</label>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>±{threshold}%</span>
+                    </div>
+                    <input type="range" min={1} max={20} step={1} value={threshold}
+                      onChange={e => setThreshold(parseInt(e.target.value))}
+                      style={{ width: '100%', accentColor: '#0A84FF' }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </div>
 
         {/* Footer */}
         <div style={{
           padding: '1rem 1.2rem', borderTop: '1px solid var(--border)',
-          display: 'flex', gap: 8, justifyContent: 'flex-end',
-          position: 'sticky', bottom: 0, background: 'var(--card-bg)',
+          display: 'flex', gap: 8, justifyContent: 'space-between', flexShrink: 0,
         }}>
           <button
-            onClick={onClose}
+            onClick={() => step > 1 ? setStep(s => s - 1) : onClose()}
             style={{
-              padding: '8px 16px', borderRadius: 10, border: '1px solid var(--border)',
+              padding: '9px 18px', borderRadius: 10, border: '1px solid var(--border)',
               background: 'none', cursor: 'pointer', color: 'var(--text-2)', fontSize: '0.875rem',
             }}
           >
-            Annulla
+            {step > 1 ? '← Indietro' : 'Annulla'}
           </button>
-          <button
-            onClick={handleSave}
-            disabled={!canSave}
-            style={{
-              padding: '8px 20px', borderRadius: 10, border: 'none',
-              background: canSave ? '#0A84FF' : 'var(--surface-2)',
-              color: canSave ? '#fff' : 'var(--text-3)',
-              cursor: canSave ? 'pointer' : 'default',
-              fontSize: '0.875rem', fontWeight: 600,
-              display: 'flex', alignItems: 'center', gap: 6,
-            }}
-          >
-            <Check size={15} /> Salva
-          </button>
+
+          {step < 3 ? (
+            <button
+              onClick={() => setStep(s => s + 1)}
+              disabled={step === 1 && !canNext1}
+              style={{
+                padding: '9px 22px', borderRadius: 10, border: 'none',
+                background: (step === 1 && !canNext1) ? 'var(--surface-2)' : '#0A84FF',
+                color: (step === 1 && !canNext1) ? 'var(--text-3)' : '#fff',
+                cursor: (step === 1 && !canNext1) ? 'default' : 'pointer',
+                fontSize: '0.875rem', fontWeight: 600,
+              }}
+            >
+              Avanti →
+            </button>
+          ) : (
+            <button
+              onClick={handleSave}
+              style={{
+                padding: '9px 22px', borderRadius: 10, border: 'none',
+                background: '#30D158', color: '#fff',
+                cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600,
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}
+            >
+              <Check size={15} /> Salva portafoglio
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -1702,6 +1822,7 @@ export default function PortfolioManager() {
       {editingPortfolio != null && (
         <PortfolioModal
           editing={editingPortfolio === 'new' ? null : editingPortfolio}
+          availableHoldings={rawHoldings}
           onSave={handleSavePortfolio}
           onClose={() => setEditingPortfolio(null)}
         />

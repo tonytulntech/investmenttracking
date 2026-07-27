@@ -1360,10 +1360,17 @@ export default function PortfolioManager() {
   // ── Portfolio CRUD handlers ───────────────────────────────────────────────
 
   function handleSavePortfolio(data) {
+    let portfolioId;
     if (editingPortfolio === 'new') {
-      createPortfolio(data);
+      const created = createPortfolio(data);
+      portfolioId = created.id;
     } else {
       updatePortfolio(editingPortfolio.id, data);
+      portfolioId = editingPortfolio.id;
+    }
+    // Sync assignments: tutti i ticker nei tickerTargets vengono assegnati automaticamente
+    if (data.tickerTargets?.length > 0) {
+      bulkAssign(data.tickerTargets.map(t => t.ticker), portfolioId);
     }
     refreshConfig();
     setEditingPortfolio(null);

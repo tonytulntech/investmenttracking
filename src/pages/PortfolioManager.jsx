@@ -529,10 +529,10 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
   const [goalYear, setGoalYear] = useState(editing?.goalYear ?? '');
   const [emojiOpen, setEmojiOpen] = useState(false);
 
-  // Step 2 — Ticker selection
+  // Step 2 — Ticker selection (usa holdingKey come chiave univoca)
   const [search2, setSearch2] = useState('');
-  const existingTickers = new Set((editing?.tickerTargets ?? []).map(t => t.ticker));
-  const [selected, setSelected] = useState(() => new Set(existingTickers));
+  const existingKeys = new Set((editing?.tickerTargets ?? []).map(t => t.holdingKey ?? t.ticker));
+  const [selected, setSelected] = useState(() => new Set(existingKeys));
 
   const selectableHoldings = useMemo(() => {
     return availableHoldings
@@ -543,10 +543,11 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
       .sort((a, b) => (b.marketValue ?? 0) - (a.marketValue ?? 0));
   }, [availableHoldings, search2]);
 
-  function toggleTicker(ticker) {
+  function toggleTicker(h) {
+    const key = h.holdingKey ?? h.ticker;
     setSelected(prev => {
       const next = new Set(prev);
-      next.has(ticker) ? next.delete(ticker) : next.add(ticker);
+      next.has(key) ? next.delete(key) : next.add(key);
       return next;
     });
   }
@@ -559,7 +560,7 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
   });
 
   const selectedList = useMemo(() =>
-    availableHoldings.filter(h => selected.has(h.ticker)),
+    availableHoldings.filter(h => selected.has(h.holdingKey ?? h.ticker)),
     [availableHoldings, selected]
   );
 
@@ -793,7 +794,7 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
                       {selected.size} selezionat{selected.size === 1 ? 'o' : 'i'}
                     </span>
                     <div style={{ display: 'flex', gap: 10 }}>
-                      <button onClick={() => setSelected(new Set(availableHoldings.map(h => h.ticker)))}
+                      <button onClick={() => setSelected(new Set(availableHoldings.map(h => h.holdingKey ?? h.ticker)))}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0A84FF', fontSize: '0.75rem', fontWeight: 600 }}>
                         Tutti
                       </button>
@@ -805,11 +806,11 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
                   </div>
 
                   {selectableHoldings.map(h => {
-                    const isSel = selected.has(h.ticker);
+                    const isSel = selected.has(h.holdingKey ?? h.ticker);
                     return (
                       <div
                         key={h.holdingKey ?? h.ticker}
-                        onClick={() => toggleTicker(h.ticker)}
+                        onClick={() => toggleTicker(h)}
                         style={{
                           display: 'flex', alignItems: 'center', gap: 12,
                           padding: '10px 12px', borderRadius: 10, cursor: 'pointer',

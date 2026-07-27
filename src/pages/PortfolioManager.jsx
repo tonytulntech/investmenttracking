@@ -589,8 +589,10 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
       goalAmount: goalAmount !== '' ? parseFloat(goalAmount) : null,
       goalYear: goalYear !== '' ? parseInt(goalYear) : null,
       tickerTargets: selectedList
-        .map(h => ({ ticker: h.ticker, pct: parseFloat(tickerPcts[h.ticker]) || 0 }))
+        .map(h => ({ ticker: h.ticker, holdingKey: h.holdingKey ?? h.ticker, pct: parseFloat(tickerPcts[h.ticker]) || 0 }))
         .filter(t => t.pct > 0),
+      // tutti i ticker selezionati, anche senza %, per aggiornare assignments
+      selectedHoldings: selectedList.map(h => ({ ticker: h.ticker, holdingKey: h.holdingKey ?? h.ticker })),
     });
   }
 
@@ -1368,9 +1370,10 @@ export default function PortfolioManager() {
       updatePortfolio(editingPortfolio.id, data);
       portfolioId = editingPortfolio.id;
     }
-    // Sync assignments: tutti i ticker nei tickerTargets vengono assegnati automaticamente
-    if (data.tickerTargets?.length > 0) {
-      bulkAssign(data.tickerTargets.map(t => t.ticker), portfolioId);
+    // Sync assignments usando holdingKey (come fa il resto dell'app)
+    const toAssign = data.selectedHoldings ?? data.tickerTargets ?? [];
+    if (toAssign.length > 0) {
+      bulkAssign(toAssign.map(t => t.holdingKey ?? t.ticker), portfolioId);
     }
     refreshConfig();
     setEditingPortfolio(null);

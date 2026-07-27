@@ -1833,7 +1833,12 @@ export default function PortfolioManager() {
       {editingPortfolio != null && (
         <PortfolioModal
           editing={editingPortfolio === 'new' ? null : editingPortfolio}
-          availableHoldings={rawHoldings}
+          availableHoldings={rawHoldings.filter(h => {
+            const key = h.holdingKey ?? h.ticker;
+            const assignedTo = config.assignments[key];
+            // mostra solo non assegnati o assegnati a questo portafoglio (in modifica)
+            return !assignedTo || assignedTo === editingPortfolio?.id;
+          })}
           onSave={handleSavePortfolio}
           onClose={() => setEditingPortfolio(null)}
         />

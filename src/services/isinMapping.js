@@ -172,6 +172,17 @@ const ISIN_MAP = {
   'US92826C8394': { ticker: 'V',         macroCategory: 'Azioni',  microCategory: 'Large Cap' },  // Visa
   'US6541061031': { ticker: 'NKE',       macroCategory: 'Azioni',  microCategory: 'Large Cap' },  // Nike
   'GB0031215220': { ticker: 'CCL.L',     macroCategory: 'Azioni',  microCategory: 'Large Cap' },  // Carnival PLC
+  'US7181721090': { ticker: 'PM',        macroCategory: 'Azioni',  microCategory: 'Large Cap' },  // Philip Morris (T212: 4I1)
+  'US7134481081': { ticker: 'PEP',       macroCategory: 'Azioni',  microCategory: 'Large Cap' },  // PepsiCo
+  'US57060D1081': { ticker: 'MKTX',     macroCategory: 'Azioni',  microCategory: 'Large Cap' },  // MarketAxess
+  'IE00B4BNMY34': { ticker: 'ACN',       macroCategory: 'Azioni',  microCategory: 'Large Cap' },  // Accenture
+  'US69608A1088': { ticker: 'PLTR',     macroCategory: 'Azioni',  microCategory: 'Large Cap' },  // Palantir
+  'US19247G1076': { ticker: 'COHR',     macroCategory: 'Azioni',  microCategory: 'Large Cap' },  // Coherent
+  'KYG3323L1005': { ticker: 'FN',        macroCategory: 'Azioni',  microCategory: 'Large Cap' },  // Fabrinet
+  'US0404132054': { ticker: 'ANET',     macroCategory: 'Azioni',  microCategory: 'Large Cap' },  // Arista Networks
+  'US26603R1068': { ticker: 'DUOL',     macroCategory: 'Azioni',  microCategory: 'Large Cap' },  // Duolingo
+  'US9256521090': { ticker: 'VICI',     macroCategory: 'Azioni',  microCategory: 'Large Cap' },  // VICI Properties
+  'US5951121038': { ticker: 'MU',        macroCategory: 'Azioni',  microCategory: 'Large Cap' },  // Micron Technology (T212: MTE)
 }
 
 /**

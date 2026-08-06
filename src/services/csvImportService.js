@@ -305,7 +305,7 @@ function parseTrading212(rows) {
       // vendita a prezzo ~0 con un Result → disposal da corporate action
       if (price === 0 && qty > 0 && result !== 0) {
         const costBasis = Math.abs(result); // proventi 0 → costo = -result
-        const key = `${safeDate(row['Time'])}|${qty.toFixed(4)}`;
+        const key = `${safeDate(row['Time (UTC)'] ?? row['Time'])}|${qty.toFixed(4)}`;
         corpActionCost[key] = costBasis / qty;
       }
     }
@@ -314,7 +314,7 @@ function parseTrading212(rows) {
   rows.forEach((row, i) => {
     try {
       const action   = String(row['Action'] || '').trim();
-      const date     = safeDate(row['Time']);
+      const date     = safeDate(row['Time (UTC)'] ?? row['Time']);
       const sourceId = String(row['ID'] || '').trim(); // T212 unique transaction ID
       if (!date) { skipped.push({ rowIndex: i, reason: 'Data non valida', rawRow: row }); return; }
 

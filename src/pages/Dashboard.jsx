@@ -33,19 +33,35 @@ function color(n) { return n >= 0 ? GREEN : RED; }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
-function KpiCard({ label, main, sub, mainColor, large }) {
+function KpiCard({ label, main, deltaPct, caption, large }) {
+  const hasDelta = typeof deltaPct === 'number' && isFinite(deltaPct);
+  const up = hasDelta && deltaPct >= 0;
+  const Arrow = up ? TrendingUp : TrendingDown;
+  const dColor = up ? GREEN : RED;
   return (
     <div style={{
       background: 'var(--card-bg)', border: '1px solid var(--border)',
-      borderRadius: 14, padding: '1.1rem 1.3rem', display: 'flex', flexDirection: 'column', gap: 4,
+      borderRadius: 14, padding: '1.1rem 1.3rem', display: 'flex', flexDirection: 'column', gap: 6,
       boxShadow: '0 1px 2px rgba(0,0,0,0.28)',
     }}>
       <span style={{ fontSize: '0.6875rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
       <span style={{
-        fontSize: large ? '1.9rem' : '1.45rem', fontWeight: 600, color: mainColor || 'var(--text-1)', lineHeight: 1.1,
+        fontSize: large ? '1.9rem' : '1.5rem', fontWeight: 600, color: 'var(--text-1)', lineHeight: 1.1,
         fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums',
       }}>{main}</span>
-      {sub && <span style={{ fontSize: '0.78rem', color: 'var(--text-2)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{sub}</span>}
+      {(hasDelta || caption) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {hasDelta && (
+            <>
+              <Arrow size={13} style={{ color: dColor, flexShrink: 0 }} />
+              <span style={{ color: dColor, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', fontSize: '0.8rem', fontWeight: 600 }}>
+                {pct(deltaPct)}
+              </span>
+            </>
+          )}
+          {caption && <span style={{ fontSize: '0.78rem', color: 'var(--text-3)' }}>{caption}</span>}
+        </div>
+      )}
     </div>
   );
 }
@@ -371,30 +387,27 @@ function Dashboard() {
             <KpiCard
               label="Portafoglio totale"
               main={eur(stats.totalValue)}
-              sub={`${stats.assetsCount} asset`}
+              caption={`${stats.assetsCount} asset`}
               large
             />
             <KpiCard
               label="P&L totale"
-              main={<span style={{ color: color(stats.totalPL) }}>{sign(stats.totalPL)}{eur(stats.totalPL)}</span>}
-              sub={<span style={{ color: color(stats.totalPLPercent) }}>{pct(stats.totalPLPercent)}</span>}
-              mainColor={color(stats.totalPL)}
+              main={`${sign(stats.totalPL)}${eur(stats.totalPL)}`}
+              deltaPct={stats.totalPLPercent}
             />
             <KpiCard
               label="Variazione oggi"
-              main={<span style={{ color: color(stats.dayChange) }}>{sign(stats.dayChange)}{eur(stats.dayChange)}</span>}
-              sub={<span style={{ color: color(stats.dayChangePercent) }}>{pct(stats.dayChangePercent)}</span>}
-              mainColor={color(stats.dayChange)}
+              main={`${sign(stats.dayChange)}${eur(stats.dayChange)}`}
+              deltaPct={stats.dayChangePercent}
+              caption="oggi"
             />
             <KpiCard
               label={performanceMetrics?.cagrReliable ? 'CAGR' : 'Rendimento totale'}
               main={performanceMetrics
-                ? <span style={{ color: color(performanceMetrics.cagrReliable ? performanceMetrics.cagr : performanceMetrics.totalReturnPercent) }}>
-                    {pct(performanceMetrics.cagrReliable ? performanceMetrics.cagr : performanceMetrics.totalReturnPercent)}
-                  </span>
+                ? pct(performanceMetrics.cagrReliable ? performanceMetrics.cagr : performanceMetrics.totalReturnPercent)
                 : '—'
               }
-              sub={performanceMetrics
+              caption={performanceMetrics
                 ? (() => {
                     const y = performanceMetrics.yearsInvesting;
                     if (y == null) return '—';
@@ -592,9 +605,9 @@ function Dashboard() {
                       onClick={() => setChartPeriod(p)}
                       style={{
                         padding: '3px 9px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer',
-                        background: chartPeriod === p ? BLUE : 'transparent',
-                        color: chartPeriod === p ? '#fff' : 'var(--text-3)',
-                        border: chartPeriod === p ? 'none' : '1px solid var(--border)',
+                        background: chartPeriod === p ? 'var(--text-1)' : 'transparent',
+                        color: chartPeriod === p ? 'var(--bg)' : 'var(--text-3)',
+                        border: chartPeriod === p ? '1px solid var(--text-1)' : '1px solid var(--border)',
                       }}
                     >
                       {p.toUpperCase()}
@@ -614,7 +627,7 @@ function Dashboard() {
                       <stop offset="95%" stopColor={GREEN} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickLine={false} axisLine={false} tickFormatter={v => `€${(v/1000).toFixed(0)}k`} />
                   <Tooltip

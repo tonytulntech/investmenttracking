@@ -88,10 +88,10 @@ function PortfolioMiniCard({ portfolio, value, pl, plPct, count, rebalanceNeeded
           <AlertTriangle size={13} style={{ color: ORANGE, marginLeft: 'auto', flexShrink: 0 }} />
         )}
       </div>
-      <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-1)' }}>
+      <div style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-1)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
         {eur(value)}
       </div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+      <div style={{ display: 'flex', gap: 8, marginTop: 4, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
         <span style={{ fontSize: '0.75rem', color: color(pl), fontWeight: 600 }}>
           {sign(pl)}{eur(pl, 0)}
         </span>
@@ -428,7 +428,7 @@ function Dashboard() {
               onClick={() => setPlExpanded(v => !v)}
               style={{
                 background: 'var(--card-bg)', border: '1px solid var(--border)',
-                borderRadius: 16, marginBottom: '1.5rem',
+                borderRadius: 14, marginBottom: '1.5rem',
                 cursor: 'pointer', overflow: 'hidden',
                 transition: 'border-color 0.15s',
               }}
@@ -595,7 +595,7 @@ function Dashboard() {
           <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
 
             {/* Chart */}
-            <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 16, padding: '1.25rem 1.5rem' }}>
+            <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 14, padding: '1.25rem 1.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
                 <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-1)' }}>Andamento portafoglio</span>
                 <div style={{ display: 'flex', gap: 4 }}>
@@ -651,7 +651,7 @@ function Dashboard() {
             </div>
 
             {/* Allocation */}
-            <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 16, padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 0 }}>
+            <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 14, padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 0 }}>
               <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-1)', marginBottom: '1rem', display: 'block' }}>Allocazione</span>
 
               {/* Macro allocation */}
@@ -660,7 +660,7 @@ function Dashboard() {
                   <div key={item.name}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
                       <span style={{ fontSize: '0.78rem', color: 'var(--text-2)', fontWeight: 500 }}>{item.name}</span>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--text-1)', fontWeight: 600 }}>{item.percentage}%</span>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-1)', fontWeight: 600, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{item.percentage}%</span>
                     </div>
                     <div style={{ height: 5, background: 'var(--surface-2)', borderRadius: 3 }}>
                       <div style={{ width: item.percentage + '%', height: '100%', background: item.color || ALLOC_COLORS[i % ALLOC_COLORS.length], borderRadius: 3 }} />
@@ -683,7 +683,7 @@ function Dashboard() {
                           <span style={{ width: 8, height: 8, borderRadius: 2, background: item.color || ALLOC_COLORS[i % ALLOC_COLORS.length], flexShrink: 0 }} />
                           <span style={{ fontSize: '0.73rem', color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
                         </span>
-                        <span style={{ fontSize: '0.73rem', color: 'var(--text-1)', fontWeight: 600 }}>{item.percentage}%</span>
+                        <span style={{ fontSize: '0.73rem', color: 'var(--text-1)', fontWeight: 600, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{item.percentage}%</span>
                       </div>
                     ))}
                   </div>
@@ -693,10 +693,10 @@ function Dashboard() {
           </div>
 
           {/* ── Top Holdings ── */}
-          <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 16, padding: '1.25rem 1.5rem' }}>
+          <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 14, padding: '1.25rem 1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
               <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-1)' }}>Top Holdings</span>
-              <a href="/portfolio" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', color: BLUE, textDecoration: 'none', fontWeight: 500 }}>
+              <a href="/portfolio" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', color: 'var(--text-2)', textDecoration: 'none', fontWeight: 500 }}>
                 Tutti <ArrowRight size={12} />
               </a>
             </div>
@@ -717,16 +717,16 @@ function Dashboard() {
                     {h.broker && <span style={{ marginLeft: 4, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 3, padding: '0 4px', fontSize: '0.62rem' }}>{h.broker}</span>}
                   </div>
                 </div>
-                <div style={{ textAlign: 'right', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)' }}>
+                <div style={{ textAlign: 'right', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
                   <Blur>{eur(h.marketValue, 0)}</Blur>
                 </div>
-                <div style={{ textAlign: 'right', fontSize: '0.82rem', fontWeight: 600, color: color(h.unrealizedPL) }}>
+                <div style={{ textAlign: 'right', fontSize: '0.82rem', fontWeight: 600, color: color(h.unrealizedPL), fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
                   <Blur>{sign(h.unrealizedPL)}{eur(h.unrealizedPL, 0)}</Blur>
                 </div>
-                <div style={{ textAlign: 'right', fontSize: '0.78rem', fontWeight: 600, color: color(h.roi) }}>
+                <div style={{ textAlign: 'right', fontSize: '0.78rem', fontWeight: 600, color: color(h.roi), fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
                   {pct(h.roi, 1)}
                 </div>
-                <div style={{ textAlign: 'right', fontSize: '0.75rem', color: color(h.dayChangePercent) }}>
+                <div style={{ textAlign: 'right', fontSize: '0.75rem', color: color(h.dayChangePercent), fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
                   {pct(h.dayChangePercent, 2)}
                 </div>
               </div>

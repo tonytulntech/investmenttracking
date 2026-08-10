@@ -6,15 +6,26 @@
    CSS CUSTOM PROPERTIES (theme-aware, used by analysis page)
    ============================================================ */
 :root {
-  /* ── Design system tokens (dark mode defaults) ─────────────── */
-  --bg:          #080c14;
-  --card-bg:     rgba(255, 255, 255, 0.055);
-  --surface-1:   #111827;   /* solid — for modals/overlays */
-  --surface-2:   rgba(255, 255, 255, 0.04);
-  --border:      rgba(255, 255, 255, 0.09);
-  --text-1:      #eef4fa;
-  --text-2:      rgba(238, 244, 250, 0.72);
-  --text-3:      rgba(238, 244, 250, 0.38);
+  /* ── Design system tokens — "Direzione C" (editoriale scuro) ── */
+  --bg:            #09090B;   /* neutro near-black, NON blu */
+  --card-bg:       #141416;   /* superficie card solida */
+  --surface-1:     #18181B;   /* solid — for modals/overlays */
+  --surface-2:     #0F0F11;   /* superfici incassate */
+  --border:        rgba(255, 255, 255, 0.07);   /* hairline */
+  --border-strong: rgba(255, 255, 255, 0.12);   /* hover/evidenza */
+  --text-1:        #FAFAFA;
+  --text-2:        rgba(250, 250, 250, 0.62);
+  --text-3:        rgba(250, 250, 250, 0.40);
+
+  /* Accento unico (periwinkle indigo — non iOS-blue) + semantica P/L */
+  --accent:        #7C82FF;
+  --accent-weak:   rgba(124, 130, 255, 0.12);
+  --pos:           #3FB950;
+  --neg:           #F85149;
+
+  /* Tipografia */
+  --font-ui:   'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* ── Analysis page vars (dark mode defaults) ───────────────── */
   --analysis-dim:         rgba(255,255,255,0.45);
@@ -31,14 +42,16 @@
 }
 [data-theme="light"] {
   /* ── Design system tokens (light mode overrides) ──────────── */
-  --bg:          #f0f2f5;
-  --card-bg:     #ffffff;
-  --surface-1:   #ffffff;
-  --surface-2:   #f5f7fa;
-  --border:      rgba(0, 0, 0, 0.09);
-  --text-1:      #1d1d1f;
-  --text-2:      rgba(29, 29, 31, 0.68);
-  --text-3:      rgba(29, 29, 31, 0.38);
+  --bg:            #FAFAFA;
+  --card-bg:       #FFFFFF;
+  --surface-1:     #FFFFFF;
+  --surface-2:     #F4F4F5;
+  --border:        rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.14);
+  --text-1:        #18181B;
+  --text-2:        rgba(24, 24, 27, 0.62);
+  --text-3:        rgba(24, 24, 27, 0.42);
+  --accent-weak:   rgba(124, 130, 255, 0.10);
 
   --analysis-dim:         rgba(0,0,0,0.50);
   --analysis-faint:       rgba(0,0,0,0.32);
@@ -67,19 +80,19 @@
   }
 
   body {
-    /* Deep space background with subtle blue + green aurora */
-    background-color: #080c14;
-    background-image:
-      radial-gradient(ellipse 80% 55% at 50% -5%,  rgba(10, 132, 255, 0.11) 0%, transparent 60%),
-      radial-gradient(ellipse 50% 35% at 85% 85%,   rgba(48, 209, 88,  0.06) 0%, transparent 50%),
-      radial-gradient(ellipse 40% 30% at 10% 70%,   rgba(10, 132, 255, 0.04) 0%, transparent 50%);
-    background-attachment: fixed;
-    color: #eef4fa;
+    /* Fondo neutro solido — niente aurora/glow (Direzione C) */
+    background-color: var(--bg);
+    color: var(--text-1);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI',
-                 system-ui, 'Helvetica Neue', Arial, sans-serif;
+    font-family: var(--font-ui);
     min-height: 100vh;
+  }
+
+  /* Numeri tabellari ovunque si usi il mono */
+  .tabnum, [class*="mono"] {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
   }
 
   /* Override Tailwind's bg-white so legacy bg-white classes become
@@ -100,38 +113,27 @@
    ============================================================ */
 @layer components {
 
-  /* ── GLASS CARD ───────────────────────────────────────────── */
+  /* ── CARD — solida, bordo hairline (Direzione C, no-glass) ── */
   .card {
-    background: rgba(255, 255, 255, 0.055);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.10);
-    border-radius: 16px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
     padding: 1.5rem;
-    box-shadow:
-      0 8px 32px  rgba(0, 0, 0, 0.32),
-      0 1px  0    rgba(255, 255, 255, 0.07) inset;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+    transition: border-color 0.2s ease;
   }
 
   .card:hover {
-    border-color: rgba(255, 255, 255, 0.16);
-    box-shadow:
-      0 16px 48px rgba(0, 0, 0, 0.42),
-      0 1px  0    rgba(255, 255, 255, 0.10) inset;
+    border-color: var(--border-strong);
   }
 
   /* Elevated variant (used for hero sections / key metric) */
   .card-elevated {
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(40px);
-    -webkit-backdrop-filter: blur(40px);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 20px;
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    border-radius: 16px;
     padding: 2rem;
-    box-shadow:
-      0 20px 60px rgba(0, 0, 0, 0.45),
-      0 1px  0    rgba(255, 255, 255, 0.10) inset;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   }
 
 
@@ -591,12 +593,7 @@
 .app-root {
   min-height: 100vh;
   display: flex;
-  background-color: #080c14;
-  background-image:
-    radial-gradient(ellipse 80% 55% at 50% -5%,  rgba(10,132,255,0.11) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 35% at 85% 85%,  rgba(48,209,88,0.06)  0%, transparent 50%),
-    radial-gradient(ellipse 40% 30% at 10% 70%,  rgba(10,132,255,0.04) 0%, transparent 50%);
-  background-attachment: fixed;
+  background-color: var(--bg);
 }
 
 /* ── Sidebar ────────────────────────────────────────────────── */

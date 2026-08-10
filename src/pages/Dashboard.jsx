@@ -37,11 +37,15 @@ function KpiCard({ label, main, sub, mainColor, large }) {
   return (
     <div style={{
       background: 'var(--card-bg)', border: '1px solid var(--border)',
-      borderRadius: 16, padding: '1.1rem 1.3rem', display: 'flex', flexDirection: 'column', gap: 4,
+      borderRadius: 14, padding: '1.1rem 1.3rem', display: 'flex', flexDirection: 'column', gap: 4,
+      boxShadow: '0 1px 2px rgba(0,0,0,0.28)',
     }}>
-      <span style={{ fontSize: '0.7rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
-      <span style={{ fontSize: large ? '1.9rem' : '1.45rem', fontWeight: 700, color: mainColor || 'var(--text-1)', lineHeight: 1.1 }}>{main}</span>
-      {sub && <span style={{ fontSize: '0.78rem', color: 'var(--text-2)' }}>{sub}</span>}
+      <span style={{ fontSize: '0.6875rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+      <span style={{
+        fontSize: large ? '1.9rem' : '1.45rem', fontWeight: 600, color: mainColor || 'var(--text-1)', lineHeight: 1.1,
+        fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums',
+      }}>{main}</span>
+      {sub && <span style={{ fontSize: '0.78rem', color: 'var(--text-2)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{sub}</span>}
     </div>
   );
 }

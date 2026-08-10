@@ -39,10 +39,11 @@ export const PORTFOLIO_EMOJIS = [
 
 const DEFAULT_CONFIG = {
   portfolios: [],
-  assignments: {},    // { [ticker]: portfolioId | null }
-  aliases: {},        // { [ticker]: customDisplayName }
-  globalTarget: null, // null = nessun target globale impostato
-  globalThreshold: 5, // % tolleranza prima di alert
+  assignments: {},        // { [ticker]: portfolioId | null }
+  bucketAssignments: {},  // { [ticker]: bucketId }  — Ruolo del titolo dentro il suo portafoglio
+  aliases: {},            // { [ticker]: customDisplayName }
+  globalTarget: null,     // null = nessun target globale impostato
+  globalThreshold: 5,     // % tolleranza prima di alert
 };
 
 // ── Storage helpers ──────────────────────────────────────────────────────────
@@ -84,6 +85,7 @@ export function createPortfolio({ name, color, emoji, description, targetAllocat
     goalAmount: goalAmount ?? null,
     goalYear: goalYear ?? null,
     tickerTargets: tickerTargets ?? [],
+    buckets: [],   // Ruoli custom del portafoglio: [{ id, name, target }]
     createdAt: new Date().toISOString(),
   };
   config.portfolios.push(portfolio);
@@ -108,9 +110,15 @@ export function updatePortfolio(id, updates) {
  */
 export function deletePortfolio(id) {
   const config = getConfig();
+  const port = config.portfolios.find(p => p.id === id);
+  const bucketIds = new Set((port?.buckets || []).map(b => b.id));
   config.portfolios = config.portfolios.filter(p => p.id !== id);
   Object.keys(config.assignments).forEach(ticker => {
     if (config.assignments[ticker] === id) delete config.assignments[ticker];
+  });
+  // Pulisci le assegnazioni ai bucket del portafoglio eliminato
+  Object.keys(config.bucketAssignments || {}).forEach(ticker => {
+    if (bucketIds.has(config.bucketAssignments[ticker])) delete config.bucketAssignments[ticker];
   });
   saveConfig(config);
 }
@@ -169,6 +177,117 @@ export function assignByMacroCategory(macroCategory, portfolioId, holdings) {
     .filter(h => (h.macroCategory || h.category || '').toLowerCase() === macroCategory.toLowerCase())
     .map(h => h.holdingKey || h.ticker);
   bulkAssign(keys, portfolioId);
+}
+
+// ── Bucket-Ruolo per portafoglio ─────────────────────────────────────────────
+// Ogni portafoglio ha bucket liberi (es. "Income", "Growth-Div", "Kings") con un
+// target %. Ogni titolo del portafoglio va assegnato a un bucket. Il drift per
+// bucket alimenta gli alert precisi in Dashboard e i suggerimenti in Rebalancing.
+
+/**
+ * Crea un bucket-Ruolo in un portafoglio.
+ * @returns {Object} il bucket creato { id, name, target }
+ */
+export function addBucket(portfolioId, name, target = 0) {
+  const config = getConfig();
+  const port = config.portfolios.find(p => p.id === portfolioId);
+  if (!port) throw new Error('Portfolio not found: ' + portfolioId);
+  if (!Array.isArray(port.buckets)) port.buckets = [];
+  const bucket = {
+    id: `bkt_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    name: (name || 'Nuovo ruolo').trim(),
+    target: Number(target) || 0,
+  };
+  port.buckets.push(bucket);
+  saveConfig(config);
+  return bucket;
+}
+
+/** Aggiorna nome/target di un bucket. */
+export function updateBucket(portfolioId, bucketId, updates) {
+  const config = getConfig();
+  const port = config.portfolios.find(p => p.id === portfolioId);
+  const bucket = port?.buckets?.find(b => b.id === bucketId);
+  if (!bucket) throw new Error('Bucket not found: ' + bucketId);
+  if (updates.name != null)   bucket.name = String(updates.name).trim();
+  if (updates.target != null) bucket.target = Number(updates.target) || 0;
+  saveConfig(config);
+  return bucket;
+}
+
+/** Elimina un bucket e libera i titoli che vi erano assegnati. */
+export function deleteBucket(portfolioId, bucketId) {
+  const config = getConfig();
+  const port = config.portfolios.find(p => p.id === portfolioId);
+  if (!port) return;
+  port.buckets = (port.buckets || []).filter(b => b.id !== bucketId);
+  Object.keys(config.bucketAssignments || {}).forEach(ticker => {
+    if (config.bucketAssignments[ticker] === bucketId) delete config.bucketAssignments[ticker];
+  });
+  saveConfig(config);
+}
+
+/** Assegna un titolo a un bucket (null = rimuove l'assegnazione). */
+export function assignTickerToBucket(ticker, bucketId) {
+  const config = getConfig();
+  if (!config.bucketAssignments) config.bucketAssignments = {};
+  if (bucketId == null) delete config.bucketAssignments[ticker];
+  else config.bucketAssignments[ticker] = bucketId;
+  saveConfig(config);
+}
+
+/** Restituisce il bucketId assegnato a un titolo (o null). */
+export function getBucketForTicker(ticker) {
+  return getConfig().bucketAssignments?.[ticker] ?? null;
+}
+
+/**
+ * Calcola il drift per bucket di un portafoglio.
+ * @param {Object} portfolio            il portafoglio (con .buckets)
+ * @param {Array}  holdingsWithValues   titoli del portafoglio [{ ticker|holdingKey, marketValue }]
+ * @returns {{ rows, total, unassigned, unassignedPct, targetSum }}
+ *   rows: [{ id, name, target, value, current, diff, diffVal }]
+ *   diff  = current% - target%  (+ sovrappeso, - sottopeso)
+ *   diffVal = € da aggiustare (negativo = da comprare)
+ */
+export function calcBucketDrift(portfolio, holdingsWithValues) {
+  const config = getConfig();
+  const buckets = portfolio?.buckets || [];
+  const total = holdingsWithValues.reduce((s, h) => s + (h.marketValue || 0), 0);
+
+  const valByBucket = {};
+  let unassigned = 0;
+  holdingsWithValues.forEach(h => {
+    const key = h.holdingKey || h.ticker;
+    const bId = config.bucketAssignments?.[key];
+    if (bId && buckets.some(b => b.id === bId)) {
+      valByBucket[bId] = (valByBucket[bId] || 0) + (h.marketValue || 0);
+    } else {
+      unassigned += (h.marketValue || 0);
+    }
+  });
+
+  const rows = buckets.map(b => {
+    const value = valByBucket[b.id] || 0;
+    const current = total ? (value / total) * 100 : 0;
+    const target = b.target || 0;
+    const diff = current - target;
+    return {
+      id: b.id, name: b.name, target,
+      value,
+      current: Math.round(current * 10) / 10,
+      diff: Math.round(diff * 10) / 10,
+      diffVal: (diff / 100) * total,
+    };
+  });
+
+  return {
+    rows,
+    total,
+    unassigned,
+    unassignedPct: total ? Math.round((unassigned / total) * 1000) / 10 : 0,
+    targetSum: buckets.reduce((s, b) => s + (b.target || 0), 0),
+  };
 }
 
 // ── Alias (rinomina display) ─────────────────────────────────────────────────

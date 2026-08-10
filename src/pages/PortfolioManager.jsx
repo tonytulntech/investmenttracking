@@ -8,6 +8,7 @@ import { calculatePortfolio } from '../services/localStorageService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { getCachedPrices } from '../services/priceCache';
 import { getCompositionProfile } from '../data/etfComposition';
+import BucketManager from '../components/BucketManager';
 import {
   MACRO_CATEGORIES,
   PRESET_TARGETS,
@@ -121,7 +122,7 @@ function GoalProgressBar({ current, goal, year }) {
 
 // ── Portfolio card ────────────────────────────────────────────────────────────
 
-function PortfolioCard({ portfolio, holdings, prices, config, onEdit, onDelete }) {
+function PortfolioCard({ portfolio, holdings, prices, config, onEdit, onDelete, onConfigChange }) {
   const getProfile = useCallback((ticker) => getCompositionProfile(ticker), []);
 
   const portfolioHoldings = useMemo(() => {
@@ -308,6 +309,11 @@ function PortfolioCard({ portfolio, holdings, prices, config, onEdit, onDelete }
               })}
             </div>
           </div>
+        )}
+
+        {/* Ruoli (bucket custom del portafoglio) */}
+        {numTickers > 0 && (
+          <BucketManager portfolioId={portfolio.id} holdings={portfolioHoldings} onChange={onConfigChange} />
         )}
 
         {/* Goal progress */}
@@ -1584,6 +1590,7 @@ export default function PortfolioManager() {
                   config={config}
                   onEdit={setEditingPortfolio}
                   onDelete={handleDeletePortfolio}
+                  onConfigChange={refreshConfig}
                 />
               ))}
             </div>

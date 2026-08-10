@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { calculatePortfolio, getTransactions } from '../services/localStorageService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { getMicroFromTicker } from '../config/assetTickerMapping';
+import { useSelectedPortfolio, ALL_PORTFOLIOS } from '../context/PortfolioContext';
 import { format, addMonths } from 'date-fns';
 import { it } from 'date-fns/locale';
 
@@ -12,6 +13,10 @@ const COLORS_NEGATIVE = '#ef4444';
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16'];
 
 function Rebalancing() {
+  const { selectedPortfolioId, assignments, portfolios } = useSelectedPortfolio();
+  const currentPortfolio = selectedPortfolioId === ALL_PORTFOLIOS
+    ? null
+    : portfolios.find(p => p.id === selectedPortfolioId);
   const [strategy, setStrategy] = useState(null);
   const [portfolio, setPortfolio] = useState([]);
   const [deviation, setDeviation] = useState([]);
@@ -27,7 +32,7 @@ function Rebalancing() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [selectedPortfolioId]);
 
   useEffect(() => {
     if (portfolio.length > 0 && strategy) {
@@ -53,7 +58,10 @@ function Rebalancing() {
       setStrategy(strategyData);
       setMonthlyBudget(parseFloat(strategyData.monthlyInvestment) || 0);
 
-      const holdings = calculatePortfolio();
+      const allHoldings = calculatePortfolio();
+      const holdings = selectedPortfolioId === ALL_PORTFOLIOS
+        ? allHoldings
+        : allHoldings.filter(h => assignments[h.holdingKey ?? h.ticker] === selectedPortfolioId);
       const nonCashHoldings = holdings.filter(h => !h.isCash);
       const tickers = nonCashHoldings.map(h => h.ticker);
       const categoriesMap = nonCashHoldings.reduce((acc, h) => {
@@ -619,6 +627,11 @@ function Rebalancing() {
           <p className="text-gray-600 mt-1">
             Strategia: <strong>{strategy.goalName || 'Non definito'}</strong>
           </p>
+          {currentPortfolio && (
+            <div style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 99, background: currentPortfolio.color + '22', border: `1px solid ${currentPortfolio.color}55`, fontSize: '0.78rem', fontWeight: 600, color: currentPortfolio.color }}>
+              <span>{currentPortfolio.emoji}</span> {currentPortfolio.name}
+            </div>
+          )}
         </div>
         <div className="flex flex-wrap gap-3">
           {/* ETF Frazionati Toggle */}

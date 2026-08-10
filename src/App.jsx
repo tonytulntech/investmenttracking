@@ -6,6 +6,8 @@ import {
   Sun, Moon, ScanSearch, Layers, Eye, EyeOff, Calculator, Coins, Bitcoin,
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
+import { PortfolioProvider } from './context/PortfolioContext';
+import PortfolioSelector from './components/PortfolioSelector';
 
 // Pages
 import { migrateTickersPersistent } from './services/localStorageService';
@@ -141,6 +143,7 @@ function App() {
 
   return (
     <PrivacyProvider>
+    <PortfolioProvider>
     <div className="app-root">
 
       {/* ── Sidebar (Desktop) ─────────────────────────────── */}
@@ -203,6 +206,8 @@ function App() {
             flexShrink: 0,
           }}
         >
+          <PortfolioSelector />
+
           <Link
             to="/transactions"
             className="btn-primary"
@@ -276,6 +281,7 @@ function App() {
         </div>
       </nav>
     </div>
+    </PortfolioProvider>
     </PrivacyProvider>
   );
 }

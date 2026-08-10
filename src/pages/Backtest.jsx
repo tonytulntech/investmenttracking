@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, Calendar, BarChart3, AlertTriangle, Play, Settings, Info, RefreshCw } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart, Bar } from 'recharts';
 import { getTransactions } from '../services/localStorageService';
+import { useSelectedPortfolio, ALL_PORTFOLIOS } from '../context/PortfolioContext';
 import { getPACTemplates } from '../services/pacService';
 import { fetchMultipleHistoricalPrices, buildMonthlyPriceTable } from '../services/historicalPriceService';
 import { getProxyInfo, adjustPricesForTER, ETF_PROXY_MAP } from '../config/etfProxyMap';
@@ -24,6 +25,10 @@ const PERIOD_OPTIONS = [
 const BENCHMARK_TICKER = 'URTH'; // MSCI World proxy
 
 export default function Backtest() {
+  const { selectedPortfolioId, assignments, portfolios } = useSelectedPortfolio();
+  const currentPortfolio = selectedPortfolioId === ALL_PORTFOLIOS
+    ? null
+    : portfolios.find(p => p.id === selectedPortfolioId);
   // State
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -63,7 +68,7 @@ export default function Backtest() {
     if (portfolioTickers.length > 0) {
       loadHistoricalData();
     }
-  }, [dataMode, selectedPeriod]);
+  }, [dataMode, selectedPeriod, selectedPortfolioId]);
 
   const loadStrategyParams = () => {
     try {
@@ -100,9 +105,11 @@ export default function Backtest() {
 
     try {
       const transactions = getTransactions();
-      const assetTransactions = transactions.filter(tx =>
-        !tx.isCash && tx.macroCategory !== 'Cash' && tx.ticker
-      );
+      const assetTransactions = transactions.filter(tx => {
+        if (tx.isCash || tx.macroCategory === 'Cash' || !tx.ticker) return false;
+        if (selectedPortfolioId === ALL_PORTFOLIOS) return true;
+        return assignments[tx.ticker] === selectedPortfolioId;
+      });
 
       if (assetTransactions.length === 0) {
         setError('Nessuna transazione trovata. Aggiungi transazioni per vedere il backtest.');
@@ -482,6 +489,11 @@ export default function Backtest() {
         <div className="flex items-center gap-3 mb-2">
           <BarChart3 className="w-8 h-8 text-primary-600" />
           <h1 className="text-2xl font-bold text-gray-900">Backtest & Proiezioni</h1>
+          {currentPortfolio && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 99, background: currentPortfolio.color + '22', border: `1px solid ${currentPortfolio.color}55`, fontSize: '0.78rem', fontWeight: 600, color: currentPortfolio.color }}>
+              <span>{currentPortfolio.emoji}</span> {currentPortfolio.name}
+            </span>
+          )}
         </div>
         <p className="text-gray-600">
           Analizza la performance storica del tuo portafoglio (con backtest esteso prima del lancio degli ETF)

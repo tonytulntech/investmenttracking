@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Search, FileText, X, Calendar, DollarSign, Hash, Tag, FileDown, FileUp, Loader, Sparkles, AlertTriangle, CheckCircle2, Info, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction, exportTransactions, bulkImportTransactions, clearAllTransactions, getImportBatches, deleteImportBatch } from '../services/localStorageService';
+import { useSelectedPortfolio, ALL_PORTFOLIOS } from '../context/PortfolioContext';
 import { searchSecurity, fetchMultiplePrices } from '../services/priceService';
 import { detectSubCategory } from '../services/categoryDetectionService';
 import { cacheTER, getTER } from '../services/terDetectionService';
@@ -15,6 +16,10 @@ import { parseCSVFile, findDuplicates } from '../services/csvImportService';
 import { reportTickers } from '../services/tickerReportService';
 
 function Transactions() {
+  const { selectedPortfolioId, assignments, portfolios } = useSelectedPortfolio();
+  const currentPortfolio = selectedPortfolioId === ALL_PORTFOLIOS
+    ? null
+    : portfolios.find(p => p.id === selectedPortfolioId);
   const [transactions, setTransactions] = useState([]);
   const [filteredTransactions, setFilteredTransactions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -47,7 +52,7 @@ function Transactions() {
 
   useEffect(() => {
     applyFilters();
-  }, [transactions, searchTerm, filterType, filterCategory, filterPlatform]);
+  }, [transactions, searchTerm, filterType, filterCategory, filterPlatform, selectedPortfolioId, assignments]);
 
   const PLATFORM_OPTIONS = [
     'Manuale', 'Fineco', 'DeGiro', 'Trading 212', 'IBKR',
@@ -177,6 +182,12 @@ function Transactions() {
 
   const applyFilters = () => {
     let filtered = [...transactions];
+
+    if (selectedPortfolioId !== ALL_PORTFOLIOS) {
+      filtered = filtered.filter(tx =>
+        tx.ticker && assignments[tx.ticker] === selectedPortfolioId
+      );
+    }
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -518,6 +529,11 @@ function Transactions() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Transazioni</h1>
           <p className="text-gray-600 mt-1">Gestisci le tue operazioni</p>
+          {currentPortfolio && (
+            <div style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 99, background: currentPortfolio.color + '22', border: `1px solid ${currentPortfolio.color}55`, fontSize: '0.78rem', fontWeight: 600, color: currentPortfolio.color }}>
+              <span>{currentPortfolio.emoji}</span> {currentPortfolio.name}
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           <label className={`btn-secondary flex items-center gap-2 cursor-pointer ${importLoading ? 'opacity-60 pointer-events-none' : ''}`}>

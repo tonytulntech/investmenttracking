@@ -25,6 +25,35 @@ export const PRESET_TARGETS = [
   { name: 'All Weather',      icon: '🌤', target: { equity: 30,  bond: 55, commodity: 10, realEstate: 0, crypto: 0, cash: 5 } },
 ];
 
+// Ruoli pre-impostati (bucket) suggeriti, raggruppati per tipo di portafoglio.
+// Servono solo come scorciatoia: si aggiungono con un click e restano modificabili.
+export const BUCKET_ROLE_PRESETS = [
+  {
+    group: 'Dividend / Income',
+    roles: ['High Yield / Income', 'REIT', 'BDC / Alternative Credit', 'Growth Dividend', 'Dividend Kings / Aristocrats', 'ETF Dividend Bridge'],
+  },
+  {
+    group: 'Core geografico',
+    roles: ['Mercati Sviluppati (World)', 'Mercati Emergenti', 'Azionario USA', 'Azionario Europa', 'Azionario Asia/Pacifico', 'Small Cap Value USA', 'Small Cap Value Europa'],
+  },
+  {
+    group: 'Fattoriale (Smart Beta)',
+    roles: ['Momentum', 'Quality', 'Value', 'Size (Small Cap)', 'Low Volatility', 'Multi-Factor'],
+  },
+  {
+    group: 'Settori',
+    roles: ['Tech / Software', 'Semiconduttori', 'Financials', 'Healthcare / Pharma', 'Consumer Staples', 'Consumer Discretionary', 'Real Estate / REIT', 'Industrials', 'Energy', 'Utilities', 'Materials', 'Communication'],
+  },
+  {
+    group: 'Tematici / Speculativi',
+    roles: ['AI Infrastructure', 'Water', 'Rame / Metalli industriali', 'Robotics & Automation', 'Cybersecurity', 'Clean Energy', 'Biotech', 'Uranio / Nucleare', 'Photonics / Connectivity', 'Networking', 'Memoria / Semis', 'EdTech', 'Fintech', 'Space'],
+  },
+  {
+    group: 'Altre asset class',
+    roles: ['Oro', 'Materie prime', 'Obbligazionario', 'Liquidità / Cash', 'Bitcoin (Store of Value)', 'Ethereum (Smart Contract)', 'Altcoin'],
+  },
+];
+
 export const PORTFOLIO_COLORS = [
   '#0A84FF', '#30D158', '#FF9F0A', '#FF453A', '#BF5AF2',
   '#32ADE6', '#FF6961', '#AC8E68', '#64D2FF', '#5E5CE6',

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronUp, Layers } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, Layers, Check, Sparkles } from 'lucide-react';
 import {
   getPortfolioConfig, addBucket, updateBucket, deleteBucket,
-  assignTickerToBucket, calcBucketDrift,
+  assignTickerToBucket, calcBucketDrift, BUCKET_ROLE_PRESETS,
 } from '../services/portfolioConfigService';
 
 const eur0 = (n) => '€' + Math.abs(Math.round(n)).toLocaleString('it-IT');
@@ -20,6 +20,7 @@ const MONO = { fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums
 export default function BucketManager({ portfolioId, holdings = [], onChange }) {
   const [, setTick] = useState(0);
   const [open, setOpen] = useState(false);
+  const [presetOpen, setPresetOpen] = useState(false);
   const bump = () => { setTick(t => t + 1); onChange?.(); };
 
   const cfg = getPortfolioConfig();
@@ -114,16 +115,71 @@ export default function BucketManager({ portfolioId, holdings = [], onChange }) 
             })}
           </div>
 
-          <button
-            onClick={() => { addBucket(portfolioId, 'Nuovo ruolo', 0); bump(); }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5, background: 'var(--surface-2)',
-              border: '1px dashed var(--border-strong)', borderRadius: 7, padding: '5px 10px',
-              color: 'var(--text-2)', fontSize: '0.73rem', fontWeight: 500, cursor: 'pointer', marginBottom: 12,
-            }}
-          >
-            <Plus size={13} /> Aggiungi ruolo
-          </button>
+          <div style={{ display: 'flex', gap: 6, marginBottom: presetOpen ? 8 : 12 }}>
+            <button
+              onClick={() => { addBucket(portfolioId, 'Nuovo ruolo', 0); bump(); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5, background: 'var(--surface-2)',
+                border: '1px dashed var(--border-strong)', borderRadius: 7, padding: '5px 10px',
+                color: 'var(--text-2)', fontSize: '0.73rem', fontWeight: 500, cursor: 'pointer',
+              }}
+            >
+              <Plus size={13} /> Aggiungi ruolo
+            </button>
+            <button
+              onClick={() => setPresetOpen(o => !o)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5, background: presetOpen ? 'var(--accent-weak)' : 'var(--surface-2)',
+                border: `1px solid ${presetOpen ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 7, padding: '5px 10px',
+                color: presetOpen ? 'var(--accent)' : 'var(--text-2)', fontSize: '0.73rem', fontWeight: 500, cursor: 'pointer',
+              }}
+            >
+              <Sparkles size={13} /> Da preset
+            </button>
+          </div>
+
+          {presetOpen && (() => {
+            const existing = new Set(buckets.map(b => b.name.trim().toLowerCase()));
+            const addPreset = (name) => { if (!existing.has(name.trim().toLowerCase())) { addBucket(portfolioId, name, 0); bump(); } };
+            const addGroup = (roles) => { roles.filter(r => !existing.has(r.trim().toLowerCase())).forEach(r => addBucket(portfolioId, r, 0)); bump(); };
+            return (
+              <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 11px', marginBottom: 12 }}>
+                {BUCKET_ROLE_PRESETS.map(({ group, roles }) => (
+                  <div key={group} style={{ marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                      <span style={{ fontSize: '0.62rem', color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{group}</span>
+                      <button onClick={() => addGroup(roles)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '0.64rem', fontWeight: 600, padding: 0 }}>
+                        + tutti
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                      {roles.map(r => {
+                        const added = existing.has(r.trim().toLowerCase());
+                        return (
+                          <button
+                            key={r}
+                            onClick={() => addPreset(r)}
+                            disabled={added}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 4,
+                              background: added ? 'transparent' : 'var(--card-bg)',
+                              border: `1px solid ${added ? 'var(--border)' : 'var(--border-strong)'}`,
+                              borderRadius: 99, padding: '3px 9px',
+                              color: added ? 'var(--text-3)' : 'var(--text-1)',
+                              fontSize: '0.7rem', fontWeight: 500,
+                              cursor: added ? 'default' : 'pointer', opacity: added ? 0.55 : 1,
+                            }}
+                          >
+                            {added ? <Check size={11} /> : <Plus size={11} />} {r}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* Assegnazione titoli → ruolo */}
           {holdings.length > 0 && buckets.length > 0 && (

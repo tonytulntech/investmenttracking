@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Plus, Trash2, ChevronDown, ChevronUp, Layers, Check, Sparkles } from 'lucide-react';
 import {
   getPortfolioConfig, addBucket, updateBucket, deleteBucket,
-  assignTickerToBucket, calcBucketDrift, BUCKET_ROLE_PRESETS,
+  assignTickerToBucket, assignTickerToRoleName, calcBucketDrift, BUCKET_ROLE_PRESETS,
 } from '../services/portfolioConfigService';
-import { suggestAssignments } from '../services/roleClassificationService';
+import { suggestRoleName } from '../services/roleClassificationService';
 
 const eur0 = (n) => '€' + Math.abs(Math.round(n)).toLocaleString('it-IT');
 const MONO = { fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' };
@@ -28,10 +28,12 @@ export default function BucketManager({ portfolioId, holdings = [], onChange }) 
   const runAutoAssign = () => {
     const fresh = getPortfolioConfig();
     const unassigned = holdings.filter(h => !fresh.bucketAssignments?.[h.holdingKey ?? h.ticker]);
-    const sugg = suggestAssignments(unassigned, port.buckets || []);
-    const keys = Object.keys(sugg);
-    keys.forEach(k => assignTickerToBucket(k, sugg[k]));
-    setAutoMsg(keys.length ? `✨ ${keys.length} assegnati in automatico — controlla e correggi` : 'Nessun match automatico: assegna a mano o rinomina i ruoli');
+    let count = 0;
+    unassigned.forEach(h => {
+      const name = suggestRoleName(h);           // crea il ruolo se non esiste
+      if (name) { assignTickerToRoleName(portfolioId, h.holdingKey ?? h.ticker, name); count++; }
+    });
+    setAutoMsg(count ? `✨ ${count} titoli classificati in automatico — controlla e correggi` : 'Nessun titolo riconosciuto: assegnali a mano qui sotto');
     bump();
   };
 
@@ -81,7 +83,7 @@ export default function BucketManager({ portfolioId, holdings = [], onChange }) 
           {/* Bucket list */}
           {buckets.length === 0 && (
             <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginBottom: 8 }}>
-              Nessun ruolo. Creane uno (es. "Income", "Growth-Div", "Kings") e assegna i titoli.
+              Assegna un ruolo ai titoli qui sotto (o premi <strong>Auto-assegna tutto</strong>): i ruoli si creano da soli. Qui potrai poi impostare i target %.
             </div>
           )}
 
@@ -193,56 +195,74 @@ export default function BucketManager({ portfolioId, holdings = [], onChange }) 
             );
           })()}
 
-          {/* Assegnazione titoli → ruolo */}
-          {holdings.length > 0 && buckets.length > 0 && (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <span style={{ fontSize: '0.64rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Assegna titoli
-                </span>
-                <button
-                  onClick={runAutoAssign}
-                  title="Suggerisce i ruoli in automatico dai dati locali (settore, REIT/BDC, fattore, geografia) — nessuna API"
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto',
-                    background: 'var(--accent-weak)', border: '1px solid var(--accent)', borderRadius: 7,
-                    padding: '3px 9px', color: 'var(--accent)', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer',
-                  }}
-                >
-                  <Sparkles size={12} /> Auto-assegna
-                </button>
+          {/* Assegnazione diretta: scrivi/scegli il ruolo, creato al volo se non esiste */}
+          {holdings.length > 0 && (() => {
+            const bucketNameById = Object.fromEntries(buckets.map(b => [b.id, b.name]));
+            const roleOptions = Array.from(new Set([
+              ...buckets.map(b => b.name),
+              ...BUCKET_ROLE_PRESETS.flatMap(g => g.roles),
+            ]));
+            return (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: '0.64rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Titoli → ruolo
+                  </span>
+                  <button
+                    onClick={runAutoAssign}
+                    title="Classifica in automatico dai dati locali (settore, REIT/BDC, fattore, geografia) e crea i ruoli — nessuna API"
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto',
+                      background: 'var(--accent-weak)', border: '1px solid var(--accent)', borderRadius: 7,
+                      padding: '3px 9px', color: 'var(--accent)', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer',
+                    }}
+                  >
+                    <Sparkles size={12} /> Auto-assegna tutto
+                  </button>
+                </div>
+                {autoMsg && (
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-2)', marginBottom: 8 }}>{autoMsg}</div>
+                )}
+
+                <datalist id={`roles-${portfolioId}`}>
+                  {roleOptions.map(n => <option key={n} value={n} />)}
+                </datalist>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {holdings.map(h => {
+                    const key = h.holdingKey ?? h.ticker;
+                    const curId = cfg.bucketAssignments?.[key];
+                    const curName = curId ? (bucketNameById[curId] || '') : '';
+                    return (
+                      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ flex: 1, minWidth: 0, fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {h.ticker}
+                          <span style={{ ...MONO, color: 'var(--text-3)', fontWeight: 400, marginLeft: 6 }}>{eur0(h.marketValue || 0)}</span>
+                        </span>
+                        <input
+                          key={`${key}-${curName}`}
+                          list={`roles-${portfolioId}`}
+                          defaultValue={curName}
+                          placeholder="scrivi o scegli un ruolo…"
+                          onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                          onBlur={e => {
+                            const v = e.target.value.trim();
+                            if (v !== curName) { assignTickerToRoleName(portfolioId, key, v); bump(); }
+                          }}
+                          style={{
+                            width: '48%', flexShrink: 0, background: 'var(--surface-2)',
+                            border: `1px solid ${curName ? 'var(--border)' : 'var(--accent)'}`,
+                            borderRadius: 7, padding: '4px 8px',
+                            color: curName ? 'var(--text-1)' : 'var(--text-3)', fontSize: '0.73rem',
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              {autoMsg && (
-                <div style={{ fontSize: '0.68rem', color: 'var(--text-2)', marginBottom: 8 }}>{autoMsg}</div>
-              )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {holdings.map(h => {
-                  const key = h.holdingKey ?? h.ticker;
-                  const cur = cfg.bucketAssignments?.[key] ?? '';
-                  return (
-                    <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ flex: 1, minWidth: 0, fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {h.ticker}
-                        <span style={{ ...MONO, color: 'var(--text-3)', fontWeight: 400, marginLeft: 6 }}>{eur0(h.marketValue || 0)}</span>
-                      </span>
-                      <select
-                        value={cur}
-                        onChange={e => { assignTickerToBucket(key, e.target.value || null); bump(); }}
-                        style={{
-                          background: 'var(--surface-2)', border: `1px solid ${cur ? 'var(--border)' : 'var(--accent)'}`,
-                          borderRadius: 7, padding: '3px 8px', color: cur ? 'var(--text-1)' : 'var(--accent)',
-                          fontSize: '0.73rem', maxWidth: '52%',
-                        }}
-                      >
-                        <option value="">— non assegnato</option>
-                        {buckets.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                      </select>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
     </div>

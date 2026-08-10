@@ -271,6 +271,37 @@ export function getBucketForTicker(ticker) {
 }
 
 /**
+ * Assegna un titolo a un ruolo per NOME, creando il bucket se non esiste.
+ * Permette il flusso "assegna direttamente" senza pre-creare i ruoli.
+ * @returns il bucket usato/creato, o null se roleName vuoto (rimuove assegnazione)
+ */
+export function assignTickerToRoleName(portfolioId, ticker, roleName) {
+  const config = getConfig();
+  const port = config.portfolios.find(p => p.id === portfolioId);
+  if (!port) return null;
+  if (!Array.isArray(port.buckets)) port.buckets = [];
+
+  const name = (roleName || '').trim();
+  if (!config.bucketAssignments) config.bucketAssignments = {};
+
+  if (!name) {
+    delete config.bucketAssignments[ticker];
+    saveConfig(config);
+    return null;
+  }
+
+  const norm = (s) => s.trim().toLowerCase();
+  let bucket = port.buckets.find(b => norm(b.name) === norm(name));
+  if (!bucket) {
+    bucket = { id: `bkt_${Date.now()}_${Math.floor(Math.random() * 1000)}`, name, target: 0 };
+    port.buckets.push(bucket);
+  }
+  config.bucketAssignments[ticker] = bucket.id;
+  saveConfig(config);
+  return bucket;
+}
+
+/**
  * Calcola il drift per bucket di un portafoglio.
  * @param {Object} portfolio            il portafoglio (con .buckets)
  * @param {Array}  holdingsWithValues   titoli del portafoglio [{ ticker|holdingKey, marketValue }]

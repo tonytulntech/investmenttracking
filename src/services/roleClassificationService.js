@@ -12,6 +12,9 @@
 import { STOCK_DB } from '../data/stockDividendData';
 import { classifyHolding } from './classificationService';
 import { isCrypto } from './coinGecko';
+import { BUCKET_ROLE_PRESETS } from './portfolioConfigService';
+
+const ALL_PRESET_ROLES = BUCKET_ROLE_PRESETS.flatMap(g => g.roles);
 
 const baseTicker = (t) => (t || '').split('.')[0].split('-')[0].toUpperCase();
 
@@ -138,7 +141,7 @@ export function suggestBucketId(holding, buckets = []) {
 }
 
 /**
- * Calcola i suggerimenti per una lista di titoli.
+ * Calcola i suggerimenti per una lista di titoli (match sui bucket esistenti).
  * @returns { [holdingKey]: bucketId }  solo per i match sopra soglia
  */
 export function suggestAssignments(holdings = [], buckets = []) {
@@ -149,4 +152,28 @@ export function suggestAssignments(holdings = [], buckets = []) {
     if (id) out[key] = id;
   });
   return out;
+}
+
+/**
+ * Suggerisce il NOME di ruolo canonico (dai preset) per un titolo, a prescindere
+ * dai bucket già creati. Usato per l'auto-classificazione che crea i ruoli al volo.
+ * @returns string | null
+ */
+export function suggestRoleName(holding) {
+  const { hints } = getConceptTags(holding);
+  if (!hints.length) return null;
+
+  let best = null;
+  let bestScore = 0;
+  for (const name of ALL_PRESET_ROLES) {
+    const nn = norm(name);
+    let score = 0;
+    for (const h of hints) {
+      const hn = norm(h);
+      if (!hn) continue;
+      if (nn.includes(hn) || hn.includes(nn)) score += hn.length >= 4 ? 2 : 1;
+    }
+    if (score > bestScore) { bestScore = score; best = name; }
+  }
+  return bestScore >= 2 ? best : null;
 }

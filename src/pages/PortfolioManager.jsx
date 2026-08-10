@@ -521,7 +521,7 @@ function AllocationSliders({ target, onChange }) {
 
 const EMPTY_TARGET = { equity: 0, bond: 0, commodity: 0, realEstate: 0, crypto: 0, cash: 0 };
 
-const STEP_LABELS = ['Info', 'Titoli', 'Allocazione %'];
+const STEP_LABELS = ['Info', 'Titoli'];
 
 function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
   const [step, setStep] = useState(1);
@@ -595,9 +595,9 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
       rebalanceThreshold: threshold,
       goalAmount: goalAmount !== '' ? parseFloat(goalAmount) : null,
       goalYear: goalYear !== '' ? parseInt(goalYear) : null,
-      tickerTargets: selectedList
-        .map(h => ({ ticker: h.ticker, holdingKey: h.holdingKey ?? h.ticker, pct: parseFloat(tickerPcts[h.ticker]) || 0 }))
-        .filter(t => t.pct > 0),
+      // I target ora vivono sui Ruoli (bucket), non sui ticker: preserviamo eventuali dati
+      // legacy (retro-compat) ma non li impostiamo più dal wizard.
+      tickerTargets: editing?.tickerTargets ?? [],
       // tutti i ticker selezionati, anche senza %, per aggiornare assignments
       selectedHoldings: selectedList.map(h => ({ ticker: h.ticker, holdingKey: h.holdingKey ?? h.ticker })),
     });
@@ -626,7 +626,7 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
               {editing ? 'Modifica portafoglio' : 'Nuovo portafoglio'}
             </h2>
             <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: 'var(--text-3)' }}>
-              Step {step} di 3 — {STEP_LABELS[step - 1]}
+              Step {step} di 2 — {STEP_LABELS[step - 1]}
             </p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
@@ -647,8 +647,8 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
                 style={{
                   flex: 1, padding: '10px 0', textAlign: 'center',
                   fontSize: '0.75rem', fontWeight: active ? 700 : 400,
-                  color: active ? '#0A84FF' : done ? 'var(--text-2)' : 'var(--text-3)',
-                  borderBottom: active ? '2px solid #0A84FF' : '2px solid transparent',
+                  color: active ? 'var(--text-1)' : done ? 'var(--text-2)' : 'var(--text-3)',
+                  borderBottom: active ? '2px solid var(--text-1)' : '2px solid transparent',
                   cursor: done ? 'pointer' : 'default',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                   marginBottom: -1,
@@ -657,7 +657,7 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
                 <span style={{
                   width: 18, height: 18, borderRadius: 99, fontSize: '0.65rem', fontWeight: 700,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: active ? '#0A84FF' : done ? '#30D158' : 'var(--surface-2)',
+                  background: active ? 'var(--text-1)' : done ? 'var(--pos)' : 'var(--surface-2)',
                   color: active || done ? '#fff' : 'var(--text-3)',
                   flexShrink: 0,
                 }}>
@@ -801,7 +801,7 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
                     </span>
                     <div style={{ display: 'flex', gap: 10 }}>
                       <button onClick={() => setSelected(new Set(availableHoldings.map(h => h.holdingKey ?? h.ticker)))}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0A84FF', fontSize: '0.75rem', fontWeight: 600 }}>
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '0.75rem', fontWeight: 600 }}>
                         Tutti
                       </button>
                       <button onClick={() => setSelected(new Set())}
@@ -852,92 +852,24 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
                   })}
                 </div>
               )}
-            </div>
-          )}
 
-          {/* ── STEP 3: Allocazione % ────────────────────── */}
-          {step === 3 && (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-2)' }}>
-                  Imposta il peso % target per ogni titolo.
+              {/* Soglia alert ribilanciamento */}
+              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <label style={{ fontSize: '0.78rem', color: 'var(--text-2)' }}>Soglia alert ribilanciamento</label>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>±{threshold}%</span>
+                </div>
+                <input type="range" min={1} max={20} step={1} value={threshold}
+                  onChange={e => setThreshold(parseInt(e.target.value))}
+                  style={{ width: '100%', accentColor: 'var(--accent)' }}
+                />
+                <p style={{ fontSize: '0.68rem', color: 'var(--text-3)', margin: '4px 0 0' }}>
+                  I target per <strong>ruolo</strong> (Income, Growth-Div…) si impostano dopo, direttamente sulla card del portafoglio.
                 </p>
-                <button
-                  onClick={distributeEvenly}
-                  style={{
-                    padding: '5px 12px', borderRadius: 8, border: '1px solid var(--border)',
-                    background: 'none', cursor: 'pointer', color: 'var(--text-2)',
-                    fontSize: '0.75rem', fontWeight: 600, flexShrink: 0,
-                  }}
-                >
-                  Dividi equamente
-                </button>
               </div>
-
-              {selectedList.length === 0 ? (
-                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-3)', fontSize: '0.85rem' }}>
-                  Nessun titolo selezionato — torna allo step 2
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {selectedList.map(h => {
-                    const pct = parseFloat(tickerPcts[h.ticker]) || 0;
-                    return (
-                      <div key={h.ticker} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-1)' }}>{h.ticker}</div>
-                          <div style={{ height: 4, background: 'var(--surface-2)', borderRadius: 99, marginTop: 4, overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${Math.min(100, pct)}%`, background: color, borderRadius: 99, transition: 'width 0.2s' }} />
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                          <input
-                            type="number" min={0} max={100} value={tickerPcts[h.ticker] ?? ''}
-                            placeholder="0"
-                            onChange={e => setTickerPcts(prev => ({ ...prev, [h.ticker]: e.target.value }))}
-                            style={{
-                              width: 60, padding: '7px 8px', borderRadius: 8, textAlign: 'right',
-                              border: '1px solid var(--border)', background: 'var(--surface-2)',
-                              color: 'var(--text-1)', fontSize: '0.875rem',
-                            }}
-                          />
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-3)' }}>%</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {/* Total */}
-                  <div style={{
-                    marginTop: 8, padding: '10px 14px', borderRadius: 10,
-                    background: pctTotal === 100 ? '#30D15811' : pctTotal > 100 ? '#FF453A11' : 'var(--surface-2)',
-                    border: `1px solid ${pctTotal === 100 ? '#30D15844' : pctTotal > 100 ? '#FF453A44' : 'var(--border)'}`,
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  }}>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-2)', fontWeight: 600 }}>Totale</span>
-                    <span style={{
-                      fontSize: '0.9rem', fontWeight: 800,
-                      color: pctTotal === 100 ? '#30D158' : pctTotal > 100 ? '#FF453A' : 'var(--text-1)',
-                    }}>
-                      {pctTotal.toFixed(1)}%
-                    </span>
-                  </div>
-
-                  {/* Soglia */}
-                  <div style={{ marginTop: 8 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <label style={{ fontSize: '0.78rem', color: 'var(--text-2)' }}>Soglia alert ribilanciamento</label>
-                      <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>±{threshold}%</span>
-                    </div>
-                    <input type="range" min={1} max={20} step={1} value={threshold}
-                      onChange={e => setThreshold(parseInt(e.target.value))}
-                      style={{ width: '100%', accentColor: '#0A84FF' }}
-                    />
-                  </div>
-                </div>
-              )}
             </div>
           )}
+
         </div>
 
         {/* Footer */}
@@ -955,14 +887,14 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
             {step > 1 ? '← Indietro' : 'Annulla'}
           </button>
 
-          {step < 3 ? (
+          {step < 2 ? (
             <button
               onClick={() => setStep(s => s + 1)}
               disabled={step === 1 && !canNext1}
               style={{
                 padding: '9px 22px', borderRadius: 10, border: 'none',
-                background: (step === 1 && !canNext1) ? 'var(--surface-2)' : '#0A84FF',
-                color: (step === 1 && !canNext1) ? 'var(--text-3)' : '#fff',
+                background: (step === 1 && !canNext1) ? 'var(--surface-2)' : 'var(--text-1)',
+                color: (step === 1 && !canNext1) ? 'var(--text-3)' : 'var(--bg)',
                 cursor: (step === 1 && !canNext1) ? 'default' : 'pointer',
                 fontSize: '0.875rem', fontWeight: 600,
               }}
@@ -974,7 +906,7 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
               onClick={handleSave}
               style={{
                 padding: '9px 22px', borderRadius: 10, border: 'none',
-                background: '#30D158', color: '#fff',
+                background: 'var(--pos)', color: 'var(--bg)',
                 cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600,
                 display: 'flex', alignItems: 'center', gap: 6,
               }}

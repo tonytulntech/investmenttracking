@@ -350,6 +350,39 @@ export function calcBucketDrift(portfolio, holdingsWithValues) {
   };
 }
 
+/**
+ * Aggregatore: per ogni portafoglio calcola i bucket "fuori target" oltre soglia.
+ * Serve al pannello "Da controllare" della Dashboard.
+ *
+ * @param {Array} allHoldings   tutti i titoli (con marketValue e holdingKey)
+ * @returns Array<{ portfolio, offBuckets: [{name,current,target,diff,diffVal}], unassignedPct, total }>
+ *   include solo portafogli con almeno un alert (drift oltre threshold, target > 0)
+ */
+export function getPortfolioAlerts(allHoldings) {
+  const config = getConfig();
+  const results = [];
+  for (const port of config.portfolios) {
+    const portHoldings = allHoldings.filter(h =>
+      config.assignments[h.holdingKey ?? h.ticker] === port.id
+    );
+    if (portHoldings.length === 0) continue;
+    const drift = calcBucketDrift(port, portHoldings);
+    const threshold = port.rebalanceThreshold ?? 5;
+    const offBuckets = drift.rows
+      .filter(r => r.target > 0 && Math.abs(r.diff) > threshold)
+      .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+    if (offBuckets.length > 0 || drift.unassignedPct >= 5) {
+      results.push({
+        portfolio: port,
+        offBuckets,
+        unassignedPct: drift.unassignedPct,
+        total: drift.total,
+      });
+    }
+  }
+  return results;
+}
+
 // ── Alias (rinomina display) ─────────────────────────────────────────────────
 
 /**

@@ -4,6 +4,7 @@ import { TrendingUp, TrendingDown, RefreshCw, AlertTriangle, ArrowRight, Chevron
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { getTransactions, calculateRealizedPL, portfolioSnapshot } from '../services/localStorageService';
 import MissingPricesAlert from '../components/MissingPricesAlert';
+import AttentionPanel from '../components/AttentionPanel';
 import { buildAllocation } from '../services/classificationService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { calculateCashFlow } from '../services/cashFlowService';
@@ -381,6 +382,9 @@ function Dashboard() {
         <>
           {/* ── Alert titoli senza prezzo ── */}
           <MissingPricesAlert unpriced={unpriced} />
+
+          {/* ── Da controllare: scostamenti Ruoli fuori target ── */}
+          <AttentionPanel holdings={portfolio} />
 
           {/* ── KPI Hero ── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>

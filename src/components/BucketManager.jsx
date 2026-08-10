@@ -4,6 +4,7 @@ import {
   getPortfolioConfig, addBucket, updateBucket, deleteBucket,
   assignTickerToBucket, calcBucketDrift, BUCKET_ROLE_PRESETS,
 } from '../services/portfolioConfigService';
+import { suggestAssignments } from '../services/roleClassificationService';
 
 const eur0 = (n) => '€' + Math.abs(Math.round(n)).toLocaleString('it-IT');
 const MONO = { fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' };
@@ -21,7 +22,18 @@ export default function BucketManager({ portfolioId, holdings = [], onChange }) 
   const [, setTick] = useState(0);
   const [open, setOpen] = useState(false);
   const [presetOpen, setPresetOpen] = useState(false);
+  const [autoMsg, setAutoMsg] = useState('');
   const bump = () => { setTick(t => t + 1); onChange?.(); };
+
+  const runAutoAssign = () => {
+    const fresh = getPortfolioConfig();
+    const unassigned = holdings.filter(h => !fresh.bucketAssignments?.[h.holdingKey ?? h.ticker]);
+    const sugg = suggestAssignments(unassigned, port.buckets || []);
+    const keys = Object.keys(sugg);
+    keys.forEach(k => assignTickerToBucket(k, sugg[k]));
+    setAutoMsg(keys.length ? `✨ ${keys.length} assegnati in automatico — controlla e correggi` : 'Nessun match automatico: assegna a mano o rinomina i ruoli');
+    bump();
+  };
 
   const cfg = getPortfolioConfig();
   const port = cfg.portfolios.find(p => p.id === portfolioId);
@@ -184,9 +196,25 @@ export default function BucketManager({ portfolioId, holdings = [], onChange }) 
           {/* Assegnazione titoli → ruolo */}
           {holdings.length > 0 && buckets.length > 0 && (
             <div>
-              <div style={{ fontSize: '0.64rem', color: 'var(--text-3)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Assegna titoli
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: '0.64rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Assegna titoli
+                </span>
+                <button
+                  onClick={runAutoAssign}
+                  title="Suggerisce i ruoli in automatico dai dati locali (settore, REIT/BDC, fattore, geografia) — nessuna API"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto',
+                    background: 'var(--accent-weak)', border: '1px solid var(--accent)', borderRadius: 7,
+                    padding: '3px 9px', color: 'var(--accent)', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer',
+                  }}
+                >
+                  <Sparkles size={12} /> Auto-assegna
+                </button>
               </div>
+              {autoMsg && (
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-2)', marginBottom: 8 }}>{autoMsg}</div>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {holdings.map(h => {
                   const key = h.holdingKey ?? h.ticker;

@@ -25,6 +25,7 @@ import {
   calcMacroAllocation,
   calcRebalancing,
   updateGlobalTarget,
+  setPortfolioTargetWeight,
 } from '../services/portfolioConfigService';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -122,7 +123,7 @@ function GoalProgressBar({ current, goal, year }) {
 
 // ── Portfolio card ────────────────────────────────────────────────────────────
 
-function PortfolioCard({ portfolio, holdings, prices, config, onEdit, onDelete, onConfigChange }) {
+function PortfolioCard({ portfolio, holdings, prices, config, patrimonioTotal = 0, onEdit, onDelete, onConfigChange }) {
   const getProfile = useCallback((ticker) => getCompositionProfile(ticker), []);
 
   const portfolioHoldings = useMemo(() => {
@@ -201,19 +202,64 @@ function PortfolioCard({ portfolio, holdings, prices, config, onEdit, onDelete, 
         </div>
 
         {/* KPI row */}
-        <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
+        <div style={{ display: 'flex', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: '0.7rem', color: 'var(--text-3)', marginBottom: 2 }}>Valore</div>
-            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)' }}>{fmtEur(totalValue)}</div>
+            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{fmtEur(totalValue)}</div>
           </div>
           <div>
             <div style={{ fontSize: '0.7rem', color: 'var(--text-3)', marginBottom: 2 }}>ETF/Titoli</div>
-            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)' }}>{numTickers}</div>
+            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{numTickers}</div>
           </div>
+          {/* Peso sul patrimonio (reale + target editabile) */}
+          {patrimonioTotal > 0 && (() => {
+            const actualPct = Math.round((totalValue / patrimonioTotal) * 1000) / 10;
+            const targetPct = portfolio.targetWeightPct;
+            const hasT = targetPct != null;
+            const diff = hasT ? Math.round((actualPct - targetPct) * 10) / 10 : 0;
+            const threshold = portfolio.rebalanceThreshold ?? 5;
+            const off = hasT && Math.abs(diff) > threshold;
+            return (
+              <div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-3)', marginBottom: 2 }}>Peso patrimonio</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+                    {actualPct}%
+                  </span>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--text-3)' }}>/ target</span>
+                  <input
+                    type="number" min={0} max={100} step={0.5}
+                    defaultValue={targetPct ?? ''}
+                    placeholder="—"
+                    onBlur={e => {
+                      const v = e.target.value.trim();
+                      const num = v === '' ? null : Number(v);
+                      if (num !== targetPct) { setPortfolioTargetWeight(portfolio.id, num); onConfigChange?.(); }
+                    }}
+                    style={{
+                      width: 48, background: 'var(--surface-2)', border: `1px solid ${hasT ? 'var(--border)' : 'var(--border-strong)'}`,
+                      borderRadius: 6, padding: '1px 5px', color: 'var(--text-1)',
+                      fontSize: '0.78rem', textAlign: 'right', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums',
+                    }}
+                  />
+                  <span style={{ fontSize: '0.68rem', color: 'var(--text-3)' }}>%</span>
+                  {hasT && (
+                    <span style={{
+                      fontSize: '0.72rem', fontWeight: 600, marginLeft: 2,
+                      color: off ? (diff > 0 ? '#FF9F0A' : 'var(--accent)') : 'var(--text-3)',
+                      fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums',
+                    }}>
+                      ({diff > 0 ? '+' : ''}{diff}%)
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
           {hasTarget && (
             <div>
               <div style={{ fontSize: '0.7rem', color: 'var(--text-3)', marginBottom: 2 }}>Soglia alert</div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)' }}>
+              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
                 ±{portfolio.rebalanceThreshold ?? 5}%
               </div>
             </div>
@@ -1520,6 +1566,7 @@ export default function PortfolioManager() {
                   holdings={rawHoldings}
                   prices={{}}
                   config={config}
+                  patrimonioTotal={rawHoldings.reduce((s, h) => s + (h.marketValue ?? 0), 0)}
                   onEdit={setEditingPortfolio}
                   onDelete={handleDeletePortfolio}
                   onConfigChange={refreshConfig}

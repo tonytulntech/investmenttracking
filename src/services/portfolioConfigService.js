@@ -114,7 +114,8 @@ export function createPortfolio({ name, color, emoji, description, targetAllocat
     goalAmount: goalAmount ?? null,
     goalYear: goalYear ?? null,
     tickerTargets: tickerTargets ?? [],
-    buckets: [],   // Ruoli custom del portafoglio: [{ id, name, target }]
+    buckets: [],                 // Ruoli custom del portafoglio: [{ id, name, target }]
+    targetWeightPct: null,       // Peso target sul patrimonio totale (null = usa peso reale)
     createdAt: new Date().toISOString(),
   };
   config.portfolios.push(portfolio);
@@ -348,6 +349,108 @@ export function calcBucketDrift(portfolio, holdingsWithValues) {
     unassignedPct: total ? Math.round((unassigned / total) * 1000) / 10 : 0,
     targetSum: buckets.reduce((s, b) => s + (b.target || 0), 0),
   };
+}
+
+/**
+ * Peso di ogni portafoglio sul patrimonio.
+ * Per ognuno calcola: valore reale in €, peso reale %, peso target % (se impostato)
+ * e il drift target-vs-reale. Serve al roll-up totale per Ruolo.
+ *
+ * @param {Array} allHoldings   tutti i titoli (con marketValue e holdingKey)
+ * @returns {{ rows, grandTotal, targetSum, uncoveredValue, uncoveredPct }}
+ */
+export function getPortfolioWeights(allHoldings) {
+  const config = getConfig();
+  const grandTotal = allHoldings.reduce((s, h) => s + (h.marketValue || 0), 0);
+  const uncoveredValue = allHoldings
+    .filter(h => !config.assignments[h.holdingKey ?? h.ticker])
+    .reduce((s, h) => s + (h.marketValue || 0), 0);
+
+  const rows = config.portfolios.map(port => {
+    const portValue = allHoldings
+      .filter(h => config.assignments[h.holdingKey ?? h.ticker] === port.id)
+      .reduce((s, h) => s + (h.marketValue || 0), 0);
+    const actualPct = grandTotal ? (portValue / grandTotal) * 100 : 0;
+    const targetPct = port.targetWeightPct;
+    const effectivePct = targetPct != null ? targetPct : actualPct;
+    const diff = targetPct != null ? actualPct - targetPct : 0;
+    return {
+      portfolio: port,
+      value: portValue,
+      actualPct: Math.round(actualPct * 10) / 10,
+      targetPct,
+      effectivePct,
+      diff: Math.round(diff * 10) / 10,
+      diffVal: (diff / 100) * grandTotal,
+    };
+  });
+
+  const targetSum = rows
+    .filter(r => r.targetPct != null)
+    .reduce((s, r) => s + r.targetPct, 0);
+
+  return {
+    rows,
+    grandTotal,
+    targetSum: Math.round(targetSum * 10) / 10,
+    uncoveredValue,
+    uncoveredPct: grandTotal ? Math.round((uncoveredValue / grandTotal) * 1000) / 10 : 0,
+  };
+}
+
+/**
+ * Roll-up dei Ruoli sull'intero patrimonio.
+ * Per ogni bucket di ogni portafoglio somma il valore reale, poi calcola il
+ * peso sul totale. Bucket con lo stesso NOME (case-insensitive) vengono
+ * aggregati fra portafogli (es. "REIT" in Alpha + Crescita).
+ *
+ * @returns { rows, grandTotal, unassignedValue, unassignedPct }
+ *   rows: [{ name, value, pct }] ordinato per peso decrescente
+ */
+export function getRolesRollup(allHoldings) {
+  const config = getConfig();
+  const grandTotal = allHoldings.reduce((s, h) => s + (h.marketValue || 0), 0);
+
+  // Mappa portafoglio → bucket per lookup rapido
+  const bucketByPort = {};
+  (config.portfolios || []).forEach(p => {
+    bucketByPort[p.id] = Object.fromEntries((p.buckets || []).map(b => [b.id, b]));
+  });
+
+  const roleMap = new Map(); // nomeNormalizzato → { name, value }
+  let unassignedValue = 0;
+
+  allHoldings.forEach(h => {
+    const key = h.holdingKey ?? h.ticker;
+    const portId = config.assignments[key];
+    const bId = config.bucketAssignments?.[key];
+    const bucket = portId && bId ? bucketByPort[portId]?.[bId] : null;
+    if (!bucket) { unassignedValue += (h.marketValue || 0); return; }
+    const k = bucket.name.trim().toLowerCase();
+    const cur = roleMap.get(k) || { name: bucket.name, value: 0 };
+    cur.value += (h.marketValue || 0);
+    roleMap.set(k, cur);
+  });
+
+  const rows = Array.from(roleMap.values())
+    .map(r => ({ ...r, pct: grandTotal ? Math.round((r.value / grandTotal) * 1000) / 10 : 0 }))
+    .sort((a, b) => b.value - a.value);
+
+  return {
+    rows,
+    grandTotal,
+    unassignedValue,
+    unassignedPct: grandTotal ? Math.round((unassignedValue / grandTotal) * 1000) / 10 : 0,
+  };
+}
+
+/** Imposta il peso target sul patrimonio (null = usa peso reale). */
+export function setPortfolioTargetWeight(portfolioId, pct) {
+  const config = getConfig();
+  const port = config.portfolios.find(p => p.id === portfolioId);
+  if (!port) return;
+  port.targetWeightPct = (pct == null || pct === '') ? null : Number(pct);
+  saveConfig(config);
 }
 
 /**

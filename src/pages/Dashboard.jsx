@@ -5,6 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { getTransactions, calculateRealizedPL, portfolioSnapshot } from '../services/localStorageService';
 import MissingPricesAlert from '../components/MissingPricesAlert';
 import AttentionPanel from '../components/AttentionPanel';
+import RolesRollupCard from '../components/RolesRollupCard';
 import { buildAllocation } from '../services/classificationService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { calculateCashFlow } from '../services/cashFlowService';
@@ -694,6 +695,11 @@ function Dashboard() {
                 </>
               )}
             </div>
+          </div>
+
+          {/* ── Allocazione per Ruolo (roll-up patrimonio) ── */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <RolesRollupCard holdings={portfolio} />
           </div>
 
           {/* ── Top Holdings ── */}

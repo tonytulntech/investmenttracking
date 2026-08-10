@@ -155,12 +155,12 @@ function App() {
           }}
         >
           <div style={{
-            width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
-            background: 'linear-gradient(140deg, #0A84FF 0%, #30D158 100%)',
-            boxShadow: '0 4px 16px rgba(10,132,255,0.40)',
+            width: '36px', height: '36px', borderRadius: '9px', flexShrink: 0,
+            background: 'var(--surface-1)',
+            border: '1px solid var(--border-strong)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <TrendingUp size={18} color="#ffffff" />
+            <TrendingUp size={18} color="var(--text-1)" />
           </div>
           <div style={{ lineHeight: 1.2 }}>
             <div style={{ fontSize: '0.8125rem', fontWeight: 700 }}>Investment</div>

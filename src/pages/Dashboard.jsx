@@ -15,7 +15,7 @@ import { format } from 'date-fns';
 // ── Palette ─────────────────────────────────────────────────────────────────
 const GREEN  = '#30D158';
 const RED    = '#FF453A';
-const BLUE   = '#0A84FF';
+const BLUE   = '#7C82FF';   // accento periwinkle (era iOS-blue)
 const ORANGE = '#FF9F0A';
 const PURPLE = '#BF5AF2';
 

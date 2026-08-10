@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { RefreshCcw, AlertTriangle, TrendingUp, TrendingDown, Calendar, DollarSign, Target, Bell, Percent, ShoppingCart, Layers, EyeOff, Eye, Info } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { calculatePortfolio, getTransactions } from '../services/localStorageService';
+import RolesRebalancer from '../components/RolesRebalancer';
 import { fetchMultiplePrices } from '../services/priceService';
 import { getMicroFromTicker } from '../config/assetTickerMapping';
 import { format, addMonths } from 'date-fns';
@@ -579,26 +580,25 @@ function Rebalancing() {
 
   if (!strategy) {
     return (
-      <div className="space-y-6 animate-fade-in max-w-4xl">
+      <div className="space-y-6 animate-fade-in max-w-6xl">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
             <RefreshCcw className="w-8 h-8 text-primary-600" />
             Ribilanciamento
           </h1>
-          <p className="text-gray-600 mt-1">Analizza e ribilancia il tuo portafoglio</p>
+          <p className="text-gray-600 mt-1">Suggerimenti di swap/acquisto per riportare i Ruoli in target.</p>
         </div>
 
-        <div className="card text-center py-12">
-          <AlertTriangle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            Nessuna Strategia Configurata
-          </h3>
-          <p className="text-gray-600 mb-6">
-            Prima di utilizzare il ribilanciamento, configura la tua strategia di investimento
+        {/* Nuovo motore per Ruoli — funziona senza la strategia globale */}
+        <RolesRebalancer holdings={portfolio} />
+
+        <div className="card text-center py-8" style={{ marginTop: 24 }}>
+          <p style={{ color: 'var(--text-3)', fontSize: '0.85rem', marginBottom: 12 }}>
+            La <strong>Strategia globale</strong> (macro-classi, PAC, calendario) è opzionale e complementare.
           </p>
           <a href="/strategy" className="btn-primary inline-flex items-center gap-2">
             <Target className="w-5 h-5" />
-            Vai a Strategia
+            Configura strategia globale
           </a>
         </div>
       </div>
@@ -609,12 +609,15 @@ function Rebalancing() {
 
   return (
     <div className="space-y-6 animate-fade-in max-w-6xl">
+      {/* ── Ribilanciamento per Ruoli (nuovo motore) ── */}
+      <RolesRebalancer holdings={portfolio} />
+
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
             <RefreshCcw className="w-8 h-8 text-primary-600" />
-            Ribilanciamento
+            Ribilanciamento — Strategia globale (legacy)
           </h1>
           <p className="text-gray-600 mt-1">
             Strategia: <strong>{strategy.goalName || 'Non definito'}</strong>

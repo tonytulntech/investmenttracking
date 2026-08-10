@@ -24,6 +24,17 @@ Risoluzione ISIN→ticker, rilevamento categoria/TER ETF, composizione/holdings 
 3. **Mobile friendly** → tabelle→card, breakpoint reali, PWA.
 4. **Ottimizzazione costi a scala** (vedi sotto).
 
+## Motore Ruoli (fatto)
+Ogni portafoglio ha bucket-Ruolo liberi (nome + target %) in `portfolioConfigService`:
+- `assignTickerToRoleName` assegna un titolo a un ruolo per nome (crea al volo).
+- `calcBucketDrift` drift per bucket. `getPortfolioAlerts` aggrega gli scostamenti.
+- `getPortfolioWeights` peso reale/target di ogni portafoglio sul patrimonio.
+- `getRolesRollup` allocazione per Ruolo aggregata a livello patrimonio.
+- Auto-classificazione rule-based in `roleClassificationService` (zero API):
+  usa STOCK_DB (REIT/BDC/Kings/Growth-Div), classifyHolding per ETF, crypto BTC/ETH.
+- UI: `BucketManager` (dentro card in PortfolioManager) · Dashboard: `AttentionPanel`
+  + `RolesRollupCard` · Rebalancing: `RolesRebalancer` (Swap / Nuovo versamento).
+
 ## Regole di ottimizzazione costi (importante per lo scaling)
 - **Firestore/cloud**: le *letture* sono la voce cara. Salvare snapshot già calcolati (non ricalcolare da tutte le transazioni a ogni load). Scrivere solo i *delta*, con debounce. Local-first resta la cache primaria.
 - **Prezzi**: cache **condivisa lato server** in `/api/price` (una fetch serve tutti gli utenti). Non far martellare Yahoo a ogni client. Batch dei simboli, dedup.

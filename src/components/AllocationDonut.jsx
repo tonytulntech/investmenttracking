@@ -1,23 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, Layers } from 'lucide-react';
-import { getRolesRollup, getPortfolioAlerts, getPortfolioConfig, calcBucketDrift } from '../services/portfolioConfigService';
+import { AlertTriangle, ArrowRight, Layers, X } from 'lucide-react';
+import { getPortfolioAlerts, getPortfolioConfig } from '../services/portfolioConfigService';
 
 const MONO = { fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' };
 const eur0 = (n) => '€' + Math.abs(Math.round(n)).toLocaleString('it-IT');
 
-// Palette monocromatica accento + varianti (via classi/opacità) — coerente Direzione C
+// Palette coerente Direzione C
 const PALETTE = [
-  '#7C82FF', // accent
-  '#5B62E6',
-  '#9BA0FF',
-  '#3FB950', // pos
-  '#FF9F0A', // ambra (sovrappesi visibili)
-  '#F85149', // neg
-  '#8CB4FF',
-  '#6E7EB5',
-  '#AC8E68',
-  '#32ADE6',
+  '#7C82FF', '#5B62E6', '#9BA0FF', '#3FB950', '#FF9F0A',
+  '#F85149', '#8CB4FF', '#6E7EB5', '#AC8E68', '#32ADE6',
 ];
 
 const R = 60;
@@ -25,70 +17,125 @@ const STROKE = 14;
 const C = 2 * Math.PI * R;
 
 /**
- * AllocationDonut — vista principale allocazione + gap ai target.
- * Fonde alert e roll-up in un unico widget interattivo:
- *  - anello per Ruolo (arco pesato)
- *  - centro: totale patrimonio + N ruoli
- *  - legenda con % attuale / target e delta colorato
- *  - hover/tap dim degli altri archi
+ * AllocationDonut — vista principale allocazione + gap ai target, per Ruolo.
+ * - Selettore portafogli in alto (Tutti / singoli)
+ * - Anello Ruoli interattivo (hover dim)
+ * - Legenda con % attuale / target e delta gap
+ * - Click su un ruolo → pannello con titoli e loro peso interno
+ *
+ * Nota matematica: il target di un ruolo aggregato usa il *peso target* del
+ * portafoglio se impostato (Portfolio.targetWeightPct), altrimenti il peso reale.
+ * Questo evita che target di portafogli attualmente sovrappesati vengano gonfiati.
  */
 export default function AllocationDonut({ holdings = [] }) {
-  const [hot, setHot] = useState(null);
+  const [hot, setHot] = useState(null);          // ruolo hoverato
+  const [selectedRole, setSelectedRole] = useState(null); // ruolo cliccato (drilldown)
+  const cfg = getPortfolioConfig();
+  const portfolios = cfg.portfolios || [];
 
-  // 1) Roll-up patrimonio per Ruolo (attuale)
-  const { rows: current, grandTotal, unassignedValue, unassignedPct } = getRolesRollup(holdings);
+  // Selettore portafoglio: 'all' | portfolioId
+  const [scope, setScope] = useState('all');
 
-  // 2) Target per Ruolo (aggregati sui portafogli): trasforma i target dei bucket
-  //    in euro assoluti moltiplicando per il valore del portafoglio di appartenenza,
-  //    poi somma per nome. Restituisce { [nomeRuolo]: { targetEur, targetPct } }.
-  const targetsByRoleName = useMemo(() => {
-    const cfg = getPortfolioConfig();
-    const map = {};
-    for (const port of cfg.portfolios) {
-      const portValue = holdings
-        .filter(h => cfg.assignments[h.holdingKey ?? h.ticker] === port.id)
-        .reduce((s, h) => s + (h.marketValue || 0), 0);
+  // Filtro holdings in base allo scope
+  const scopedHoldings = useMemo(() => {
+    if (scope === 'all') return holdings;
+    return holdings.filter(h => cfg.assignments[h.holdingKey ?? h.ticker] === scope);
+  }, [holdings, scope, cfg.assignments]);
+
+  const scopeTotal = scopedHoldings.reduce((s, h) => s + (h.marketValue || 0), 0);
+  const grandTotalAll = holdings.reduce((s, h) => s + (h.marketValue || 0), 0);
+
+  // Costruisci rows: aggrega valori per Ruolo, aggrega target usando i pesi target
+  const rows = useMemo(() => {
+    // Mappa bucket per portafoglio → nome
+    const roleMap = new Map();      // nomeLower → { name, value, targetEur }
+    let unassignedValue = 0;
+
+    // Valori attuali (scoped)
+    scopedHoldings.forEach(h => {
+      const key = h.holdingKey ?? h.ticker;
+      const pid = cfg.assignments[key];
+      const bid = cfg.bucketAssignments?.[key];
+      const port = pid ? portfolios.find(p => p.id === pid) : null;
+      const bucket = port && bid ? (port.buckets || []).find(b => b.id === bid) : null;
+      if (!bucket) { unassignedValue += (h.marketValue || 0); return; }
+      const k = bucket.name.trim().toLowerCase();
+      const cur = roleMap.get(k) || { name: bucket.name, value: 0, targetEur: 0 };
+      cur.value += (h.marketValue || 0);
+      roleMap.set(k, cur);
+    });
+
+    // Target aggregati (sempre lo scope corretto: se scope=all, uso weight target di
+    // tutti i portafogli; se scope=portafoglio, uso solo quel portafoglio a peso 100%)
+    const referenceTotal = scope === 'all' ? grandTotalAll : scopeTotal;
+    const portsToConsider = scope === 'all' ? portfolios : portfolios.filter(p => p.id === scope);
+
+    portsToConsider.forEach(port => {
+      // Peso effettivo del portafoglio come frazione di referenceTotal:
+      // - se scope = portafoglio singolo → 1 (siamo dentro quel portafoglio)
+      // - se scope = all → targetWeightPct/100 se impostato, sennò peso reale
+      let portFraction;
+      if (scope !== 'all') {
+        portFraction = 1;
+      } else if (port.targetWeightPct != null) {
+        portFraction = port.targetWeightPct / 100;
+      } else {
+        const pv = holdings
+          .filter(h => cfg.assignments[h.holdingKey ?? h.ticker] === port.id)
+          .reduce((s, h) => s + (h.marketValue || 0), 0);
+        portFraction = referenceTotal ? pv / referenceTotal : 0;
+      }
       (port.buckets || []).forEach(b => {
         if (!b.target) return;
+        const targetEur = (b.target / 100) * portFraction * referenceTotal;
         const k = b.name.trim().toLowerCase();
-        const targetEur = (b.target / 100) * portValue;
-        if (!map[k]) map[k] = { name: b.name, targetEur: 0 };
-        map[k].targetEur += targetEur;
+        const cur = roleMap.get(k) || { name: b.name, value: 0, targetEur: 0 };
+        cur.targetEur += targetEur;
+        roleMap.set(k, cur);
       });
-    }
-    // Aggiungi target % sul patrimonio
-    Object.values(map).forEach(m => {
-      m.targetPct = grandTotal ? Math.round((m.targetEur / grandTotal) * 1000) / 10 : 0;
     });
-    return map;
-  }, [holdings, grandTotal]);
 
-  // 3) Merge current + target -> rows unificate ordinate per peso attuale
-  const rows = useMemo(() => {
-    const byName = {};
-    current.forEach(r => {
-      const k = r.name.trim().toLowerCase();
-      byName[k] = { name: r.name, currentPct: r.pct, value: r.value, targetPct: 0 };
-    });
-    Object.values(targetsByRoleName).forEach(t => {
-      const k = t.name.trim().toLowerCase();
-      if (!byName[k]) byName[k] = { name: t.name, currentPct: 0, value: 0, targetPct: t.targetPct };
-      else byName[k].targetPct = t.targetPct;
-    });
-    return Object.values(byName)
-      .map((r, i) => ({
-        ...r,
-        diff: Math.round((r.currentPct - r.targetPct) * 10) / 10,
-        color: PALETTE[i % PALETTE.length],
-      }))
-      .sort((a, b) => (b.currentPct + b.targetPct) - (a.currentPct + a.targetPct));
-  }, [current, targetsByRoleName]);
+    const arr = Array.from(roleMap.values()).map((r, i) => {
+      const currentPct = referenceTotal ? Math.round((r.value / referenceTotal) * 1000) / 10 : 0;
+      const targetPct = referenceTotal ? Math.round((r.targetEur / referenceTotal) * 1000) / 10 : 0;
+      const diff = Math.round((currentPct - targetPct) * 10) / 10;
+      return { ...r, currentPct, targetPct, diff, color: PALETTE[i % PALETTE.length] };
+    })
+    .sort((a, b) => (b.currentPct + b.targetPct) - (a.currentPct + a.targetPct))
+    .map((r, i) => ({ ...r, color: PALETTE[i % PALETTE.length] }));
 
-  // 4) Ruoli fuori soglia (per il badge globale)
-  const alerts = useMemo(() => getPortfolioAlerts(holdings), [holdings]);
+    return { arr, unassignedValue, referenceTotal };
+  }, [scopedHoldings, holdings, scope, portfolios, cfg, grandTotalAll, scopeTotal]);
+
+  const { arr: allRoles, unassignedValue, referenceTotal } = rows;
+  const unassignedPct = referenceTotal ? Math.round((unassignedValue / referenceTotal) * 1000) / 10 : 0;
+
+  // Alert scoped
+  const alerts = useMemo(() => {
+    const all = getPortfolioAlerts(holdings);
+    return scope === 'all' ? all : all.filter(a => a.portfolio.id === scope);
+  }, [holdings, scope]);
   const totalOff = alerts.reduce((s, a) => s + a.offBuckets.length, 0);
 
-  if (rows.length === 0) {
+  // Titoli del ruolo selezionato (drilldown)
+  const roleHoldings = useMemo(() => {
+    if (!selectedRole) return [];
+    const target = selectedRole.name.trim().toLowerCase();
+    return scopedHoldings.filter(h => {
+      const key = h.holdingKey ?? h.ticker;
+      const pid = cfg.assignments[key];
+      const bid = cfg.bucketAssignments?.[key];
+      const port = pid ? portfolios.find(p => p.id === pid) : null;
+      const bucket = port && bid ? (port.buckets || []).find(b => b.id === bid) : null;
+      return bucket && bucket.name.trim().toLowerCase() === target;
+    })
+    .sort((a, b) => (b.marketValue || 0) - (a.marketValue || 0));
+  }, [selectedRole, scopedHoldings, cfg, portfolios]);
+
+  if (portfolios.length === 0) return null;
+
+  // Empty state
+  if (allRoles.length === 0 && scopeTotal === 0) {
     return (
       <div style={{
         background: 'var(--card-bg)', border: '1px solid var(--border)',
@@ -96,17 +143,14 @@ export default function AllocationDonut({ holdings = [] }) {
         color: 'var(--text-3)', fontSize: '0.82rem',
       }}>
         <Layers size={18} style={{ marginBottom: 6, opacity: 0.6 }} />
-        <div>Nessun Ruolo assegnato ancora.</div>
-        <Link to="/portfolios" style={{ color: 'var(--accent)', fontSize: '0.78rem', fontWeight: 500 }}>
-          Vai a Portafogli per iniziare →
-        </Link>
+        <div>Nessun titolo per la vista selezionata.</div>
       </div>
     );
   }
 
-  // Archi: calcola offset cumulativo (percentuale attuale)
+  // Archi: offset cumulativo
   let acc = 0;
-  const arcs = rows.map(r => {
+  const arcs = allRoles.map(r => {
     const start = acc;
     acc += r.currentPct;
     return { ...r, start };
@@ -119,7 +163,7 @@ export default function AllocationDonut({ holdings = [] }) {
       boxShadow: '0 1px 2px rgba(0,0,0,0.28)',
     }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)' }}>
           Allocazione per Ruolo
         </span>
@@ -149,7 +193,19 @@ export default function AllocationDonut({ holdings = [] }) {
         </Link>
       </div>
 
-      {/* Body: donut + legenda (responsive) */}
+      {/* Selettore Portafogli (pill) */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+        <PillButton active={scope === 'all'} onClick={() => { setScope('all'); setSelectedRole(null); }}>
+          Tutti
+        </PillButton>
+        {portfolios.map(p => (
+          <PillButton key={p.id} active={scope === p.id} onClick={() => { setScope(p.id); setSelectedRole(null); }}>
+            <span style={{ marginRight: 4 }}>{p.emoji}</span>{p.name}
+          </PillButton>
+        ))}
+      </div>
+
+      {/* Body: donut + legenda */}
       <div className="donut-body" style={{
         display: 'grid', gap: '1.5rem', alignItems: 'center',
         gridTemplateColumns: 'auto 1fr',
@@ -157,10 +213,7 @@ export default function AllocationDonut({ holdings = [] }) {
         {/* Donut */}
         <div style={{ position: 'relative', width: 140, height: 140, margin: '0 auto' }}>
           <svg width={140} height={140} viewBox="0 0 140 140" style={{ transform: 'rotate(-90deg)' }}>
-            {/* Track */}
-            <circle cx={70} cy={70} r={R} fill="none"
-              stroke="var(--surface-2)" strokeWidth={STROKE} />
-            {/* Arcs */}
+            <circle cx={70} cy={70} r={R} fill="none" stroke="var(--surface-2)" strokeWidth={STROKE} />
             {arcs.map((a, i) => (
               <circle
                 key={a.name}
@@ -171,6 +224,7 @@ export default function AllocationDonut({ holdings = [] }) {
                 strokeLinecap="butt"
                 onMouseEnter={() => setHot(i)}
                 onMouseLeave={() => setHot(null)}
+                onClick={() => setSelectedRole(a)}
                 style={{
                   cursor: 'pointer',
                   opacity: hot === null || hot === i ? 1 : 0.22,
@@ -187,19 +241,19 @@ export default function AllocationDonut({ holdings = [] }) {
             {hot != null ? (
               <>
                 <span style={{ ...MONO, fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-1)' }}>
-                  {rows[hot].currentPct}%
+                  {allRoles[hot].currentPct}%
                 </span>
                 <span style={{ fontSize: '0.62rem', color: 'var(--text-3)', textAlign: 'center', maxWidth: 100, lineHeight: 1.2, marginTop: 2 }}>
-                  {rows[hot].name}
+                  {allRoles[hot].name}
                 </span>
               </>
             ) : (
               <>
                 <span style={{ ...MONO, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-1)' }}>
-                  {eur0(grandTotal)}
+                  {eur0(referenceTotal)}
                 </span>
                 <span style={{ fontSize: '0.62rem', color: 'var(--text-3)', marginTop: 2 }}>
-                  {rows.length} ruoli
+                  {allRoles.length} ruoli
                 </span>
               </>
             )}
@@ -208,26 +262,30 @@ export default function AllocationDonut({ holdings = [] }) {
 
         {/* Legend */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          {rows.slice(0, 6).map((r, i) => {
+          {allRoles.slice(0, 6).map((r, i) => {
             const dim = hot !== null && hot !== i;
             const hasTarget = r.targetPct > 0;
-            const off = hasTarget && Math.abs(r.diff) > 3;   // soglia visiva
+            const off = hasTarget && Math.abs(r.diff) > 3;
             const diffColor = r.diff > 0 ? '#FF9F0A' : 'var(--accent)';
+            const isSelected = selectedRole?.name === r.name;
             return (
               <button
                 key={r.name}
                 type="button"
                 onMouseEnter={() => setHot(i)}
                 onMouseLeave={() => setHot(null)}
+                onClick={() => setSelectedRole(isSelected ? null : r)}
                 style={{
                   display: 'grid',
                   gridTemplateColumns: '10px minmax(0,1fr) auto auto',
                   alignItems: 'center', gap: 8,
-                  padding: '4px 6px', margin: '0 -6px',
-                  background: 'none', border: 'none', cursor: 'pointer',
+                  padding: '5px 6px', margin: '0 -6px',
+                  background: isSelected ? 'var(--surface-2)' : 'none',
+                  border: 'none', cursor: 'pointer',
                   borderRadius: 6, textAlign: 'left',
                   opacity: dim ? 0.35 : 1,
                   transition: 'opacity 0.2s ease, background 0.15s',
+                  minHeight: 32,
                 }}
               >
                 <span style={{ width: 8, height: 8, borderRadius: 2, background: r.color, flexShrink: 0 }} />
@@ -241,7 +299,7 @@ export default function AllocationDonut({ holdings = [] }) {
                   {r.currentPct}%
                   {hasTarget && <span style={{ color: 'var(--text-3)' }}> / {r.targetPct}%</span>}
                 </span>
-                {hasTarget && (
+                {hasTarget ? (
                   <span style={{
                     ...MONO, fontSize: '0.72rem', fontWeight: 600,
                     color: off ? diffColor : 'var(--text-3)',
@@ -249,24 +307,120 @@ export default function AllocationDonut({ holdings = [] }) {
                   }}>
                     {r.diff > 0 ? '+' : ''}{r.diff}%
                   </span>
-                )}
+                ) : (<span style={{ minWidth: 46 }} />)}
               </button>
             );
           })}
-          {rows.length > 6 && (
+          {allRoles.length > 6 && (
             <div style={{ fontSize: '0.68rem', color: 'var(--text-3)', paddingLeft: 18, marginTop: 2 }}>
-              + altri {rows.length - 6} ruoli
+              + altri {allRoles.length - 6} ruoli · clicca un ruolo per il dettaglio
             </div>
           )}
         </div>
       </div>
 
-      {/* CSS per il collasso responsive del layout donut + legend */}
+      {/* Drilldown: titoli del ruolo cliccato */}
+      {selectedRole && (
+        <div style={{
+          marginTop: 14, padding: '12px 14px',
+          background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: selectedRole.color, flexShrink: 0 }} />
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-1)' }}>{selectedRole.name}</span>
+            <span style={{ ...MONO, fontSize: '0.72rem', color: 'var(--text-2)' }}>
+              {selectedRole.currentPct}%
+              {selectedRole.targetPct > 0 && (
+                <span style={{ color: 'var(--text-3)' }}> / target {selectedRole.targetPct}%</span>
+              )}
+              <span style={{ marginLeft: 6, color: 'var(--text-3)' }}>· {eur0(selectedRole.value)}</span>
+            </span>
+            {selectedRole.targetPct > 0 && Math.abs(selectedRole.diff) > 3 && (
+              <span style={{
+                ...MONO, fontSize: '0.7rem', fontWeight: 600,
+                color: selectedRole.diff > 0 ? '#FF9F0A' : 'var(--accent)',
+                padding: '1px 7px', borderRadius: 99,
+                background: selectedRole.diff > 0 ? 'rgba(255,159,10,0.12)' : 'var(--accent-weak)',
+              }}>
+                {selectedRole.diff > 0 ? '+' : ''}{selectedRole.diff}%
+              </span>
+            )}
+            <button onClick={() => setSelectedRole(null)}
+              style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
+              <X size={14} />
+            </button>
+          </div>
+
+          {roleHoldings.length === 0 ? (
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>
+              Nessun titolo attualmente in questo ruolo (target impostato ma nessuna assegnazione).
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {roleHoldings.map(h => {
+                const key = h.holdingKey ?? h.ticker;
+                const weightInRole = selectedRole.value > 0
+                  ? Math.round((h.marketValue / selectedRole.value) * 1000) / 10
+                  : 0;
+                const weightInScope = referenceTotal
+                  ? Math.round((h.marketValue / referenceTotal) * 1000) / 10
+                  : 0;
+                return (
+                  <div key={key} style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'minmax(0,1fr) auto auto auto',
+                    gap: 10, alignItems: 'center',
+                    padding: '5px 0', borderBottom: '1px dashed var(--border)',
+                    fontSize: '0.75rem',
+                  }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {h.ticker}
+                      {h.name && h.name !== h.ticker && (
+                        <span style={{ color: 'var(--text-3)', fontWeight: 400, marginLeft: 6 }}>· {h.name}</span>
+                      )}
+                    </span>
+                    <span style={{ ...MONO, color: 'var(--text-2)' }}>{eur0(h.marketValue || 0)}</span>
+                    <span title="peso dentro il ruolo" style={{ ...MONO, color: 'var(--text-1)', fontWeight: 600, minWidth: 48, textAlign: 'right' }}>
+                      {weightInRole}%
+                    </span>
+                    <span title="peso sull'intero scope selezionato" style={{ ...MONO, color: 'var(--text-3)', minWidth: 46, textAlign: 'right' }}>
+                      {weightInScope}%
+                    </span>
+                  </div>
+                );
+              })}
+              <div style={{ fontSize: '0.62rem', color: 'var(--text-3)', marginTop: 6, textAlign: 'right' }}>
+                colonne: valore · peso nel ruolo · peso sullo scope
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <style>{`
         @media (max-width: 640px) {
           .donut-body { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>
+  );
+}
+
+function PillButton({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'inline-flex', alignItems: 'center',
+        padding: '5px 11px', borderRadius: 99, cursor: 'pointer',
+        border: `1px solid ${active ? 'var(--text-1)' : 'var(--border)'}`,
+        background: active ? 'var(--text-1)' : 'transparent',
+        color: active ? 'var(--bg)' : 'var(--text-2)',
+        fontSize: '0.74rem', fontWeight: active ? 600 : 500,
+        transition: 'all 0.15s ease',
+      }}
+    >
+      {children}
+    </button>
   );
 }

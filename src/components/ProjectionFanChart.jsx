@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { TrendingUp, Sparkles, PieChart } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { getPACTemplates } from '../services/pacService';
 import { getAvgMonthlyInvested } from '../services/cashFlowService';
 
@@ -37,9 +37,12 @@ const BOOSTS = [0, 100, 250, 500];
  * Props:
  *  - history: [{ month, value, versato }] — dai dati performanceData della Dashboard
  */
-export default function ProjectionFanChart({ history = [], macroAllocation = [], subAllocation = [] }) {
+export default function ProjectionFanChart({
+  history = [],
+  currentTotalValue,   // override coerente coi KPI della Dashboard (stats.totalValue)
+  currentGained,       // override P&L coerente coi KPI (stats.totalPL)
+}) {
   const svgRef = useRef(null);
-  const [view, setView] = useState('proj');   // 'proj' | 'macro'
   const [horizonYears, setHorizonYears] = useState(10);
   const [boost, setBoost] = useState(0);
   const [hoverX, setHoverX] = useState(null);
@@ -237,19 +240,21 @@ export default function ProjectionFanChart({ history = [], macroAllocation = [],
       borderRadius: 14, padding: '1.1rem 1.2rem',
       boxShadow: '0 1px 2px rgba(0,0,0,0.28)',
     }}>
-      {/* Header con Versato + Guadagnato + toggle vista */}
+      {/* Header con Versato + Guadagnato + selettore orizzonte.
+         Usa i valori canonici della Dashboard se passati come prop,
+         altrimenti fallback a value − versato dalla storia. */}
       {(() => {
-        const gained = currentValue - currentVersato;
-        const gainedPct = currentVersato > 0 ? (gained / currentVersato) * 100 : 0;
+        const effectiveValue = currentTotalValue != null ? currentTotalValue : currentValue;
+        const gained = currentGained != null ? currentGained : (effectiveValue - currentVersato);
+        const invested = effectiveValue - gained;
+        const gainedPct = invested > 0 ? (gained / invested) * 100 : 0;
         const gColor = gained >= 0 ? S_OPT : '#F85149';
         return (
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, marginBottom: 14, flexWrap: 'wrap' }}>
-            {/* KPI Versato */}
             <div>
-              <div style={{ fontSize: '0.66rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Versato</div>
-              <div style={{ ...MONO, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-1)', lineHeight: 1.1 }}>{eur0(currentVersato)}</div>
+              <div style={{ fontSize: '0.66rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Investito</div>
+              <div style={{ ...MONO, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-1)', lineHeight: 1.1 }}>{eur0(invested)}</div>
             </div>
-            {/* KPI Guadagnato */}
             <div>
               <div style={{ fontSize: '0.66rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Guadagnato</div>
               <div style={{ ...MONO, fontSize: '1.1rem', fontWeight: 700, color: gColor, lineHeight: 1.1 }}>
@@ -260,58 +265,25 @@ export default function ProjectionFanChart({ history = [], macroAllocation = [],
               </div>
             </div>
 
-            {/* Toggle vista Proiezione / Macro (a destra) */}
+            {/* Horizon selector */}
             <div style={{
               marginLeft: 'auto', display: 'flex',
               background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden',
             }}>
-              <button onClick={() => setView('proj')} style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                padding: '5px 11px', border: 'none', cursor: 'pointer',
-                fontSize: '0.72rem', fontWeight: 600,
-                background: view === 'proj' ? 'var(--text-1)' : 'transparent',
-                color: view === 'proj' ? 'var(--bg)' : 'var(--text-2)',
-              }}>
-                <TrendingUp size={12} /> Proiezione
-              </button>
-              <button onClick={() => setView('macro')} style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                padding: '5px 11px', border: 'none', cursor: 'pointer',
-                fontSize: '0.72rem', fontWeight: 600,
-                background: view === 'macro' ? 'var(--text-1)' : 'transparent',
-                color: view === 'macro' ? 'var(--bg)' : 'var(--text-2)',
-              }}>
-                <PieChart size={12} /> Macro Asset Class
-              </button>
+              {HORIZONS.map(h => (
+                <button key={h.label} onClick={() => setHorizonYears(h.years)} style={{
+                  padding: '5px 10px', border: 'none', cursor: 'pointer',
+                  fontSize: '0.72rem', fontWeight: 600, ...MONO,
+                  background: horizonYears === h.years ? 'var(--text-1)' : 'transparent',
+                  color: horizonYears === h.years ? 'var(--bg)' : 'var(--text-2)',
+                }}>{h.label}</button>
+              ))}
             </div>
-
-            {/* Horizon selector (solo in vista Proiezione) */}
-            {view === 'proj' && (
-              <div style={{
-                display: 'flex',
-                background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden',
-              }}>
-                {HORIZONS.map(h => (
-                  <button key={h.label} onClick={() => setHorizonYears(h.years)} style={{
-                    padding: '5px 10px', border: 'none', cursor: 'pointer',
-                    fontSize: '0.72rem', fontWeight: 600, ...MONO,
-                    background: horizonYears === h.years ? 'var(--text-1)' : 'transparent',
-                    color: horizonYears === h.years ? 'var(--bg)' : 'var(--text-2)',
-                  }}>{h.label}</button>
-                ))}
-              </div>
-            )}
           </div>
         );
       })()}
 
-      {/* Vista MACRO: sostituisce il grafico proiezioni */}
-      {view === 'macro' && (
-        <MacroView macroAllocation={macroAllocation} subAllocation={subAllocation} total={currentValue} />
-      )}
-
-      {/* Contributo mensile + boost — solo nella vista Proiezione */}
-      {view === 'proj' && (
+      {/* Contributo mensile + boost */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
         padding: '8px 10px', marginBottom: 12,
@@ -353,15 +325,13 @@ export default function ProjectionFanChart({ history = [], macroAllocation = [],
           ))}
         </div>
       </div>
-      )}
 
-      {view === 'proj' && (<>
       {/* Chart */}
       <div style={{ position: 'relative', width: '100%' }}>
         <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} width="100%"
           className="projection-svg"
-          preserveAspectRatio="xMidYMid meet"
-          style={{ display: 'block', cursor: 'crosshair', height: H }}
+          preserveAspectRatio="none"
+          style={{ display: 'block', cursor: 'crosshair', height: 280, width: '100%' }}
           onPointerMove={onMove} onPointerLeave={() => setHoverX(null)}>
           {/* Gridlines Y */}
           {yTicks.map((v, i) => (
@@ -378,22 +348,22 @@ export default function ProjectionFanChart({ history = [], macroAllocation = [],
           <path d={geo.bandPath} fill={S_BASE} opacity={0.06} />
 
           {/* Versato storico (grigio sottile) */}
-          <path d={geo.pathHistVersato} fill="none" stroke="var(--text-3)" strokeWidth={1.2} strokeDasharray="3 3" opacity={0.7} />
+          <path d={geo.pathHistVersato} fill="none" stroke="var(--text-3)" strokeWidth={1.2} vectorEffect="non-scaling-stroke" strokeDasharray="3 3" opacity={0.7} />
           {/* Valore storico (accento) */}
-          <path d={geo.pathHistValue} fill="none" stroke="var(--text-1)" strokeWidth={1.8} />
+          <path d={geo.pathHistValue} fill="none" stroke="var(--text-1)" strokeWidth={1.8} vectorEffect="non-scaling-stroke" />
 
           {/* Now marker */}
           <line x1={geo.nowX} y1={PAD.t} x2={geo.nowX} y2={H - PAD.b}
-            stroke="var(--text-3)" strokeWidth={1} strokeDasharray="3 3" opacity={0.5} />
+            stroke="var(--text-3)" strokeWidth={1} vectorEffect="non-scaling-stroke" strokeDasharray="3 3" opacity={0.5} />
           <text x={geo.nowX} y={PAD.t - 2} textAnchor="middle" fontSize="9" fill="var(--text-3)">Now</text>
 
           {/* Versato proiettato (grigio molto sottile) */}
-          <path d={geo.pathProjVersato} fill="none" stroke="var(--text-3)" strokeWidth={1.2} strokeDasharray="3 3" opacity={0.55} />
+          <path d={geo.pathProjVersato} fill="none" stroke="var(--text-3)" strokeWidth={1.2} vectorEffect="non-scaling-stroke" strokeDasharray="3 3" opacity={0.55} />
 
           {/* Proiezioni: 3 scenari */}
-          <path d={geo.pathLow}  fill="none" stroke={S_LOW}  strokeWidth={1.6} strokeDasharray="4 3" opacity={0.85} />
-          <path d={geo.pathBase} fill="none" stroke={S_BASE} strokeWidth={2.1} />
-          <path d={geo.pathOpt}  fill="none" stroke={S_OPT}  strokeWidth={1.6} strokeDasharray="4 3" opacity={0.85} />
+          <path d={geo.pathLow}  fill="none" stroke={S_LOW}  strokeWidth={1.6} vectorEffect="non-scaling-stroke" strokeDasharray="4 3" opacity={0.85} />
+          <path d={geo.pathBase} fill="none" stroke={S_BASE} strokeWidth={2.1} vectorEffect="non-scaling-stroke" />
+          <path d={geo.pathOpt}  fill="none" stroke={S_OPT}  strokeWidth={1.6} vectorEffect="non-scaling-stroke" strokeDasharray="4 3" opacity={0.85} />
 
           {/* Punto "now" (valore corrente) */}
           <circle cx={geo.nowX} cy={geo.y(currentValue)} r={3.2} fill="var(--text-1)" />
@@ -416,7 +386,7 @@ export default function ProjectionFanChart({ history = [], macroAllocation = [],
           {overlay && (
             <g pointerEvents="none">
               <line x1={overlay.x} y1={PAD.t} x2={overlay.x} y2={H - PAD.b}
-                stroke="var(--text-2)" strokeWidth={1} opacity={0.5} />
+                stroke="var(--text-2)" strokeWidth={1} vectorEffect="non-scaling-stroke" opacity={0.5} />
             </g>
           )}
         </svg>
@@ -466,86 +436,7 @@ export default function ProjectionFanChart({ history = [], macroAllocation = [],
           <Sparkles size={10} /> stime, non consulenza
         </span>
       </div>
-      </>)}
     </div>
   );
 }
 
-// ── MacroView ────────────────────────────────────────────────────────────────
-// Vista macro asset class quando il toggle è su MACRO. Barra stacked grande +
-// lista dettagliata di categorie con valore in euro.
-function MacroView({ macroAllocation, subAllocation, total }) {
-  const macro = (macroAllocation || []).filter(m => (m.percentage || 0) > 0);
-  const sub = (subAllocation || []).filter(m => (m.percentage || 0) > 0).slice(0, 12);
-  if (macro.length === 0) {
-    return (
-      <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-3)', fontSize: '0.82rem' }}>
-        Nessuna macro allocazione disponibile.
-      </div>
-    );
-  }
-  return (
-    <div>
-      {/* Stacked bar grande */}
-      <div style={{
-        display: 'flex', height: 32, borderRadius: 8, overflow: 'hidden',
-        border: '1px solid var(--border)', marginBottom: 12,
-      }}>
-        {macro.map((m, i) => (
-          <div key={i} title={`${m.name}: ${m.percentage}%`}
-            style={{ flex: m.percentage, background: m.color, minWidth: 2 }}
-          />
-        ))}
-      </div>
-
-      {/* Dettaglio macro-classi */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8,
-        marginBottom: sub.length > 0 ? 16 : 0,
-      }}>
-        {macro.map((m, i) => (
-          <div key={i} style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '8px 10px', background: 'var(--surface-2)',
-            border: '1px solid var(--border)', borderRadius: 8,
-          }}>
-            <span style={{ width: 10, height: 10, borderRadius: 2, background: m.color, flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {m.name}
-              </div>
-              <div style={{ ...MONO, fontSize: '0.68rem', color: 'var(--text-3)' }}>
-                {eur0((total || 0) * (m.percentage / 100))}
-              </div>
-            </div>
-            <span style={{ ...MONO, fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)' }}>
-              {m.percentage}%
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Sotto-categorie (opzionali) */}
-      {sub.length > 0 && (
-        <div>
-          <div style={{ fontSize: '0.64rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
-            Sotto-categorie
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {sub.map((s, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color, flexShrink: 0 }} />
-                <span style={{ flex: 1, fontSize: '0.75rem', color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {s.name}
-                </span>
-                <span style={{ ...MONO, fontSize: '0.72rem', color: 'var(--text-1)', fontWeight: 600, minWidth: 46, textAlign: 'right' }}>
-                  {s.percentage}%
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}

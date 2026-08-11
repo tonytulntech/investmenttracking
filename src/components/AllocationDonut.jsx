@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, Layers, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Layers, X, PieChart } from 'lucide-react';
 import { getPortfolioAlerts, getPortfolioConfig } from '../services/portfolioConfigService';
 
 const MONO = { fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' };
@@ -27,13 +27,14 @@ const C = 2 * Math.PI * R;
  * portafoglio se impostato (Portfolio.targetWeightPct), altrimenti il peso reale.
  * Questo evita che target di portafogli attualmente sovrappesati vengano gonfiati.
  */
-export default function AllocationDonut({ holdings = [] }) {
+export default function AllocationDonut({ holdings = [], macroAllocation = [], subAllocation = [] }) {
   const [hot, setHot] = useState(null);          // ruolo hoverato
   const [selectedRole, setSelectedRole] = useState(null); // ruolo cliccato (drilldown)
+  const [dim, setDim] = useState('role');        // 'role' | 'macro'
   const cfg = getPortfolioConfig();
   const portfolios = cfg.portfolios || [];
 
-  // Selettore portafoglio: 'all' | portfolioId
+  // Selettore portafoglio: 'all' | portfolioId (attivo solo in vista "role")
   const [scope, setScope] = useState('all');
 
   // Filtro holdings in base allo scope
@@ -162,12 +163,38 @@ export default function AllocationDonut({ holdings = [] }) {
       borderRadius: 14, padding: '1.2rem 1.3rem',
       boxShadow: '0 1px 2px rgba(0,0,0,0.28)',
     }}>
-      {/* Header */}
+      {/* Header con toggle vista Ruolo / Macro */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)' }}>
-          Allocazione per Ruolo
+          Allocazione {dim === 'role' ? 'per Ruolo' : 'Macro Asset Class'}
         </span>
-        {totalOff > 0 && (
+
+        {/* Toggle Ruolo / Macro */}
+        <div style={{
+          display: 'flex',
+          background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden',
+        }}>
+          <button onClick={() => { setDim('role'); setSelectedRole(null); }} style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            padding: '4px 10px', border: 'none', cursor: 'pointer',
+            fontSize: '0.7rem', fontWeight: 600,
+            background: dim === 'role' ? 'var(--text-1)' : 'transparent',
+            color: dim === 'role' ? 'var(--bg)' : 'var(--text-2)',
+          }}>
+            <Layers size={11} /> Ruolo
+          </button>
+          <button onClick={() => { setDim('macro'); setSelectedRole(null); }} style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            padding: '4px 10px', border: 'none', cursor: 'pointer',
+            fontSize: '0.7rem', fontWeight: 600,
+            background: dim === 'macro' ? 'var(--text-1)' : 'transparent',
+            color: dim === 'macro' ? 'var(--bg)' : 'var(--text-2)',
+          }}>
+            <PieChart size={11} /> Asset Class
+          </button>
+        </div>
+
+        {dim === 'role' && totalOff > 0 && (
           <span style={{
             display: 'flex', alignItems: 'center', gap: 4,
             ...MONO, fontSize: '0.68rem', color: '#FF9F0A',
@@ -177,7 +204,7 @@ export default function AllocationDonut({ holdings = [] }) {
             <AlertTriangle size={10} /> {totalOff} fuori target
           </span>
         )}
-        {unassignedPct >= 1 && (
+        {dim === 'role' && unassignedPct >= 1 && (
           <span style={{
             ...MONO, fontSize: '0.68rem', color: 'var(--accent)',
             background: 'var(--accent-weak)', padding: '1px 7px', borderRadius: 99,
@@ -193,7 +220,13 @@ export default function AllocationDonut({ holdings = [] }) {
         </Link>
       </div>
 
-      {/* Selettore Portafogli (pill) */}
+      {/* Vista MACRO ASSET CLASS */}
+      {dim === 'macro' && (
+        <MacroClassView macro={macroAllocation} sub={subAllocation} total={holdings.reduce((s, h) => s + (h.marketValue || 0), 0)} />
+      )}
+
+      {/* Selettore Portafogli (pill) — solo in vista Ruolo */}
+      {dim === 'role' && (
       <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
         <PillButton active={scope === 'all'} onClick={() => { setScope('all'); setSelectedRole(null); }}>
           Tutti
@@ -204,7 +237,9 @@ export default function AllocationDonut({ holdings = [] }) {
           </PillButton>
         ))}
       </div>
+      )}
 
+      {dim === 'role' && (<>
       {/* Body: donut + legenda */}
       <div className="donut-body" style={{
         display: 'grid', gap: '1.5rem', alignItems: 'center',
@@ -396,12 +431,92 @@ export default function AllocationDonut({ holdings = [] }) {
           )}
         </div>
       )}
+      </>)}
 
       <style>{`
         @media (max-width: 640px) {
           .donut-body { grid-template-columns: 1fr !important; }
         }
       `}</style>
+    </div>
+  );
+}
+
+// ── MacroClassView ──────────────────────────────────────────────────────────
+// Vista Macro Asset Class: barra stacked grande + card con % + euro,
+// e opzionale lista sotto-categorie.
+function MacroClassView({ macro = [], sub = [], total = 0 }) {
+  const items = macro.filter(m => (m.percentage || 0) > 0);
+  const subs  = sub.filter(m => (m.percentage || 0) > 0).slice(0, 12);
+  if (items.length === 0) {
+    return (
+      <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-3)', fontSize: '0.82rem' }}>
+        Nessuna macro allocazione disponibile.
+      </div>
+    );
+  }
+  return (
+    <div>
+      {/* Stacked bar grande */}
+      <div style={{
+        display: 'flex', height: 30, borderRadius: 8, overflow: 'hidden',
+        border: '1px solid var(--border)', marginBottom: 14,
+      }}>
+        {items.map((m, i) => (
+          <div key={i} title={`${m.name}: ${m.percentage}%`}
+            style={{ flex: m.percentage, background: m.color, minWidth: 2 }}
+          />
+        ))}
+      </div>
+
+      {/* Card per macro-classe */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8,
+        marginBottom: subs.length > 0 ? 16 : 0,
+      }}>
+        {items.map((m, i) => (
+          <div key={i} style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 10px', background: 'var(--surface-2)',
+            border: '1px solid var(--border)', borderRadius: 8,
+          }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: m.color, flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {m.name}
+              </div>
+              <div style={{ ...MONO, fontSize: '0.66rem', color: 'var(--text-3)' }}>
+                {eur0((total || 0) * (m.percentage / 100))}
+              </div>
+            </div>
+            <span style={{ ...MONO, fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-1)' }}>
+              {m.percentage}%
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Sotto-categorie */}
+      {subs.length > 0 && (
+        <div>
+          <div style={{ fontSize: '0.62rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+            Sotto-categorie
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {subs.map((s, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color, flexShrink: 0 }} />
+                <span style={{ flex: 1, fontSize: '0.75rem', color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {s.name}
+                </span>
+                <span style={{ ...MONO, fontSize: '0.72rem', color: 'var(--text-1)', fontWeight: 600, minWidth: 46, textAlign: 'right' }}>
+                  {s.percentage}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -387,9 +387,13 @@ function Dashboard() {
           {/* ── Alert titoli senza prezzo ── */}
           <MissingPricesAlert unpriced={unpriced} />
 
-          {/* ── Allocazione per Ruolo + gap ai target (fonde alert + roll-up) ── */}
+          {/* ── Allocazione: per Ruolo (default) o Macro Asset Class (toggle) ── */}
           <div style={{ marginBottom: '1.5rem' }}>
-            <AllocationDonut holdings={portfolio} />
+            <AllocationDonut
+              holdings={portfolio}
+              macroAllocation={allocationData}
+              subAllocation={subAllocationData}
+            />
           </div>
 
           {/* ── KPI Hero ── */}
@@ -605,8 +609,8 @@ function Dashboard() {
           <div style={{ marginBottom: '1rem' }}>
             <ProjectionFanChart
               history={performanceData}
-              macroAllocation={allocationData}
-              subAllocation={subAllocationData}
+              currentTotalValue={stats.totalValue}
+              currentGained={stats.totalPL}
             />
           </div>
 

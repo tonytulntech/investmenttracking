@@ -5,6 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { getTransactions, calculateRealizedPL, portfolioSnapshot } from '../services/localStorageService';
 import MissingPricesAlert from '../components/MissingPricesAlert';
 import AllocationDonut from '../components/AllocationDonut';
+import ProjectionFanChart from '../components/ProjectionFanChart';
 import { buildAllocation } from '../services/classificationService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { calculateCashFlow } from '../services/cashFlowService';
@@ -600,61 +601,8 @@ function Dashboard() {
           {/* ── Chart + Allocation ── */}
           <div className="split-2col">
 
-            {/* Chart */}
-            <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 14, padding: '1.25rem 1.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-1)' }}>Andamento portafoglio</span>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {['1m','3m','6m','ytd','1a','all'].map(p => (
-                    <button
-                      key={p}
-                      onClick={() => setChartPeriod(p)}
-                      style={{
-                        padding: '3px 9px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer',
-                        background: chartPeriod === p ? 'var(--text-1)' : 'transparent',
-                        color: chartPeriod === p ? 'var(--bg)' : 'var(--text-3)',
-                        border: chartPeriod === p ? '1px solid var(--text-1)' : '1px solid var(--border)',
-                      }}
-                    >
-                      {p.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <ResponsiveContainer width="100%" height={210}>
-                <AreaChart data={filteredChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="gVal" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor={BLUE}  stopOpacity={0.25} />
-                      <stop offset="95%" stopColor={BLUE}  stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gVer" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor={GREEN} stopOpacity={0.18} />
-                      <stop offset="95%" stopColor={GREEN} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickLine={false} axisLine={false} tickFormatter={v => `€${(v/1000).toFixed(0)}k`} />
-                  <Tooltip
-                    contentStyle={{ background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12 }}
-                    formatter={(v, name) => [eur(v), name === 'value' ? 'Valore' : 'Versato']}
-                  />
-                  <Area type="monotone" dataKey="value"   stroke={BLUE}  strokeWidth={2} fill="url(#gVal)" name="value" />
-                  <Area type="monotone" dataKey="versato" stroke={GREEN} strokeWidth={2} fill="url(#gVer)" name="versato" />
-                </AreaChart>
-              </ResponsiveContainer>
-              <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', color: 'var(--text-3)' }}>
-                  <div style={{ width: 10, height: 2, background: BLUE, borderRadius: 1 }} />
-                  Valore portafoglio
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', color: 'var(--text-3)' }}>
-                  <div style={{ width: 10, height: 2, background: GREEN, borderRadius: 1 }} />
-                  Importo versato
-                </div>
-              </div>
-            </div>
+            {/* Grafico proiezioni (storia + 3 scenari + versato) */}
+            <ProjectionFanChart history={performanceData} />
 
             {/* Allocation */}
             <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 14, padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 0 }}>

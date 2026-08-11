@@ -989,6 +989,74 @@
   button, a.nav-link, .mobile-nav-link, .tap-target { min-height: 44px; }
 }
 
+/* Page title responsive */
+.page-title { font-size: 1.6rem; }
+@media (max-width: 640px) {
+  .page-title { font-size: 1.25rem !important; }
+}
+
+/* Refresh button: label nascosta su mobile (icona-only) */
+@media (max-width: 640px) {
+  .refresh-btn .refresh-label { display: none; }
+  .refresh-btn { padding: 8px 10px !important; }
+}
+
+/* Holdings: griglia desktop → card impilata mobile */
+.holdings-header,
+.holdings-row {
+  display: grid;
+  grid-template-columns: 1fr 90px 100px 70px 60px;
+  gap: 8px;
+  align-items: center;
+}
+.holdings-header {
+  padding: 0 0 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+.holdings-row {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+.holdings-cell { text-align: right; }
+.holdings-cell-title { text-align: left; }
+
+@media (max-width: 640px) {
+  .holdings-header { display: none; }
+  .holdings-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "title  value"
+      "pl     roi_d";
+    row-gap: 4px;
+    padding: 10px 0;
+  }
+  .holdings-cell-title { grid-area: title; }
+  .holdings-cell[data-label="Valore"] { grid-area: value; }
+  .holdings-cell[data-label="P&L"]    { grid-area: pl; text-align: left; }
+  .holdings-cell[data-label="ROI"],
+  .holdings-cell[data-label="1d"] {
+    grid-area: roi_d;
+    text-align: right;
+    display: inline-block;
+  }
+  .holdings-cell[data-label="ROI"]::after { content: " · "; color: var(--text-3); font-weight: 400; }
+  .holdings-cell[data-label="P&L"]::before {
+    content: "P&L "; color: var(--text-3); font-weight: 400; font-size: 0.68rem;
+    letter-spacing: 0.04em;
+  }
+}
+
+/* Projection chart SVG più corto su mobile */
+@media (max-width: 640px) {
+  .projection-svg { height: 200px !important; }
+}
+
+/* Portfolio mini-cards più strette su mobile per farne stare di più nello scroll */
+@media (max-width: 640px) {
+  .portfolio-mini-card { min-width: 140px !important; padding: 0.75rem 0.9rem !important; }
+}
+
 /* Mobile FAB centrale (+ Nuova transazione) */
 .mobile-fab {
   position: absolute;

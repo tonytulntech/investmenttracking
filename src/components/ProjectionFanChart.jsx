@@ -297,8 +297,10 @@ export default function ProjectionFanChart({ history = [] }) {
 
       {/* Chart */}
       <div style={{ position: 'relative', width: '100%' }}>
-        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} width="100%" height={H}
-          style={{ display: 'block', cursor: 'crosshair' }}
+        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} width="100%"
+          className="projection-svg"
+          preserveAspectRatio="xMidYMid meet"
+          style={{ display: 'block', cursor: 'crosshair', height: H }}
           onPointerMove={onMove} onPointerLeave={() => setHoverX(null)}>
           {/* Gridlines Y */}
           {yTicks.map((v, i) => (

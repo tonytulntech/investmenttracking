@@ -72,6 +72,7 @@ function PortfolioMiniCard({ portfolio, value, pl, plPct, count, rebalanceNeeded
   return (
     <div
       onClick={onToggle}
+      className="portfolio-mini-card"
       title={isHidden ? 'Clicca per mostrare' : 'Clicca per nascondere dai calcoli'}
       style={{
         background: isHidden ? 'var(--surface-2)' : 'var(--card-bg)',
@@ -350,7 +351,7 @@ function Dashboard() {
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.75rem', paddingTop: '0.5rem' }}>
         <div>
-          <h1 style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Dashboard</h1>
+          <h1 className="page-title" style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Dashboard</h1>
           {lastUpdate && (
             <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>
               Aggiornato {format(lastUpdate, 'HH:mm')}
@@ -360,17 +361,19 @@ function Dashboard() {
         <button
           onClick={() => { setRefreshing(true); fetchLatestPrices(true); }}
           disabled={refreshing}
+          aria-label="Aggiorna prezzi"
+          className="refresh-btn"
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
-            padding: '8px 16px', borderRadius: 10,
-            background: BLUE + '22', color: BLUE,
-            border: `1px solid ${BLUE}44`,
+            padding: '8px 14px', borderRadius: 10,
+            background: 'var(--surface-2)', color: 'var(--text-1)',
+            border: '1px solid var(--border)',
             fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer',
-            opacity: refreshing ? 0.6 : 1,
+            opacity: refreshing ? 0.6 : 1, flexShrink: 0,
           }}
         >
           <RefreshCw size={14} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
-          {refreshing ? 'Aggiornamento...' : 'Aggiorna prezzi'}
+          <span className="refresh-label">{refreshing ? 'Aggiornamento…' : 'Aggiorna prezzi'}</span>
         </button>
       </div>
 
@@ -655,32 +658,32 @@ function Dashboard() {
               </a>
             </div>
 
-            {/* Header */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 100px 70px 60px', gap: 8, padding: '0 0 6px', borderBottom: '1px solid var(--border)', marginBottom: 2 }}>
-              {['Titolo', 'Valore', 'P&L €', 'ROI', '1d%'].map(h => (
-                <span key={h} style={{ fontSize: '0.67rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: h !== 'Titolo' ? 'right' : 'left' }}>{h}</span>
+            {/* Header (nascosto su mobile: le righe diventano card) */}
+            <div className="holdings-header">
+              {['Titolo', 'Valore', 'P&L €', 'ROI', '1d%'].map((h, i) => (
+                <span key={h} style={{ fontSize: '0.67rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: i === 0 ? 'left' : 'right' }}>{h}</span>
               ))}
             </div>
 
             {portfolio.filter(h => !h.isCash).slice(0, 8).map(h => (
-              <div key={h.holdingKey ?? h.ticker} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 100px 70px 60px', gap: 8, padding: '9px 0', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-1)' }}><Blur>{h.ticker}</Blur></div>
+              <div key={h.holdingKey ?? h.ticker} className="holdings-row">
+                <div className="holdings-cell holdings-cell-title">
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-1)' }}><Blur>{h.ticker}</Blur></div>
                   <div style={{ fontSize: '0.68rem', color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
                     <Blur>{h.name}</Blur>
                     {h.broker && <span style={{ marginLeft: 4, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 3, padding: '0 4px', fontSize: '0.62rem' }}>{h.broker}</span>}
                   </div>
                 </div>
-                <div style={{ textAlign: 'right', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+                <div className="holdings-cell" data-label="Valore" style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
                   <Blur>{eur(h.marketValue, 0)}</Blur>
                 </div>
-                <div style={{ textAlign: 'right', fontSize: '0.82rem', fontWeight: 600, color: color(h.unrealizedPL), fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+                <div className="holdings-cell" data-label="P&L" style={{ fontSize: '0.82rem', fontWeight: 600, color: color(h.unrealizedPL), fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
                   <Blur>{sign(h.unrealizedPL)}{eur(h.unrealizedPL, 0)}</Blur>
                 </div>
-                <div style={{ textAlign: 'right', fontSize: '0.78rem', fontWeight: 600, color: color(h.roi), fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+                <div className="holdings-cell" data-label="ROI" style={{ fontSize: '0.78rem', fontWeight: 600, color: color(h.roi), fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
                   {pct(h.roi, 1)}
                 </div>
-                <div style={{ textAlign: 'right', fontSize: '0.75rem', color: color(h.dayChangePercent), fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+                <div className="holdings-cell" data-label="1d" style={{ fontSize: '0.75rem', color: color(h.dayChangePercent), fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
                   {pct(h.dayChangePercent, 2)}
                 </div>
               </div>

@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import {
   TrendingUp, LayoutDashboard, Wallet, FileText, Settings, Plus,
-  Target, RefreshCcw, BarChart3, PiggyBank, Globe, History,
-  Sun, Moon, ScanSearch, Layers, Eye, EyeOff, Calculator, Coins, Bitcoin,
+  RefreshCcw, BarChart3, PiggyBank,
+  Sun, Moon, ScanSearch, Layers, Eye, EyeOff, Coins,
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
 
@@ -14,18 +14,17 @@ import Portfolio            from './pages/Portfolio';
 import PortfolioPerformance from './pages/PortfolioPerformance';
 import Transactions         from './pages/Transactions';
 import SettingsPage         from './pages/Settings';
-import Strategy             from './pages/Strategy';
 import Rebalancing          from './pages/Rebalancing';
 import Patrimonio           from './pages/Patrimonio';
-import Mercati              from './pages/Mercati';
-import Backtest             from './pages/Backtest';
 import PortfolioAnalysis    from './pages/PortfolioAnalysis';
 import PortfolioManager     from './pages/PortfolioManager';
-import Calcolatori          from './pages/Calcolatori';
 import Dividendi            from './pages/Dividendi';
-import Crypto               from './pages/Crypto';
 
 // ── Navigation structure ─────────────────────────────────────────
+// Nav snella: solo pagine che l'utente usa davvero. Le pagine "nascoste"
+// (Backtest, Mercati, Strategia, Calcolatori, Crypto, PAC) restano nel repo
+// ma non sono raggiungibili — se le vuoi riabilitare basta ripristinare
+// import, entry di nav e route.
 const primaryNav = [
   { name: 'Dashboard',   href: '/',             icon: LayoutDashboard },
   { name: 'Portfolio',   href: '/portfolio',    icon: Wallet },
@@ -35,14 +34,9 @@ const primaryNav = [
 const toolsNav = [
   { name: 'Analisi',         href: '/analysis',     icon: ScanSearch },
   { name: 'Portafogli',      href: '/portfolios',   icon: Layers },
-  { name: 'Backtest',        href: '/backtest',     icon: History },
   { name: 'Patrimonio',      href: '/patrimonio',   icon: PiggyBank },
-  { name: 'Mercati',         href: '/mercati',      icon: Globe },
   { name: 'Dividendi',       href: '/dividendi',    icon: Coins },
-  { name: 'Strategia',       href: '/strategy',     icon: Target },
   { name: 'Ribilanciamento', href: '/rebalancing',  icon: RefreshCcw },
-  { name: 'Calcolatori',     href: '/calcolatori',  icon: Calculator },
-  { name: 'Crypto',          href: '/crypto',       icon: Bitcoin },
 ];
 // Mobile bottom-nav: 4 voci + FAB centrale rialzato "Nuova transazione"
 const mobileNav = [
@@ -74,21 +68,21 @@ function PrivacyToggle() {
       onClick={togglePrivacy}
       title={privacyMode ? 'Disattiva modalità privacy' : 'Attiva modalità privacy (nascondi nomi)'}
       style={{
-        display: 'flex', alignItems: 'center', gap: '0.55rem',
-        width: '100%', padding: '0.45rem 0.75rem', borderRadius: '8px',
+        display: 'flex', alignItems: 'center', gap: '0.5rem',
+        width: '100%', padding: '0.38rem 0.65rem', borderRadius: '8px',
         border: privacyMode ? '1px solid rgba(255,159,10,0.5)' : '1px solid transparent',
         background: privacyMode ? 'rgba(255,159,10,0.10)' : 'transparent',
         cursor: 'pointer',
         color: privacyMode ? '#FF9F0A' : 'var(--text-3)',
-        fontSize: '0.8125rem', fontWeight: privacyMode ? 600 : 400,
+        fontSize: '0.76rem', fontWeight: privacyMode ? 600 : 400,
         transition: 'all 0.2s',
       }}
     >
       {privacyMode
-        ? <EyeOff size={15} />
-        : <Eye size={15} />
+        ? <EyeOff size={13} />
+        : <Eye size={13} />
       }
-      {privacyMode ? 'Privacy ON' : 'Modalità Privacy'}
+      {privacyMode ? 'Privacy ON' : 'Privacy'}
     </button>
   );
 }
@@ -149,35 +143,32 @@ function App() {
       {/* ── Sidebar (Desktop) ─────────────────────────────── */}
       <aside className="sidebar hidden md:flex md:flex-col">
 
-        {/* Logo */}
+        {/* Logo (compatto) */}
         <div
           className="sidebar-logo-border"
           style={{
-            display: 'flex', alignItems: 'center', gap: '0.75rem',
-            height: '64px', padding: '0 1.1rem', flexShrink: 0,
+            display: 'flex', alignItems: 'center', gap: '0.55rem',
+            height: '54px', padding: '0 0.85rem', flexShrink: 0,
           }}
         >
           <div style={{
-            width: '36px', height: '36px', borderRadius: '9px', flexShrink: 0,
+            width: '28px', height: '28px', borderRadius: '7px', flexShrink: 0,
             background: 'var(--surface-1)',
             border: '1px solid var(--border-strong)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <TrendingUp size={18} color="var(--text-1)" />
+            <TrendingUp size={15} color="var(--text-1)" />
           </div>
-          <div style={{ lineHeight: 1.2 }}>
-            <div style={{ fontSize: '0.8125rem', fontWeight: 700 }}>Investment</div>
-            <div className="sidebar-logo-subtitle" style={{ fontSize: '0.7rem', letterSpacing: '0.05em' }}>
-              TRACKER
-            </div>
+          <div style={{ fontSize: '0.82rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
+            Tracker
           </div>
         </div>
 
         {/* Navigation */}
         <nav style={{
           flex: 1, overflowY: 'auto',
-          padding: '1rem 0.65rem',
-          display: 'flex', flexDirection: 'column', gap: '1.5rem',
+          padding: '0.75rem 0.55rem',
+          display: 'flex', flexDirection: 'column', gap: '1.1rem',
         }}>
           {/* Primary */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -201,18 +192,18 @@ function App() {
         <div
           className="sidebar-bottom-border"
           style={{
-            padding: '0.75rem 0.65rem',
-            display: 'flex', flexDirection: 'column', gap: '4px',
+            padding: '0.6rem 0.55rem 0.75rem',
+            display: 'flex', flexDirection: 'column', gap: '3px',
             flexShrink: 0,
           }}
         >
           <Link
-            to="/transactions"
+            to="/transactions/new"
             className="btn-primary"
-            style={{ justifyContent: 'center', width: '100%', fontSize: '0.8125rem', padding: '0.55rem 1rem' }}
+            style={{ justifyContent: 'center', width: '100%', fontSize: '0.76rem', padding: '0.45rem 0.8rem', marginBottom: '4px' }}
           >
-            <Plus size={15} />
-            Nuova Transazione
+            <Plus size={13} />
+            Nuova
           </Link>
 
           <NavLink
@@ -229,26 +220,21 @@ function App() {
       </aside>
 
       {/* ── Main Content ───────────────────────────────────── */}
-      <main style={{ flex: 1, minWidth: 0 }} className="md:pl-[220px]">
+      <main style={{ flex: 1, minWidth: 0 }} className="md:pl-[188px]">
         <div className="main-page max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28 md:pb-8">
           <Routes>
             <Route path="/"                 element={<Dashboard />} />
             <Route path="/portfolio"        element={<Portfolio />} />
             <Route path="/performance"      element={<PortfolioPerformance />} />
             <Route path="/analysis"         element={<PortfolioAnalysis />} />
-            <Route path="/backtest"         element={<Backtest />} />
             <Route path="/patrimonio"       element={<Patrimonio />} />
             <Route path="/transactions"     element={<Transactions />} />
             <Route path="/transactions/new" element={<Transactions />} />
-            <Route path="/mercati"          element={<Mercati />} />
             <Route path="/dividendi"        element={<Dividendi />} />
-            <Route path="/strategy"         element={<Strategy />} />
             <Route path="/rebalancing"      element={<Rebalancing />} />
             <Route path="/portfolios"       element={<PortfolioManager />} />
-            <Route path="/calcolatori"      element={<Calcolatori />} />
-            <Route path="/crypto"           element={<Crypto />} />
             <Route path="/settings"         element={<SettingsPage />} />
-            <Route path="*"                element={<Navigate to="/" />} />
+            <Route path="*"                 element={<Navigate to="/" />} />
           </Routes>
         </div>
       </main>

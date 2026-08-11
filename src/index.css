@@ -599,7 +599,7 @@
 .sidebar {
   position: fixed;
   top: 0; left: 0; bottom: 0;
-  width: 220px;
+  width: 188px;
   display: flex;
   flex-direction: column;
   background: var(--surface-2);
@@ -611,23 +611,23 @@
 .sidebar-bottom-border { border-top: 1px solid rgba(255,255,255,0.06); }
 .sidebar-logo-subtitle { color: rgba(255,255,255,0.35); }
 .nav-section-label {
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.22);
-  padding: 0 0.75rem;
-  margin-bottom: 0.4rem;
+  color: rgba(255,255,255,0.28);
+  padding: 0 0.65rem;
+  margin-bottom: 0.3rem;
 }
 
 /* ── Nav links ──────────────────────────────────────────────── */
 .nav-link {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
-  padding: 0.55rem 0.75rem;
-  border-radius: 10px;
-  font-size: 0.8125rem;
+  gap: 0.55rem;
+  padding: 0.42rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
   font-weight: 500;
   text-decoration: none;
   color: rgba(255,255,255,0.45);
@@ -683,11 +683,11 @@
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0.45rem 0.75rem;
-  border-radius: 10px;
+  padding: 0.38rem 0.65rem;
+  border-radius: 8px;
   width: 100%;
   color: rgba(255,255,255,0.48);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 500;
   font-family: inherit;
   transition: background 0.15s ease, color 0.15s ease;

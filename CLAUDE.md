@@ -7,7 +7,7 @@
 Investment Tracker: web app di analisi di portafoglio investimenti. React 18 + Vite 5 + React Router 6 + Recharts + Tailwind. **JavaScript (.jsx), non TypeScript.** In italiano.
 
 ## ⚠️ Fatti architetturali critici (verificati nel codice)
-- **L'app reale è in `src/pages/`** (16 pagine, ~23k righe). È **local-first**: tutti i dati vivono in `localStorage` del browser via `src/services/localStorageService.js`. **Nessuna autenticazione, nessun cloud, single-user.**
+- **L'app reale è in `src/pages/`** (attualmente 10 pagine attive: Dashboard, Portfolio, Performance, Transazioni, Analisi, Portafogli, Patrimonio, Dividendi, Ribilanciamento, Impostazioni). Le pagine PAC/Strategia/Backtest/Mercati/Calcolatori/Crypto restano nel repo ma non registrate in App.jsx — riabilitabili al volo. È **local-first**: tutti i dati vivono in `localStorage` del browser via `src/services/localStorageService.js`. **Nessuna autenticazione, nessun cloud, single-user.**
 - **`src/components/` (Login, Signup, vecchia Dashboard, CSVUpload) è CODICE MORTO.** Importa `firebase`, ma `firebase` **non è in `package.json`** → non compilerebbe. Reliquia del README. `App.jsx` non lo importa. Anche `src/styles/App.css` è morto (non importato).
 - **Il README è disallineato**: descrive un'app Firebase/auth che non è quella che gira.
 - Sorgente di verità = **transazioni**; posizioni/performance/cashflow sono *derivate* dalle transazioni.

@@ -217,6 +217,30 @@ export function getRecentCashMovements(limit = 10) {
   return cashFlow.movements.slice(-limit).reverse();
 }
 
+/**
+ * Media mensile investita: totale depositi cash / mesi dal primo acquisto asset.
+ * Stessa formula usata in Patrimonio ("Media Mensile Versata"), estratta come
+ * servizio per riuso (es. proiezioni della Dashboard).
+ * @returns {{ avgMonthlyInvested, monthsSpan, totalDeposits }}
+ */
+export function getAvgMonthlyInvested() {
+  const transactions = getTransactions();
+  const cashFlow = calculateCashFlow();
+  const totalDeposits = cashFlow?.cashDeposits || 0;
+
+  const firstAssetBuy = transactions
+    .filter(tx => tx.date && tx.type === 'buy' && !tx.isCash && tx.macroCategory !== 'Cash')
+    .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+
+  let monthsSpan = 0;
+  if (firstAssetBuy) {
+    const days = (new Date() - new Date(firstAssetBuy.date)) / (1000 * 60 * 60 * 24);
+    monthsSpan = Math.max(1, Math.round((days / 365.25) * 12));
+  }
+  const avgMonthlyInvested = monthsSpan > 0 ? totalDeposits / monthsSpan : 0;
+  return { avgMonthlyInvested, monthsSpan, totalDeposits };
+}
+
 export default {
   calculateCashFlow,
   getAvailableCashAtDate,

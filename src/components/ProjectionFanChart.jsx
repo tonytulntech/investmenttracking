@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { TrendingUp, Sparkles } from 'lucide-react';
+import { TrendingUp, Sparkles, PieChart } from 'lucide-react';
 import { getPACTemplates } from '../services/pacService';
+import { getAvgMonthlyInvested } from '../services/cashFlowService';
 
 const MONO = { fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' };
 
@@ -36,23 +37,28 @@ const BOOSTS = [0, 100, 250, 500];
  * Props:
  *  - history: [{ month, value, versato }] — dai dati performanceData della Dashboard
  */
-export default function ProjectionFanChart({ history = [] }) {
+export default function ProjectionFanChart({ history = [], macroAllocation = [], subAllocation = [] }) {
   const svgRef = useRef(null);
+  const [view, setView] = useState('proj');   // 'proj' | 'macro'
   const [horizonYears, setHorizonYears] = useState(10);
   const [boost, setBoost] = useState(0);
   const [hoverX, setHoverX] = useState(null);
 
-  // Contributo mensile auto-detected dai PAC attivi
+  // Media mensile investita dal foglio Patrimonio (totalDeposits / monthsSpan).
+  // Fallback ai PAC attivi se la media da cashflow è zero (utente senza storia).
+  const { avgMonthlyInvested, monthsSpan } = useMemo(() => {
+    try { return getAvgMonthlyInvested(); }
+    catch { return { avgMonthlyInvested: 0, monthsSpan: 0 }; }
+  }, []);
   const pacMonthly = useMemo(() => {
     try {
       const templates = getPACTemplates() || [];
-      return templates
-        .filter(t => t.isActive !== false)
-        .reduce((s, t) => s + (Number(t.totalAmount) || 0), 0);
+      return templates.filter(t => t.isActive !== false).reduce((s, t) => s + (Number(t.totalAmount) || 0), 0);
     } catch { return 0; }
   }, []);
-
-  const monthlyContribution = pacMonthly + boost;
+  const baseMonthly = avgMonthlyInvested > 0 ? avgMonthlyInvested : pacMonthly;
+  const contributionSource = avgMonthlyInvested > 0 ? 'patrimonio' : (pacMonthly > 0 ? 'pac' : 'none');
+  const monthlyContribution = baseMonthly + boost;
 
   // Ultimo valore e versato dalla storia
   const last = history.length > 0 ? history[history.length - 1] : null;
@@ -231,58 +237,111 @@ export default function ProjectionFanChart({ history = [] }) {
       borderRadius: 14, padding: '1.1rem 1.2rem',
       boxShadow: '0 1px 2px rgba(0,0,0,0.28)',
     }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-        <TrendingUp size={15} style={{ color: 'var(--text-2)' }} />
-        <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)' }}>
-          Proiezione portafoglio
-        </span>
-        <span style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>
-          storia + 3 scenari
-        </span>
+      {/* Header con Versato + Guadagnato + toggle vista */}
+      {(() => {
+        const gained = currentValue - currentVersato;
+        const gainedPct = currentVersato > 0 ? (gained / currentVersato) * 100 : 0;
+        const gColor = gained >= 0 ? S_OPT : '#F85149';
+        return (
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, marginBottom: 14, flexWrap: 'wrap' }}>
+            {/* KPI Versato */}
+            <div>
+              <div style={{ fontSize: '0.66rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Versato</div>
+              <div style={{ ...MONO, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-1)', lineHeight: 1.1 }}>{eur0(currentVersato)}</div>
+            </div>
+            {/* KPI Guadagnato */}
+            <div>
+              <div style={{ fontSize: '0.66rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Guadagnato</div>
+              <div style={{ ...MONO, fontSize: '1.1rem', fontWeight: 700, color: gColor, lineHeight: 1.1 }}>
+                {gained >= 0 ? '+' : '−'}{eur0(gained)}
+                <span style={{ fontSize: '0.72rem', fontWeight: 500, marginLeft: 6 }}>
+                  {gained >= 0 ? '+' : '−'}{Math.abs(gainedPct).toFixed(1)}%
+                </span>
+              </div>
+            </div>
 
-        {/* Horizon selector */}
-        <div style={{
-          marginLeft: 'auto', display: 'flex',
-          background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden',
-        }}>
-          {HORIZONS.map(h => (
-            <button key={h.label} onClick={() => setHorizonYears(h.years)} style={{
-              padding: '4px 10px', border: 'none', cursor: 'pointer',
-              fontSize: '0.72rem', fontWeight: 600, ...MONO,
-              background: horizonYears === h.years ? 'var(--text-1)' : 'transparent',
-              color: horizonYears === h.years ? 'var(--bg)' : 'var(--text-2)',
-            }}>{h.label}</button>
-          ))}
-        </div>
-      </div>
+            {/* Toggle vista Proiezione / Macro (a destra) */}
+            <div style={{
+              marginLeft: 'auto', display: 'flex',
+              background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden',
+            }}>
+              <button onClick={() => setView('proj')} style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '5px 11px', border: 'none', cursor: 'pointer',
+                fontSize: '0.72rem', fontWeight: 600,
+                background: view === 'proj' ? 'var(--text-1)' : 'transparent',
+                color: view === 'proj' ? 'var(--bg)' : 'var(--text-2)',
+              }}>
+                <TrendingUp size={12} /> Proiezione
+              </button>
+              <button onClick={() => setView('macro')} style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '5px 11px', border: 'none', cursor: 'pointer',
+                fontSize: '0.72rem', fontWeight: 600,
+                background: view === 'macro' ? 'var(--text-1)' : 'transparent',
+                color: view === 'macro' ? 'var(--bg)' : 'var(--text-2)',
+              }}>
+                <PieChart size={12} /> Macro Asset Class
+              </button>
+            </div>
 
-      {/* Contributo mensile + boost */}
+            {/* Horizon selector (solo in vista Proiezione) */}
+            {view === 'proj' && (
+              <div style={{
+                display: 'flex',
+                background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden',
+              }}>
+                {HORIZONS.map(h => (
+                  <button key={h.label} onClick={() => setHorizonYears(h.years)} style={{
+                    padding: '5px 10px', border: 'none', cursor: 'pointer',
+                    fontSize: '0.72rem', fontWeight: 600, ...MONO,
+                    background: horizonYears === h.years ? 'var(--text-1)' : 'transparent',
+                    color: horizonYears === h.years ? 'var(--bg)' : 'var(--text-2)',
+                  }}>{h.label}</button>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Vista MACRO: sostituisce il grafico proiezioni */}
+      {view === 'macro' && (
+        <MacroView macroAllocation={macroAllocation} subAllocation={subAllocation} total={currentValue} />
+      )}
+
+      {/* Contributo mensile + boost — solo nella vista Proiezione */}
+      {view === 'proj' && (
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
         padding: '8px 10px', marginBottom: 12,
         background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10,
       }}>
         <span style={{ fontSize: '0.72rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Versamento mensile
+          Media mensile investita
         </span>
         <span style={{ ...MONO, fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)' }}>
           {eur0(monthlyContribution)}/mese
         </span>
-        {pacMonthly > 0 && (
+        {contributionSource === 'patrimonio' && (
+          <span style={{ fontSize: '0.68rem', color: 'var(--text-3)' }}>
+            (da Patrimonio: {eur0(baseMonthly)} su {monthsSpan} mesi{boost > 0 ? ` · +boost ${eur0(boost)}` : ''})
+          </span>
+        )}
+        {contributionSource === 'pac' && (
           <span style={{ fontSize: '0.68rem', color: 'var(--text-3)' }}>
             (PAC: {eur0(pacMonthly)}{boost > 0 ? ` + boost ${eur0(boost)}` : ''})
           </span>
         )}
-        {pacMonthly === 0 && (
+        {contributionSource === 'none' && (
           <span style={{ fontSize: '0.68rem', color: 'var(--text-3)' }}>
-            (nessun PAC attivo — usa i boost per simulare)
+            (nessuna storia di depositi — usa i boost per simulare)
           </span>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
           {BOOSTS.map(b => (
             <button key={b} onClick={() => setBoost(b)}
-              title={b === 0 ? 'Solo PAC attivi' : `Aggiungi ${eur0(b)}/mese`}
+              title={b === 0 ? 'Usa media attuale' : `Aggiungi ${eur0(b)}/mese`}
               style={{
                 padding: '3px 9px', borderRadius: 99, cursor: 'pointer',
                 border: `1px solid ${boost === b ? 'var(--accent)' : 'var(--border)'}`,
@@ -290,11 +349,13 @@ export default function ProjectionFanChart({ history = [] }) {
                 color: boost === b ? 'var(--accent)' : 'var(--text-2)',
                 fontSize: '0.68rem', fontWeight: 600, ...MONO,
               }}
-            >{b === 0 ? 'PAC' : `+${b}`}</button>
+            >{b === 0 ? 'attuale' : `+${b}`}</button>
           ))}
         </div>
       </div>
+      )}
 
+      {view === 'proj' && (<>
       {/* Chart */}
       <div style={{ position: 'relative', width: '100%' }}>
         <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} width="100%"
@@ -405,6 +466,86 @@ export default function ProjectionFanChart({ history = [] }) {
           <Sparkles size={10} /> stime, non consulenza
         </span>
       </div>
+      </>)}
+    </div>
+  );
+}
+
+// ── MacroView ────────────────────────────────────────────────────────────────
+// Vista macro asset class quando il toggle è su MACRO. Barra stacked grande +
+// lista dettagliata di categorie con valore in euro.
+function MacroView({ macroAllocation, subAllocation, total }) {
+  const macro = (macroAllocation || []).filter(m => (m.percentage || 0) > 0);
+  const sub = (subAllocation || []).filter(m => (m.percentage || 0) > 0).slice(0, 12);
+  if (macro.length === 0) {
+    return (
+      <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-3)', fontSize: '0.82rem' }}>
+        Nessuna macro allocazione disponibile.
+      </div>
+    );
+  }
+  return (
+    <div>
+      {/* Stacked bar grande */}
+      <div style={{
+        display: 'flex', height: 32, borderRadius: 8, overflow: 'hidden',
+        border: '1px solid var(--border)', marginBottom: 12,
+      }}>
+        {macro.map((m, i) => (
+          <div key={i} title={`${m.name}: ${m.percentage}%`}
+            style={{ flex: m.percentage, background: m.color, minWidth: 2 }}
+          />
+        ))}
+      </div>
+
+      {/* Dettaglio macro-classi */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8,
+        marginBottom: sub.length > 0 ? 16 : 0,
+      }}>
+        {macro.map((m, i) => (
+          <div key={i} style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 10px', background: 'var(--surface-2)',
+            border: '1px solid var(--border)', borderRadius: 8,
+          }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: m.color, flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {m.name}
+              </div>
+              <div style={{ ...MONO, fontSize: '0.68rem', color: 'var(--text-3)' }}>
+                {eur0((total || 0) * (m.percentage / 100))}
+              </div>
+            </div>
+            <span style={{ ...MONO, fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)' }}>
+              {m.percentage}%
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Sotto-categorie (opzionali) */}
+      {sub.length > 0 && (
+        <div>
+          <div style={{ fontSize: '0.64rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+            Sotto-categorie
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {sub.map((s, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color, flexShrink: 0 }} />
+                <span style={{ flex: 1, fontSize: '0.75rem', color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {s.name}
+                </span>
+                <span style={{ ...MONO, fontSize: '0.72rem', color: 'var(--text-1)', fontWeight: 600, minWidth: 46, textAlign: 'right' }}>
+                  {s.percentage}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

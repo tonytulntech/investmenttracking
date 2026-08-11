@@ -601,52 +601,13 @@ function Dashboard() {
             </div>
           )}
 
-          {/* ── Chart + Allocation ── */}
-          <div className="split-2col">
-
-            {/* Grafico proiezioni (storia + 3 scenari + versato) */}
-            <ProjectionFanChart history={performanceData} />
-
-            {/* Allocation */}
-            <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 14, padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 0 }}>
-              <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-1)', marginBottom: '1rem', display: 'block' }}>Allocazione</span>
-
-              {/* Macro allocation */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                {allocationData.map((item, i) => (
-                  <div key={item.name}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--text-2)', fontWeight: 500 }}>{item.name}</span>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--text-1)', fontWeight: 600, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{item.percentage}%</span>
-                    </div>
-                    <div style={{ height: 5, background: 'var(--surface-2)', borderRadius: 3 }}>
-                      <div style={{ width: item.percentage + '%', height: '100%', background: item.color || ALLOC_COLORS[i % ALLOC_COLORS.length], borderRadius: 3 }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Sub-allocation top 5 */}
-              {subAllocationData.length > 0 && (
-                <>
-                  <div style={{ height: 1, background: 'var(--border)', margin: '1rem 0 0.8rem' }} />
-                  <span style={{ fontSize: '0.68rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem', display: 'block' }}>
-                    Sotto-categorie
-                  </span>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                    {subAllocationData.slice(0, 6).map((item, i) => (
-                      <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', maxWidth: '72%' }}>
-                          <span style={{ width: 8, height: 8, borderRadius: 2, background: item.color || ALLOC_COLORS[i % ALLOC_COLORS.length], flexShrink: 0 }} />
-                          <span style={{ fontSize: '0.73rem', color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
-                        </span>
-                        <span style={{ fontSize: '0.73rem', color: 'var(--text-1)', fontWeight: 600, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{item.percentage}%</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+          {/* ── Grafico proiezioni + toggle Macro Asset Class (full width) ── */}
+          <div style={{ marginBottom: '1rem' }}>
+            <ProjectionFanChart
+              history={performanceData}
+              macroAllocation={allocationData}
+              subAllocation={subAllocationData}
+            />
           </div>
 
           {/* ── Top Holdings ── */}

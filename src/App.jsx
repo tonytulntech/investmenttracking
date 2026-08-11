@@ -44,9 +44,12 @@ const toolsNav = [
   { name: 'Calcolatori',     href: '/calcolatori',  icon: Calculator },
   { name: 'Crypto',          href: '/crypto',       icon: Bitcoin },
 ];
+// Mobile bottom-nav: 4 voci + FAB centrale rialzato "Nuova transazione"
 const mobileNav = [
-  ...primaryNav,
-  { name: 'Altro', href: '/settings', icon: Settings },
+  { name: 'Home',         href: '/',             icon: LayoutDashboard },
+  { name: 'Portfolio',    href: '/portfolio',    icon: Wallet },
+  { name: 'Ribilancia',   href: '/rebalancing',  icon: RefreshCcw },
+  { name: 'Impostazioni', href: '/settings',     icon: Settings },
 ];
 
 // ── Single nav link (uses CSS class nav-link) ────────────────────
@@ -227,7 +230,7 @@ function App() {
 
       {/* ── Main Content ───────────────────────────────────── */}
       <main style={{ flex: 1, minWidth: 0 }} className="md:pl-[220px]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28 md:pb-8">
+        <div className="main-page max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28 md:pb-8">
           <Routes>
             <Route path="/"                 element={<Dashboard />} />
             <Route path="/portfolio"        element={<Portfolio />} />
@@ -250,22 +253,37 @@ function App() {
         </div>
       </main>
 
-      {/* ── Mobile Bottom Navigation ───────────────────────── */}
-      <nav className="mobile-nav md:hidden">
+      {/* ── Mobile Bottom Navigation (4 voci + FAB centrale) ── */}
+      <nav className="mobile-nav md:hidden" style={{ position: 'fixed', bottom: 0, left: 0, right: 0 }}>
+        {/* FAB centrale rialzato — "Nuova transazione" */}
+        <Link to="/transactions/new" className="mobile-fab" aria-label="Nuova transazione">
+          <Plus size={22} strokeWidth={2.4} />
+        </Link>
+
         <div style={{
           display: 'grid',
-          gridTemplateColumns: `repeat(${mobileNav.length}, 1fr)`,
-          padding: '0.4rem 0.5rem',
+          gridTemplateColumns: '1fr 1fr 56px 1fr 1fr',
+          padding: '0.35rem 0.4rem',
+          alignItems: 'center',
         }}>
-          {mobileNav.map(item => {
+          {mobileNav.slice(0, 2).map(item => {
             const Icon = item.icon;
             const active = isActive(item.href);
             return (
-              <Link
-                key={item.href}
-                to={item.href}
-                className={`mobile-nav-link${active ? ' active' : ''}`}
-              >
+              <Link key={item.href} to={item.href} className={`mobile-nav-link${active ? ' active' : ''}`}>
+                <Icon size={20} />
+                <span style={{ maxWidth: '100%', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {item.name}
+                </span>
+              </Link>
+            );
+          })}
+          <div /> {/* spacer per il FAB */}
+          {mobileNav.slice(2).map(item => {
+            const Icon = item.icon;
+            const active = isActive(item.href);
+            return (
+              <Link key={item.href} to={item.href} className={`mobile-nav-link${active ? ' active' : ''}`}>
                 <Icon size={20} />
                 <span style={{ maxWidth: '100%', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {item.name}

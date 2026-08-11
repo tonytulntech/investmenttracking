@@ -946,3 +946,63 @@
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
+
+/* ============================================================
+   RESPONSIVE HELPERS (Direzione C)
+   ============================================================ */
+
+/* Griglia KPI: 4 col desktop → 2 col mobile */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 640px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
+}
+
+/* Split grafico + laterale: 2 col desktop → stack mobile */
+.split-2col {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+@media (max-width: 900px) {
+  .split-2col { grid-template-columns: 1fr; }
+}
+
+/* Contenitore scrollable per tabelle strette su mobile */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile: riduci padding globale contenuti pagina */
+@media (max-width: 640px) {
+  .main-page { padding-left: 12px !important; padding-right: 12px !important; padding-top: 16px !important; padding-bottom: 88px !important; }
+}
+
+/* Tap target ≥ 44px su mobile */
+@media (max-width: 640px) {
+  button, a.nav-link, .mobile-nav-link, .tap-target { min-height: 44px; }
+}
+
+/* Mobile FAB centrale (+ Nuova transazione) */
+.mobile-fab {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translate(-50%, 12px);
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--text-1);
+  color: var(--bg);
+  border: 4px solid var(--bg);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+  text-decoration: none;
+  transition: transform 0.15s ease;
+}
+.mobile-fab:active { transform: translate(-50%, 12px) scale(0.94); }

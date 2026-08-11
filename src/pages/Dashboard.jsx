@@ -4,8 +4,7 @@ import { TrendingUp, TrendingDown, RefreshCw, AlertTriangle, ArrowRight, Chevron
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { getTransactions, calculateRealizedPL, portfolioSnapshot } from '../services/localStorageService';
 import MissingPricesAlert from '../components/MissingPricesAlert';
-import AttentionPanel from '../components/AttentionPanel';
-import RolesRollupCard from '../components/RolesRollupCard';
+import AllocationDonut from '../components/AllocationDonut';
 import { buildAllocation } from '../services/classificationService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { calculateCashFlow } from '../services/cashFlowService';
@@ -384,11 +383,13 @@ function Dashboard() {
           {/* ── Alert titoli senza prezzo ── */}
           <MissingPricesAlert unpriced={unpriced} />
 
-          {/* ── Da controllare: scostamenti Ruoli fuori target ── */}
-          <AttentionPanel holdings={portfolio} />
+          {/* ── Allocazione per Ruolo + gap ai target (fonde alert + roll-up) ── */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <AllocationDonut holdings={portfolio} />
+          </div>
 
           {/* ── KPI Hero ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div className="kpi-grid">
             <KpiCard
               label="Portafoglio totale"
               main={eur(stats.totalValue)}
@@ -597,7 +598,7 @@ function Dashboard() {
           )}
 
           {/* ── Chart + Allocation ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+          <div className="split-2col">
 
             {/* Chart */}
             <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 14, padding: '1.25rem 1.5rem' }}>
@@ -695,11 +696,6 @@ function Dashboard() {
                 </>
               )}
             </div>
-          </div>
-
-          {/* ── Allocazione per Ruolo (roll-up patrimonio) ── */}
-          <div style={{ marginBottom: '1.5rem' }}>
-            <RolesRollupCard holdings={portfolio} />
           </div>
 
           {/* ── Top Holdings ── */}

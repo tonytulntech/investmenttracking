@@ -28,9 +28,10 @@ const C = 2 * Math.PI * R;
  * Questo evita che target di portafogli attualmente sovrappesati vengano gonfiati.
  */
 export default function AllocationDonut({ holdings = [], macroAllocation = [], subAllocation = [] }) {
-  const [hot, setHot] = useState(null);          // ruolo hoverato
-  const [selectedRole, setSelectedRole] = useState(null); // ruolo cliccato (drilldown)
+  const [hot, setHot] = useState(null);          // slice hoverato
+  const [selectedRole, setSelectedRole] = useState(null); // slice cliccato (drilldown)
   const [dim, setDim] = useState('role');        // 'role' | 'macro'
+  const [expanded, setExpanded] = useState(false); // mostra tutte le voci nella legenda
   const cfg = getPortfolioConfig();
   const portfolios = cfg.portfolios || [];
 
@@ -108,8 +109,29 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
     return { arr, unassignedValue, referenceTotal };
   }, [scopedHoldings, holdings, scope, portfolios, cfg, grandTotalAll, scopeTotal]);
 
-  const { arr: allRoles, unassignedValue, referenceTotal } = rows;
-  const unassignedPct = referenceTotal ? Math.round((unassignedValue / referenceTotal) * 1000) / 10 : 0;
+  const { arr: allRoles, unassignedValue, referenceTotal: refTotalRole } = rows;
+  const unassignedPct = refTotalRole ? Math.round((unassignedValue / refTotalRole) * 1000) / 10 : 0;
+
+  // Righe per la vista MACRO ASSET CLASS: usa macroAllocation (dalla Dashboard)
+  // e la porta nella stessa shape di allRoles per riuso del donut/legenda/drilldown.
+  const macroRows = useMemo(() => {
+    return (macroAllocation || [])
+      .filter(m => (m.percentage || 0) > 0)
+      .sort((a, b) => (b.percentage || 0) - (a.percentage || 0))
+      .map((m, i) => ({
+        name: m.name,
+        value: grandTotalAll * (m.percentage / 100),
+        currentPct: m.percentage,
+        targetPct: 0,
+        diff: 0,
+        color: m.color || PALETTE[i % PALETTE.length],
+        macroKey: m.name.trim().toLowerCase(),
+      }));
+  }, [macroAllocation, grandTotalAll]);
+
+  // Righe attive in base alla dimensione selezionata + totale di riferimento
+  const activeRows = dim === 'role' ? allRoles : macroRows;
+  const referenceTotal = dim === 'role' ? refTotalRole : grandTotalAll;
 
   // Alert scoped
   const alerts = useMemo(() => {
@@ -118,10 +140,18 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
   }, [holdings, scope]);
   const totalOff = alerts.reduce((s, a) => s + a.offBuckets.length, 0);
 
-  // Titoli del ruolo selezionato (drilldown)
+  // Titoli della slice selezionata (drilldown) — funziona per Ruolo e Macro
   const roleHoldings = useMemo(() => {
     if (!selectedRole) return [];
     const target = selectedRole.name.trim().toLowerCase();
+    if (dim === 'macro') {
+      // Per macro: filtra tutti gli holdings per macroCategory/category
+      return holdings.filter(h => {
+        const mc = (h.macroCategory || h.category || '').trim().toLowerCase();
+        return mc === target;
+      }).sort((a, b) => (b.marketValue || 0) - (a.marketValue || 0));
+    }
+    // Ruolo: filtra per bucket assegnato dentro lo scope
     return scopedHoldings.filter(h => {
       const key = h.holdingKey ?? h.ticker;
       const pid = cfg.assignments[key];
@@ -131,12 +161,12 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
       return bucket && bucket.name.trim().toLowerCase() === target;
     })
     .sort((a, b) => (b.marketValue || 0) - (a.marketValue || 0));
-  }, [selectedRole, scopedHoldings, cfg, portfolios]);
+  }, [selectedRole, scopedHoldings, cfg, portfolios, dim, holdings]);
 
   if (portfolios.length === 0) return null;
 
   // Empty state
-  if (allRoles.length === 0 && scopeTotal === 0) {
+  if (activeRows.length === 0 && scopeTotal === 0) {
     return (
       <div style={{
         background: 'var(--card-bg)', border: '1px solid var(--border)',
@@ -151,7 +181,7 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
 
   // Archi: offset cumulativo
   let acc = 0;
-  const arcs = allRoles.map(r => {
+  const arcs = activeRows.map(r => {
     const start = acc;
     acc += r.currentPct;
     return { ...r, start };
@@ -174,7 +204,7 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
           display: 'flex',
           background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden',
         }}>
-          <button onClick={() => { setDim('role'); setSelectedRole(null); }} style={{
+          <button onClick={() => { setDim('role'); setSelectedRole(null); setExpanded(false); }} style={{
             display: 'flex', alignItems: 'center', gap: 4,
             padding: '4px 10px', border: 'none', cursor: 'pointer',
             fontSize: '0.7rem', fontWeight: 600,
@@ -183,7 +213,7 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
           }}>
             <Layers size={11} /> Ruolo
           </button>
-          <button onClick={() => { setDim('macro'); setSelectedRole(null); }} style={{
+          <button onClick={() => { setDim('macro'); setSelectedRole(null); setExpanded(false); }} style={{
             display: 'flex', alignItems: 'center', gap: 4,
             padding: '4px 10px', border: 'none', cursor: 'pointer',
             fontSize: '0.7rem', fontWeight: 600,
@@ -220,26 +250,20 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
         </Link>
       </div>
 
-      {/* Vista MACRO ASSET CLASS */}
-      {dim === 'macro' && (
-        <MacroClassView macro={macroAllocation} sub={subAllocation} total={holdings.reduce((s, h) => s + (h.marketValue || 0), 0)} />
-      )}
-
       {/* Selettore Portafogli (pill) — solo in vista Ruolo */}
       {dim === 'role' && (
       <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
-        <PillButton active={scope === 'all'} onClick={() => { setScope('all'); setSelectedRole(null); }}>
+        <PillButton active={scope === 'all'} onClick={() => { setScope('all'); setSelectedRole(null); setExpanded(false); }}>
           Tutti
         </PillButton>
         {portfolios.map(p => (
-          <PillButton key={p.id} active={scope === p.id} onClick={() => { setScope(p.id); setSelectedRole(null); }}>
+          <PillButton key={p.id} active={scope === p.id} onClick={() => { setScope(p.id); setSelectedRole(null); setExpanded(false); }}>
             <span style={{ marginRight: 4 }}>{p.emoji}</span>{p.name}
           </PillButton>
         ))}
       </div>
       )}
 
-      {dim === 'role' && (<>
       {/* Body: donut + legenda */}
       <div className="donut-body" style={{
         display: 'grid', gap: '1.5rem', alignItems: 'center',
@@ -276,10 +300,10 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
             {hot != null ? (
               <>
                 <span style={{ ...MONO, fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-1)' }}>
-                  {allRoles[hot].currentPct}%
+                  {activeRows[hot].currentPct}%
                 </span>
                 <span style={{ fontSize: '0.62rem', color: 'var(--text-3)', textAlign: 'center', maxWidth: 100, lineHeight: 1.2, marginTop: 2 }}>
-                  {allRoles[hot].name}
+                  {activeRows[hot].name}
                 </span>
               </>
             ) : (
@@ -288,7 +312,7 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
                   {eur0(referenceTotal)}
                 </span>
                 <span style={{ fontSize: '0.62rem', color: 'var(--text-3)', marginTop: 2 }}>
-                  {allRoles.length} ruoli
+                  {activeRows.length} {dim === 'role' ? 'ruoli' : 'classi'}
                 </span>
               </>
             )}
@@ -297,7 +321,7 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
 
         {/* Legend */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          {allRoles.slice(0, 6).map((r, i) => {
+          {(expanded ? activeRows : activeRows.slice(0, 6)).map((r, i) => {
             const dim = hot !== null && hot !== i;
             const hasTarget = r.targetPct > 0;
             const off = hasTarget && Math.abs(r.diff) > 3;
@@ -346,10 +370,18 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
               </button>
             );
           })}
-          {allRoles.length > 6 && (
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-3)', paddingLeft: 18, marginTop: 2 }}>
-              + altri {allRoles.length - 6} ruoli · clicca un ruolo per il dettaglio
-            </div>
+          {activeRows.length > 6 && (
+            <button
+              onClick={() => setExpanded(e => !e)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: '4px 0 0 18px', fontSize: '0.68rem',
+                color: 'var(--accent)', fontWeight: 600, textAlign: 'left',
+              }}
+            >
+              {expanded ? 'Mostra meno' : `+ altri ${activeRows.length - 6} ${dim === 'role' ? 'ruoli' : 'classi'}`}
+            </button>
           )}
         </div>
       </div>
@@ -431,92 +463,12 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
           )}
         </div>
       )}
-      </>)}
 
       <style>{`
         @media (max-width: 640px) {
           .donut-body { grid-template-columns: 1fr !important; }
         }
       `}</style>
-    </div>
-  );
-}
-
-// ── MacroClassView ──────────────────────────────────────────────────────────
-// Vista Macro Asset Class: barra stacked grande + card con % + euro,
-// e opzionale lista sotto-categorie.
-function MacroClassView({ macro = [], sub = [], total = 0 }) {
-  const items = macro.filter(m => (m.percentage || 0) > 0);
-  const subs  = sub.filter(m => (m.percentage || 0) > 0).slice(0, 12);
-  if (items.length === 0) {
-    return (
-      <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-3)', fontSize: '0.82rem' }}>
-        Nessuna macro allocazione disponibile.
-      </div>
-    );
-  }
-  return (
-    <div>
-      {/* Stacked bar grande */}
-      <div style={{
-        display: 'flex', height: 30, borderRadius: 8, overflow: 'hidden',
-        border: '1px solid var(--border)', marginBottom: 14,
-      }}>
-        {items.map((m, i) => (
-          <div key={i} title={`${m.name}: ${m.percentage}%`}
-            style={{ flex: m.percentage, background: m.color, minWidth: 2 }}
-          />
-        ))}
-      </div>
-
-      {/* Card per macro-classe */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 8,
-        marginBottom: subs.length > 0 ? 16 : 0,
-      }}>
-        {items.map((m, i) => (
-          <div key={i} style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '8px 10px', background: 'var(--surface-2)',
-            border: '1px solid var(--border)', borderRadius: 8,
-          }}>
-            <span style={{ width: 10, height: 10, borderRadius: 2, background: m.color, flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {m.name}
-              </div>
-              <div style={{ ...MONO, fontSize: '0.66rem', color: 'var(--text-3)' }}>
-                {eur0((total || 0) * (m.percentage / 100))}
-              </div>
-            </div>
-            <span style={{ ...MONO, fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-1)' }}>
-              {m.percentage}%
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Sotto-categorie */}
-      {subs.length > 0 && (
-        <div>
-          <div style={{ fontSize: '0.62rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-            Sotto-categorie
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {subs.map((s, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: s.color, flexShrink: 0 }} />
-                <span style={{ flex: 1, fontSize: '0.75rem', color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {s.name}
-                </span>
-                <span style={{ ...MONO, fontSize: '0.72rem', color: 'var(--text-1)', fontWeight: 600, minWidth: 46, textAlign: 'right' }}>
-                  {s.percentage}%
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, ArrowRight, Layers, X, PieChart } from 'lucide-react';
-import { getPortfolioAlerts, getPortfolioConfig } from '../services/portfolioConfigService';
+import { getPortfolioAlerts, getPortfolioConfig, MACRO_CATEGORIES } from '../services/portfolioConfigService';
 import { buildAllocation } from '../services/classificationService';
 
 const MONO = { fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' };
@@ -114,24 +114,39 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
   const unassignedPct = refTotalRole ? Math.round((unassignedValue / refTotalRole) * 1000) / 10 : 0;
 
   // Righe per la vista MACRO ASSET CLASS: calcola l'allocazione sugli holdings
-  // SCOPED (filtrati dal selettore Portafogli) usando buildAllocation, poi porta
-  // nella stessa shape di allRoles per usare lo stesso donut/legenda/drilldown.
-  // Forza la stessa PALETTE della vista Ruolo per coerenza visiva.
+  // SCOPED e la porta nella stessa shape di allRoles per riuso del donut.
+  // Target macro:
+  //  - scope = 'all'          → usa config.globalTarget (impostabile in Portafogli)
+  //  - scope = singolo port.  → usa port.targetAllocation se presente
   const macroRows = useMemo(() => {
     const alloc = buildAllocation(scopedHoldings);
+    const targetSource = scope === 'all'
+      ? (cfg.globalTarget || null)
+      : (portfolios.find(p => p.id === scope)?.targetAllocation || null);
+
+    // Lookup: label italiana ("Azionario") -> key config ("equity")
+    const labelToKey = Object.fromEntries(MACRO_CATEGORIES.map(c => [c.label.toLowerCase(), c.key]));
+
     return (alloc.macro || [])
       .filter(m => (m.percentage || 0) > 0)
       .sort((a, b) => (b.percentage || 0) - (a.percentage || 0))
-      .map((m, i) => ({
-        name: m.name,
-        value: m.value,
-        currentPct: m.percentage,
-        targetPct: 0,
-        diff: 0,
-        color: PALETTE[i % PALETTE.length],   // stessa palette della vista Ruolo
-        macroKey: (m.name || '').trim().toLowerCase(),
-      }));
-  }, [scopedHoldings]);
+      .map((m, i) => {
+        const key = labelToKey[(m.name || '').trim().toLowerCase()];
+        const targetPct = targetSource && key != null ? Number(targetSource[key] || 0) : 0;
+        const diff = Math.round((m.percentage - targetPct) * 10) / 10;
+        return {
+          name: m.name,
+          value: m.value,
+          currentPct: m.percentage,
+          targetPct,
+          diff,
+          color: PALETTE[i % PALETTE.length],
+          macroKey: (m.name || '').trim().toLowerCase(),
+        };
+      });
+  }, [scopedHoldings, scope, cfg.globalTarget, portfolios]);
+
+  const macroHasTarget = macroRows.some(r => r.targetPct > 0);
 
   // Righe attive in base alla dimensione selezionata + totale di riferimento
   const activeRows = dim === 'role' ? allRoles : macroRows;
@@ -245,6 +260,18 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
           }}>
             {unassignedPct}% non assegnato
           </span>
+        )}
+        {dim === 'macro' && !macroHasTarget && (
+          <Link to="/portfolios" style={{
+            fontSize: '0.68rem', color: 'var(--accent)', textDecoration: 'none', fontWeight: 600,
+            background: 'var(--accent-weak)', padding: '1px 7px', borderRadius: 99,
+          }}
+          title={scope === 'all'
+            ? 'Imposta il target macro globale (Azionario/Obbligazionario/…) in Portafogli'
+            : 'Imposta il target macro di questo portafoglio in Portafogli'}
+          >
+            + imposta target macro
+          </Link>
         )}
         <Link to="/rebalancing" style={{
           marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4,

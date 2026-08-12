@@ -6,7 +6,7 @@ import { getTransactions, calculateRealizedPL, portfolioSnapshot } from '../serv
 import MissingPricesAlert from '../components/MissingPricesAlert';
 import AllocationDonut from '../components/AllocationDonut';
 import ProjectionFanChart from '../components/ProjectionFanChart';
-import DividendGoalCard from '../components/DividendGoalCard';
+import DividendStatsCard from '../components/DividendStatsCard';
 import { buildAllocation } from '../services/classificationService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { calculateCashFlow } from '../services/cashFlowService';
@@ -615,9 +615,9 @@ function Dashboard() {
             />
           </div>
 
-          {/* ── Dividend Goal (SummaryCard) ── */}
+          {/* ── Dividendi (stile stats card) ── */}
           <div style={{ marginBottom: '1.5rem' }}>
-            <DividendGoalCard holdings={portfolio} prices={priceCache} />
+            <DividendStatsCard holdings={portfolio} prices={priceCache} />
           </div>
 
           {/* ── Top Holdings ── */}

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, ArrowRight, Layers, X, PieChart } from 'lucide-react';
 import { getPortfolioAlerts, getPortfolioConfig } from '../services/portfolioConfigService';
+import { buildAllocation } from '../services/classificationService';
 
 const MONO = { fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' };
 const eur0 = (n) => '€' + Math.abs(Math.round(n)).toLocaleString('it-IT');
@@ -112,26 +113,29 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
   const { arr: allRoles, unassignedValue, referenceTotal: refTotalRole } = rows;
   const unassignedPct = refTotalRole ? Math.round((unassignedValue / refTotalRole) * 1000) / 10 : 0;
 
-  // Righe per la vista MACRO ASSET CLASS: usa macroAllocation (dalla Dashboard)
-  // e la porta nella stessa shape di allRoles per riuso del donut/legenda/drilldown.
+  // Righe per la vista MACRO ASSET CLASS: calcola l'allocazione sugli holdings
+  // SCOPED (filtrati dal selettore Portafogli) usando buildAllocation, poi porta
+  // nella stessa shape di allRoles per usare lo stesso donut/legenda/drilldown.
+  // Forza la stessa PALETTE della vista Ruolo per coerenza visiva.
   const macroRows = useMemo(() => {
-    return (macroAllocation || [])
+    const alloc = buildAllocation(scopedHoldings);
+    return (alloc.macro || [])
       .filter(m => (m.percentage || 0) > 0)
       .sort((a, b) => (b.percentage || 0) - (a.percentage || 0))
       .map((m, i) => ({
         name: m.name,
-        value: grandTotalAll * (m.percentage / 100),
+        value: m.value,
         currentPct: m.percentage,
         targetPct: 0,
         diff: 0,
-        color: m.color || PALETTE[i % PALETTE.length],
-        macroKey: m.name.trim().toLowerCase(),
+        color: PALETTE[i % PALETTE.length],   // stessa palette della vista Ruolo
+        macroKey: (m.name || '').trim().toLowerCase(),
       }));
-  }, [macroAllocation, grandTotalAll]);
+  }, [scopedHoldings]);
 
   // Righe attive in base alla dimensione selezionata + totale di riferimento
   const activeRows = dim === 'role' ? allRoles : macroRows;
-  const referenceTotal = dim === 'role' ? refTotalRole : grandTotalAll;
+  const referenceTotal = dim === 'role' ? refTotalRole : scopeTotal;
 
   // Alert scoped
   const alerts = useMemo(() => {
@@ -145,8 +149,8 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
     if (!selectedRole) return [];
     const target = selectedRole.name.trim().toLowerCase();
     if (dim === 'macro') {
-      // Per macro: filtra tutti gli holdings per macroCategory/category
-      return holdings.filter(h => {
+      // Per macro: filtra gli holdings SCOPED per macroCategory/category
+      return scopedHoldings.filter(h => {
         const mc = (h.macroCategory || h.category || '').trim().toLowerCase();
         return mc === target;
       }).sort((a, b) => (b.marketValue || 0) - (a.marketValue || 0));
@@ -161,7 +165,7 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
       return bucket && bucket.name.trim().toLowerCase() === target;
     })
     .sort((a, b) => (b.marketValue || 0) - (a.marketValue || 0));
-  }, [selectedRole, scopedHoldings, cfg, portfolios, dim, holdings]);
+  }, [selectedRole, scopedHoldings, cfg, portfolios, dim]);
 
   if (portfolios.length === 0) return null;
 
@@ -250,8 +254,7 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
         </Link>
       </div>
 
-      {/* Selettore Portafogli (pill) — solo in vista Ruolo */}
-      {dim === 'role' && (
+      {/* Selettore Portafogli (pill) — attivo in entrambe le viste */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
         <PillButton active={scope === 'all'} onClick={() => { setScope('all'); setSelectedRole(null); setExpanded(false); }}>
           Tutti
@@ -262,7 +265,6 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
           </PillButton>
         ))}
       </div>
-      )}
 
       {/* Body: donut + legenda */}
       <div className="donut-body" style={{

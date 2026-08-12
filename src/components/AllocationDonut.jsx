@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, ArrowRight, Layers, X, PieChart } from 'lucide-react';
 import { getPortfolioAlerts, getPortfolioConfig, MACRO_CATEGORIES } from '../services/portfolioConfigService';
-import { buildAllocation } from '../services/classificationService';
+import { buildAllocation, classifyHolding, VEHICLE_LABELS } from '../services/classificationService';
 
 const MONO = { fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' };
 const eur0 = (n) => '€' + Math.abs(Math.round(n)).toLocaleString('it-IT');
@@ -446,6 +446,44 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
               <X size={14} />
             </button>
           </div>
+
+          {/* Breakdown per Veicolo (solo in vista Macro) */}
+          {dim === 'macro' && roleHoldings.length > 0 && (() => {
+            const byVehicle = {};
+            let tot = 0;
+            roleHoldings.forEach(h => {
+              const c = classifyHolding(h);
+              const v = c.vehicle || 'other';
+              const val = h.marketValue || 0;
+              byVehicle[v] = (byVehicle[v] || 0) + val;
+              tot += val;
+            });
+            const rows = Object.entries(byVehicle)
+              .map(([v, val]) => ({ vehicle: v, value: val, pct: tot ? +(val / tot * 100).toFixed(1) : 0 }))
+              .sort((a, b) => b.value - a.value);
+            return (
+              <div style={{
+                display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10,
+                paddingBottom: 10, borderBottom: '1px solid var(--border)',
+              }}>
+                <span style={{ fontSize: '0.62rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: 4, alignSelf: 'center' }}>
+                  Composizione per veicolo:
+                </span>
+                {rows.map(r => (
+                  <span key={r.vehicle} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    padding: '2px 8px', borderRadius: 99,
+                    background: 'var(--card-bg)', border: '1px solid var(--border)',
+                    fontSize: '0.7rem', color: 'var(--text-1)',
+                  }}>
+                    <strong style={{ fontWeight: 600 }}>{VEHICLE_LABELS[r.vehicle] || r.vehicle}</strong>
+                    <span style={{ ...MONO, color: 'var(--text-2)' }}>{r.pct}%</span>
+                    <span style={{ ...MONO, color: 'var(--text-3)', fontSize: '0.65rem' }}>{eur0(r.value)}</span>
+                  </span>
+                ))}
+              </div>
+            );
+          })()}
 
           {roleHoldings.length === 0 ? (
             <div style={{ fontSize: '0.75rem', color: 'var(--text-3)' }}>

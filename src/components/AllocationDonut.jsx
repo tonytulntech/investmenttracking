@@ -164,10 +164,12 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
     if (!selectedRole) return [];
     const target = selectedRole.name.trim().toLowerCase();
     if (dim === 'macro') {
-      // Per macro: filtra gli holdings SCOPED per macroCategory/category
+      // Per macro: usa l'asset class DEDOTTA da classifyHolding (macroLabel),
+      // non h.macroCategory che contiene il VEICOLO ("ETF"/"Azioni"). Cosi'
+      // gli ETF azionari finiscono in "Azioni" e non spariscono dal drilldown.
       return scopedHoldings.filter(h => {
-        const mc = (h.macroCategory || h.category || '').trim().toLowerCase();
-        return mc === target;
+        const c = classifyHolding(h);
+        return (c.macroLabel || '').trim().toLowerCase() === target;
       }).sort((a, b) => (b.marketValue || 0) - (a.marketValue || 0));
     }
     // Ruolo: filtra per bucket assegnato dentro lo scope

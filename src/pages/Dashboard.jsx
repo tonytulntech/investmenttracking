@@ -6,6 +6,7 @@ import { getTransactions, calculateRealizedPL, portfolioSnapshot } from '../serv
 import MissingPricesAlert from '../components/MissingPricesAlert';
 import AllocationDonut from '../components/AllocationDonut';
 import ProjectionFanChart from '../components/ProjectionFanChart';
+import DividendGoalCard from '../components/DividendGoalCard';
 import { buildAllocation } from '../services/classificationService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { calculateCashFlow } from '../services/cashFlowService';
@@ -612,6 +613,11 @@ function Dashboard() {
               currentTotalValue={stats.totalValue}
               currentGained={stats.totalPL}
             />
+          </div>
+
+          {/* ── Dividend Goal (SummaryCard) ── */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <DividendGoalCard holdings={portfolio} prices={priceCache} />
           </div>
 
           {/* ── Top Holdings ── */}

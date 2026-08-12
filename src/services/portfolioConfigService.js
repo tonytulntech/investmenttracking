@@ -11,18 +11,19 @@ const KEY = 'inv_portfolio_config_v1';
 export const MACRO_CATEGORIES = [
   { key: 'equity',     label: 'Azionario',      color: '#0A84FF', emoji: '📈' },
   { key: 'bond',       label: 'Obbligazionario', color: '#30D158', emoji: '🏦' },
-  { key: 'commodity',  label: 'Materie prime',   color: '#FF9F0A', emoji: '🥇' },
+  { key: 'gold',       label: 'Oro',             color: '#FFD60A', emoji: '🥇' },
+  { key: 'commodity',  label: 'Materie prime',   color: '#FF9F0A', emoji: '🛢️' },
   { key: 'realEstate', label: 'Immobiliare',     color: '#BF5AF2', emoji: '🏠' },
   { key: 'crypto',     label: 'Crypto',          color: '#FF453A', emoji: '₿'  },
   { key: 'cash',       label: 'Liquidità',       color: '#32ADE6', emoji: '💵' },
 ];
 
 export const PRESET_TARGETS = [
-  { name: 'Crescita 100%',    icon: '🚀', target: { equity: 100, bond: 0,  commodity: 0, realEstate: 0, crypto: 0, cash: 0 } },
-  { name: 'Crescita 80/20',   icon: '📈', target: { equity: 80,  bond: 20, commodity: 0, realEstate: 0, crypto: 0, cash: 0 } },
-  { name: 'Bilanciato 60/40', icon: '⚖️', target: { equity: 60,  bond: 40, commodity: 0, realEstate: 0, crypto: 0, cash: 0 } },
-  { name: 'Difensivo',        icon: '🛡', target: { equity: 40,  bond: 50, commodity: 10, realEstate: 0, crypto: 0, cash: 0 } },
-  { name: 'All Weather',      icon: '🌤', target: { equity: 30,  bond: 55, commodity: 10, realEstate: 0, crypto: 0, cash: 5 } },
+  { name: 'Crescita 100%',    icon: '🚀', target: { equity: 100, bond: 0,  gold: 0,  commodity: 0, realEstate: 0, crypto: 0, cash: 0 } },
+  { name: 'Crescita 80/20',   icon: '📈', target: { equity: 80,  bond: 20, gold: 0,  commodity: 0, realEstate: 0, crypto: 0, cash: 0 } },
+  { name: 'Bilanciato 60/40', icon: '⚖️', target: { equity: 60,  bond: 40, gold: 0,  commodity: 0, realEstate: 0, crypto: 0, cash: 0 } },
+  { name: 'Difensivo',        icon: '🛡', target: { equity: 40,  bond: 50, gold: 5,  commodity: 5,  realEstate: 0, crypto: 0, cash: 0 } },
+  { name: 'All Weather',      icon: '🌤', target: { equity: 30,  bond: 55, gold: 7,  commodity: 3,  realEstate: 0, crypto: 0, cash: 5 } },
 ];
 
 // Ruoli pre-impostati (bucket) suggeriti, raggruppati per tipo di portafoglio.
@@ -554,8 +555,10 @@ export function calcMacroAllocation(holdingsWithValues, getProfile) {
   const total = holdingsWithValues.reduce((s, h) => s + h.marketValue, 0);
   if (!total) return null;
 
-  const buckets = { equity: 0, bond: 0, commodity: 0, realEstate: 0, crypto: 0, cash: 0 };
+  const buckets = { equity: 0, bond: 0, gold: 0, commodity: 0, realEstate: 0, crypto: 0, cash: 0 };
   let uncovered = 0;
+
+  const isGoldTitle = (h) => /\b(gold|oro|xau)\b/i.test(`${h.name || ''} ${h.ticker || ''}`);
 
   holdingsWithValues.forEach(h => {
     const profile = getProfile(h.ticker);
@@ -568,7 +571,7 @@ export function calcMacroAllocation(holdingsWithValues, getProfile) {
       case 'real-estate':  buckets.realEstate += v; break;
       case 'bond':         buckets.bond       += v; break;
       case 'money-market': buckets.cash       += v; break;
-      case 'commodity':    buckets.commodity  += v; break;
+      case 'commodity':    if (isGoldTitle(h)) buckets.gold += v; else buckets.commodity += v; break;
       case 'crypto':       buckets.crypto     += v; break;
       case 'multi-asset': {
         const ep = (profile.equityPct ?? 50) / 100;

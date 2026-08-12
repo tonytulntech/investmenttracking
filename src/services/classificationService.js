@@ -19,6 +19,7 @@ import { getCompositionProfile, getSubCategory, MICRO_SUB_CATEGORIES } from '../
 const MACRO_LABELS = {
   equity:     'Azioni',
   bond:       'Obbligazioni',
+  gold:       'Oro',
   commodity:  'Materie Prime',
   realEstate: 'Immobiliare',
   crypto:     'Crypto',
@@ -28,6 +29,7 @@ const MACRO_LABELS = {
 const MACRO_COLORS = {
   equity:     '#0A84FF',
   bond:       '#30D158',
+  gold:       '#FFD60A',
   commodity:  '#FF9F0A',
   realEstate: '#BF5AF2',
   crypto:     '#FF453A',
@@ -51,8 +53,10 @@ export function guessAssetClassFromName(name = '', ticker = '') {
 
   // Obbligazionari (check per primo — spesso hanno "bond" nel nome)
   if (/\b(bond|treasur|gilt|bund|btp|govern|corporate|aggregate|high[\s-]?yield|inflat|linker|tips|senior loan|floating rate|munis?)\b/.test(s)) return 'bond';
-  // Materie prime
-  if (/\b(gold|silver|physical gold|physical silver|platinum|palladium|copper|oro|argento|rame|commodit|energy|crude|oil|natural gas|agricultur|wheat|corn)\b/.test(s)) return 'commodity';
+  // Oro (classe a sé, safe haven — separato da materie prime speculative)
+  if (/\b(gold|oro|physical gold|xau|xauusd)\b/.test(s)) return 'gold';
+  // Materie prime (metalli industriali, energia, agricoltura — non oro)
+  if (/\b(silver|physical silver|platinum|palladium|copper|argento|rame|commodit|energy|crude|oil|natural gas|agricultur|wheat|corn)\b/.test(s)) return 'commodity';
   // Immobiliare
   if (/\b(real estate|reit|immobil|property|home)\b/.test(s)) return 'realEstate';
   // Crypto
@@ -102,13 +106,19 @@ export function classifyHolding(holding = {}) {
     const microKey = getSubCategory(ticker);
     const meta = MICRO_SUB_CATEGORIES[microKey];
     if (meta && meta.macro) {
+      // Se la classe è "commodity" ma il titolo è oro, promuovi a 'gold' (classe a sé)
+      let macroKey = meta.macro;
+      if (macroKey === 'commodity') {
+        const g = guessAssetClassFromName(name, ticker);
+        if (g === 'gold') macroKey = 'gold';
+      }
       return {
         microKey,
         microLabel: meta.label,
-        macroKey:   meta.macro,
-        macroLabel: MACRO_LABELS[meta.macro] || 'Altro',
+        macroKey,
+        macroLabel: MACRO_LABELS[macroKey] || 'Altro',
         color:      meta.color,
-        macroColor: MACRO_COLORS[meta.macro] || MACRO_COLORS.unknown,
+        macroColor: MACRO_COLORS[macroKey] || MACRO_COLORS.unknown,
         derived: true,
         vehicle,
       };

@@ -99,7 +99,7 @@ export default function DividendStatsCard({ holdings = [], prices = {} }) {
   const upcoming = useMemo(() => nextDividend(positions), [positions]);
 
   const annualNet = kpis.annualNet || 0;
-  const prevYearNet = (calendarPrev || []).reduce((s, m) => s + (m.net || 0), 0);
+  const prevYearNet = (calendarPrev || []).reduce((s, m) => s + (m.totalNet || 0), 0);
   const changeYoy = annualNet - prevYearNet;
   const changePct = prevYearNet > 0 ? (changeYoy / prevYearNet) * 100 : null;
 
@@ -125,7 +125,7 @@ export default function DividendStatsCard({ holdings = [], prices = {} }) {
     );
   }
 
-  const maxMonth = Math.max(1, ...calendarThis.map(m => m.net || 0));
+  const maxMonth = Math.max(1, ...calendarThis.map(m => m.totalNet || 0));
 
   return (
     <div style={{
@@ -213,7 +213,7 @@ export default function DividendStatsCard({ holdings = [], prices = {} }) {
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <div style={{ ...MONO, fontSize: '1rem', fontWeight: 700, color: GREEN }}>
-                {eur2(upcoming.net || 0)}
+                {eur2(upcoming.netAmount || 0)}
               </div>
               <div style={{ fontSize: '0.65rem', color: 'var(--text-3)' }}>netto</div>
             </div>
@@ -232,12 +232,13 @@ export default function DividendStatsCard({ holdings = [], prices = {} }) {
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 60 }}>
             {calendarThis.map((m, i) => {
-              const h = m.net > 0 ? Math.max(4, (m.net / maxMonth) * 100) : 0;
+              const v = m.totalNet || 0;
+              const h = v > 0 ? Math.max(4, (v / maxMonth) * 100) : 0;
               return (
                 <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%' }}>
                   <div style={{ flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end' }}>
                     <div
-                      title={`${MONTH_LABELS[i]}: ${eur2(m.net || 0)}`}
+                      title={`${MONTH_LABELS[i]}: ${eur2(v)}`}
                       style={{
                         width: '100%', height: `${h}%`,
                         background: h > 0 ? GREEN : 'var(--surface-2)',

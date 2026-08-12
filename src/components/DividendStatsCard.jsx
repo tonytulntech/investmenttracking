@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Coins, TrendingUp, TrendingDown, ArrowRight, Edit3, Check, X, Award } from 'lucide-react';
 import {
   getAllDGMetadata, buildDGPosition, portfolioKPIs,
-  dividendCalendar, nextDividend, marketValue,
+  dividendCalendar, marketValue,
 } from '../services/dividendGrowthService';
 import { getStockDefaults } from '../data/stockDividendData';
 import { getDividendInfo } from '../data/dividendData';
@@ -96,7 +96,29 @@ export default function DividendStatsCard({ holdings = [], prices = {} }) {
   const currentYear = new Date().getFullYear();
   const calendarThis = useMemo(() => dividendCalendar(positions, currentYear), [positions, currentYear]);
   const calendarPrev = useMemo(() => dividendCalendar(positions, currentYear - 1), [positions, currentYear]);
-  const upcoming = useMemo(() => nextDividend(positions), [positions]);
+  // Prossimo mese con incassi: uso il calendario invece di nextDividend perche'
+  // vogliamo il TOTALE del mese e la LISTA dei ticker, non solo il primo evento.
+  const upcoming = useMemo(() => {
+    const now = new Date();
+    const cm = now.getMonth() + 1;
+    // Cerca dal mese corrente fino a fine anno, poi wrap sull'anno successivo
+    const search = [
+      ...calendarThis.slice(cm - 1),                                 // da mese corrente
+      ...dividendCalendar(positions, currentYear + 1, 0.26).slice(0, cm - 1),
+    ];
+    const found = search.find(m => (m.totalNet || 0) > 0);
+    if (!found) return null;
+    // Dettaglio per ticker: aggrega gli events del mese
+    const byTicker = new Map();
+    (found.events || []).forEach(e => {
+      const t = e.pos?.ticker || '—';
+      const cur = byTicker.get(t) || { ticker: t, net: 0 };
+      cur.net += (e.net || 0);
+      byTicker.set(t, cur);
+    });
+    const tickers = Array.from(byTicker.values()).sort((a, b) => b.net - a.net);
+    return { month: found.month, totalNet: found.totalNet, tickers };
+  }, [calendarThis, positions, currentYear]);
 
   const annualNet = kpis.annualNet || 0;
   const prevYearNet = (calendarPrev || []).reduce((s, m) => s + (m.totalNet || 0), 0);
@@ -196,27 +218,45 @@ export default function DividendStatsCard({ holdings = [], prices = {} }) {
           />
         </div>
 
-        {/* Prossimo dividendo (rank-style highlight) */}
+        {/* Prossimo mese con incassi: totale + lista ticker */}
         {upcoming && (
           <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '10px 12px', borderRadius: 10,
             background: 'var(--surface-2)', border: '1px solid var(--border)',
           }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                Prossimo dividendo
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: upcoming.tickers.length > 0 ? 8 : 0 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Prossimo mese con incassi
+                </div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)', marginTop: 2, textTransform: 'capitalize' }}>
+                  {new Date(currentYear, upcoming.month - 1).toLocaleString('it-IT', { month: 'long' })}
+                  <span style={{ color: 'var(--text-3)', fontWeight: 400, fontSize: '0.72rem', marginLeft: 6 }}>
+                    · {upcoming.tickers.length} {upcoming.tickers.length === 1 ? 'incasso' : 'incassi'}
+                  </span>
+                </div>
               </div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {upcoming.ticker} <span style={{ color: 'var(--text-3)', fontWeight: 400, fontSize: '0.75rem' }}>· {upcoming.month != null ? new Date(currentYear, upcoming.month - 1).toLocaleString('it-IT', { month: 'long' }) : ''}</span>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ ...MONO, fontSize: '1rem', fontWeight: 700, color: GREEN }}>
+                  {eur2(upcoming.totalNet || 0)}
+                </div>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-3)' }}>netto tot.</div>
               </div>
             </div>
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ ...MONO, fontSize: '1rem', fontWeight: 700, color: GREEN }}>
-                {eur2(upcoming.netAmount || 0)}
+            {upcoming.tickers.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {upcoming.tickers.map(t => (
+                  <span key={t.ticker} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    background: 'var(--card-bg)', border: '1px solid var(--border)',
+                    padding: '2px 7px', borderRadius: 99, fontSize: '0.68rem',
+                  }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-1)' }}>{t.ticker}</span>
+                    <span style={{ ...MONO, color: 'var(--text-2)' }}>{eur2(t.net)}</span>
+                  </span>
+                ))}
               </div>
-              <div style={{ fontSize: '0.65rem', color: 'var(--text-3)' }}>netto</div>
-            </div>
+            )}
           </div>
         )}
 

@@ -425,6 +425,8 @@ function PortfolioPerformance() {
   const [heatmapValueMode, setHeatmapValueMode] = useState('percent'); // 'percent' | 'euro'
   const [heatmapSort, setHeatmapSort] = useState({ monthKey: null, dir: 'desc' }); // click su header mese
   const [excludedMonths, setExcludedMonths] = useState(new Set()); // mesi esclusi dalle statistiche
+  const [heatCellTip, setHeatCellTip] = useState(null);
+  const heatCellTimer = useRef(null);
   const [analysisTab, setAnalysisTab] = useState('contribution');
   const [tickerTooltip, setTickerTooltip] = useState(null); // popup ticker
   const [tooltipShowNative, setTooltipShowNative] = useState(false);
@@ -2270,6 +2272,50 @@ function PortfolioPerformance() {
         };
         const sortIndicator = (monthKey) => heatmapSort.monthKey === monthKey ? (heatmapSort.dir === 'desc' ? ' ▼' : ' ▲') : '';
 
+        const showCellTip = (e, label, monthKey, index, tickerFilter) => {
+          if (heatCellTimer.current) clearTimeout(heatCellTimer.current);
+          if (index === 0) return;
+          const prevKey = monthlyData[index - 1].monthKey;
+          const tvCur = monthlyTickerValues[monthKey] || {};
+          const tvPrev = monthlyTickerValues[prevKey] || {};
+          const tickers = Object.keys(tvCur).filter(t => tvCur[t] > 0 && tickerFilter(t));
+          const [year, monthNum] = monthKey.split('-');
+          const txByTicker = {};
+          transactions.forEach(tx => {
+            if (!tx.date || !tx.ticker) return;
+            const d = new Date(tx.date);
+            if (d.getFullYear() !== parseInt(year) || d.getMonth() + 1 !== parseInt(monthNum)) return;
+            if (!tickerFilter(tx.ticker)) return;
+            if (!txByTicker[tx.ticker]) txByTicker[tx.ticker] = 0;
+            const amt = tx.quantity * tx.price + (tx.commission || 0) * (tx.type === 'buy' ? 1 : -1);
+            txByTicker[tx.ticker] += tx.type === 'buy' ? amt : -amt;
+          });
+          const rows = tickers.map(t => {
+            const cur = tvCur[t] || 0;
+            const prev = tvPrev[t] || 0;
+            const net = txByTicker[t] || 0;
+            const base = prev + net > 0 ? prev + net : (prev > 0 ? prev : null);
+            const gainEur = base != null ? cur - (prev + net) : 0;
+            const perfPct = base != null ? (gainEur / base) * 100 : null;
+            const txInfo = transactions.find(x => x.ticker === t);
+            return { ticker: t, name: txInfo?.name || t, gainEur, perfPct };
+          }).sort((a, b) => (b.gainEur || 0) - (a.gainEur || 0));
+          const rect = e.currentTarget.getBoundingClientRect();
+          setHeatCellTip({ label, monthKey, rows, anchorLeft: rect.left + rect.width / 2, anchorTop: rect.top });
+        };
+        const hideCellTip = () => { heatCellTimer.current = setTimeout(() => setHeatCellTip(null), 200); };
+
+        const _clCache = {};
+        const clOf = (ticker) => {
+          if (!_clCache[ticker]) {
+            const tx = transactions.find(x => x.ticker === ticker);
+            _clCache[ticker] = tx ? classifyHolding(tx) : { macroLabel: 'Altro', microLabel: 'Altro' };
+          }
+          return _clCache[ticker];
+        };
+        const tickerMacro = (t) => clOf(t).macroLabel || 'Altro';
+        const tickerMicro = (t) => { const cl = clOf(t); return (cl.microLabel && !cl.microLabel.includes('da mappare')) ? cl.microLabel : (cl.macroLabel || 'Altro'); };
+
         return (
         <div style={{ background: 'var(--card-bg)', borderRadius: 16, padding: '20px 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
@@ -2400,7 +2446,7 @@ function PortfolioPerformance() {
                           const r = calcMonthPerf(values, index, (tx) => (trm[tx.ticker] || 'Non assegnato') === role);
                           if (r === null) return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', color: 'var(--text-3)' }}>-</td>;
                           const s = getHeatmapStyle(r.perfPct);
-                          return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', background: s.bg, color: s.text, fontWeight: s.fw, ...MONO }}>{fmtCell(r)}</td>;
+                          return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', background: s.bg, color: s.text, fontWeight: s.fw, cursor: 'default', ...MONO }} onMouseEnter={(ev) => showCellTip(ev, role, month.monthKey, index, (t) => (trm[t] || 'Non assegnato') === role)} onMouseLeave={hideCellTip}>{fmtCell(r)}</td>;
                         })}
                       </tr>
                     );
@@ -2454,7 +2500,7 @@ function PortfolioPerformance() {
                           const r = calcMonthPerf(values, index, (tx) => getTxMacro(tx) === category);
                           if (r === null) return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', color: 'var(--text-3)' }}>-</td>;
                           const s = getHeatmapStyle(r.perfPct);
-                          return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', background: s.bg, color: s.text, fontWeight: s.fw, ...MONO }}>{fmtCell(r)}</td>;
+                          return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', background: s.bg, color: s.text, fontWeight: s.fw, cursor: 'default', ...MONO }} onMouseEnter={(ev) => showCellTip(ev, category, month.monthKey, index, (t) => tickerMacro(t) === category)} onMouseLeave={hideCellTip}>{fmtCell(r)}</td>;
                         })}
                       </tr>
                     );
@@ -2511,7 +2557,7 @@ function PortfolioPerformance() {
                           const r = calcMonthPerf(values, index, (tx) => getTxMicro(tx) === microCategory);
                           if (r === null) return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', color: 'var(--text-3)' }}>-</td>;
                           const s = getHeatmapStyle(r.perfPct);
-                          return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', background: s.bg, color: s.text, fontWeight: s.fw, ...MONO }}>{fmtCell(r)}</td>;
+                          return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', background: s.bg, color: s.text, fontWeight: s.fw, cursor: 'default', ...MONO }} onMouseEnter={(ev) => showCellTip(ev, microCategory, month.monthKey, index, (t) => tickerMicro(t) === microCategory)} onMouseLeave={hideCellTip}>{fmtCell(r)}</td>;
                         })}
                       </tr>
                     );
@@ -2519,6 +2565,56 @@ function PortfolioPerformance() {
                 </tbody>
               </table>
             </div>
+            );
+          })()}
+
+          {/* Heatmap cell tooltip */}
+          {heatCellTip && heatCellTip.rows.length > 0 && (() => {
+            const TT_W = 280;
+            const vw = typeof window !== 'undefined' ? window.innerWidth : 1280;
+            const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+            let left = heatCellTip.anchorLeft - TT_W / 2;
+            if (left + TT_W > vw - 12) left = vw - TT_W - 12;
+            if (left < 8) left = 8;
+            let top = heatCellTip.anchorTop - 8;
+            const estH = 44 + heatCellTip.rows.length * 28;
+            if (top - estH < 8) top = heatCellTip.anchorTop + 32;
+            else top = top - estH;
+            return (
+              <div
+                onMouseEnter={() => { if (heatCellTimer.current) clearTimeout(heatCellTimer.current); }}
+                onMouseLeave={() => setHeatCellTip(null)}
+                style={{
+                  position: 'fixed', left, top, width: TT_W, zIndex: 9999,
+                  background: 'var(--card-bg)', border: '1px solid var(--border)',
+                  borderRadius: 12, padding: '10px 14px',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.45)',
+                  pointerEvents: 'auto',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ fontWeight: 700, color: 'var(--text-1)', fontSize: '0.78rem' }}>{heatCellTip.label}</span>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--text-3)' }}>{heatCellTip.monthKey}</span>
+                </div>
+                {heatCellTip.rows.map(r => (
+                  <div key={r.ticker} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', gap: 8 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <span style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-1)', ...MONO }}>{r.ticker}</span>
+                      <span style={{ fontSize: '0.62rem', color: 'var(--text-3)', marginLeft: 5 }}>{r.name !== r.ticker ? r.name : ''}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'baseline' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: r.gainEur >= 0 ? '#30D158' : '#FF453A', ...MONO }}>
+                        {r.gainEur >= 0 ? '+' : ''}€{Math.round(r.gainEur).toLocaleString('it-IT')}
+                      </span>
+                      {r.perfPct != null && (
+                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: r.perfPct >= 0 ? '#30D158' : '#FF453A', ...MONO }}>
+                          {r.perfPct >= 0 ? '+' : ''}{r.perfPct.toFixed(1)}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             );
           })()}
 

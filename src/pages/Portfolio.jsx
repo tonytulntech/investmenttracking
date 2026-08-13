@@ -5,6 +5,7 @@ import { calculatePortfolio, getTransactions, portfolioSnapshot } from '../servi
 import { fetchMultiplePrices } from '../services/priceService';
 import { getCachedPrices, cachePrices, clearPriceCache } from '../services/priceCache';
 import { calculateAnnualTERCost, getTERBadgeColor } from '../services/terDetectionService';
+import { getTerForTicker } from '../data/etfComposition';
 import { getDividendInfo } from '../data/dividendData';
 import { getStockDefaults } from '../data/stockDividendData';
 import AllocationDonut from '../components/AllocationDonut';
@@ -31,40 +32,24 @@ function Portfolio() {
   const [twrr, setTwrr] = useState(null);
   const [realizedPL, setRealizedPL] = useState(0);
 
-  // Get TER from the most recent transaction for a ticker (instead of cache)
+  // TER lookup: prima cerca il valore esplicito nell'ultima transazione,
+  // altrimenti fallback al DB etfComposition (stessa fonte usata da Analisi).
+  // Questo garantisce coerenza tra la sezione "Costi" di Analisi e Portfolio.
   const getTERFromTransactions = (ticker) => {
     const transactions = getTransactions();
-
-    // Filter transactions for this ticker and sort by date (most recent first)
     const tickerTransactions = transactions
       .filter(tx => tx.ticker === ticker)
       .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    if (tickerTransactions.length === 0) {
-      return null;
-    }
-
-    // Get TER from most recent transaction
     const mostRecent = tickerTransactions[0];
-
-    console.log(`🔍 TER lookup for ${ticker}:`, {
-      transactionDate: mostRecent.date,
-      ter: mostRecent.ter,
-      terType: typeof mostRecent.ter,
-      allFields: Object.keys(mostRecent)
-    });
-
-    // Only return TER if it's explicitly set (not null/undefined)
-    // Convert to number if it's a string
-    if (mostRecent.ter !== null && mostRecent.ter !== undefined && mostRecent.ter !== '') {
+    if (mostRecent && mostRecent.ter !== null && mostRecent.ter !== undefined && mostRecent.ter !== '') {
       const terValue = typeof mostRecent.ter === 'string' ? parseFloat(mostRecent.ter) : mostRecent.ter;
-      const finalTER = !isNaN(terValue) ? terValue : null;
-      console.log(`✅ TER found for ${ticker}: ${finalTER}%`);
-      return finalTER;
+      if (!isNaN(terValue)) return terValue;
     }
 
-    console.log(`❌ No TER found for ${ticker}`);
-    return null;
+    // Fallback DB: getTerForTicker restituisce null se sconosciuto, 0 se stock
+    const dbTer = getTerForTicker(ticker);
+    return dbTer;   // può essere null / 0 / numero
   };
 
   useEffect(() => {

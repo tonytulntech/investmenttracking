@@ -136,8 +136,11 @@ function buildTickerRoleMap() {
     (p.buckets || []).forEach(b => { bucketById[b.id] = b.name; });
   });
   const map = {};
-  Object.entries(cfg.bucketAssignments || {}).forEach(([ticker, bId]) => {
-    if (bucketById[bId]) map[ticker] = bucketById[bId];
+  Object.entries(cfg.bucketAssignments || {}).forEach(([key, bId]) => {
+    if (!bucketById[bId]) return;
+    const plainTicker = key.includes('::') ? key.split('::')[0] : key;
+    map[key] = bucketById[bId];
+    if (!map[plainTicker]) map[plainTicker] = bucketById[bId];
   });
   return map;
 }
@@ -222,7 +225,7 @@ function buildMonthlyGrowthData(assetTransactions, priceTables, allMonths, curre
         const cl = classifyHolding(holding);
         const macro = cl.macroLabel || 'Altro';
         byMacro[macro] = (byMacro[macro] || 0) + value;
-        const micro = cl.microLabel || macro;
+        const micro = (cl.microLabel && !cl.microLabel.includes('da mappare')) ? cl.microLabel : macro;
         byMicro[micro] = (byMicro[micro] || 0) + value;
         const role = tickerRoleMap[holding.ticker] || 'Non assegnato';
         byRole[role] = (byRole[role] || 0) + value;
@@ -402,7 +405,7 @@ function PortfolioPerformance() {
             if (tx) {
               const cl = classifyHolding(tx);
               const mac = cl.macroLabel || 'Altro';
-              const mic = cl.microLabel || mac;
+              const mic = (cl.microLabel && !cl.microLabel.includes('da mappare')) ? cl.microLabel : mac;
               byMacro[mac] = (byMacro[mac] || 0) + filteredByTicker[t];
               byMicro[mic] = (byMicro[mic] || 0) + filteredByTicker[t];
             }
@@ -702,10 +705,11 @@ function PortfolioPerformance() {
     txs.forEach(tx => {
       if (!tickerInfoMap[tx.ticker]) {
         const cl = classifyHolding(tx);
+        const macroLabel = cl.macroLabel || 'Altro';
         tickerInfoMap[tx.ticker] = {
           name: tx.name || tx.ticker,
-          microCategory: cl.microLabel || 'N/A',
-          macroCategory: cl.macroLabel || 'Altro'
+          microCategory: (cl.microLabel && !cl.microLabel.includes('da mappare')) ? cl.microLabel : macroLabel,
+          macroCategory: macroLabel
         };
       }
     });
@@ -2471,7 +2475,10 @@ function PortfolioPerformance() {
             const txMicroCache = {};
             const getTxMicro = (tx) => {
               if (!tx.ticker) return 'N/A';
-              if (!txMicroCache[tx.ticker]) txMicroCache[tx.ticker] = classifyHolding(tx).microLabel || 'N/A';
+              if (!txMicroCache[tx.ticker]) {
+                const cl = classifyHolding(tx);
+                txMicroCache[tx.ticker] = (cl.microLabel && !cl.microLabel.includes('da mappare')) ? cl.microLabel : (cl.macroLabel || 'N/A');
+              }
               return txMicroCache[tx.ticker];
             };
             const sortedMicro = sortRows(

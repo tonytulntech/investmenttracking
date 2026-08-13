@@ -273,45 +273,68 @@ function Portfolio() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <RefreshCw className="w-12 h-12 text-primary-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Caricamento portfolio...</p>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 1rem 3rem' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          minHeight: 320, flexDirection: 'column', gap: 12,
+        }}>
+          <RefreshCw size={36} style={{ color: 'var(--text-3)', animation: 'spin 1s linear infinite' }} />
+          <p style={{ color: 'var(--text-3)', fontSize: '0.85rem' }}>Caricamento portfolio...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 1rem 3rem' }}>
+
+      {/* Header allineato a Dashboard (page-title + refresh-btn con label mobile-hidden) */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginBottom: '1.75rem', paddingTop: '0.5rem', gap: 12,
+      }}>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Portfolio</h1>
-          <p className="text-gray-600 mt-1">Tutti i tuoi investimenti</p>
+          <h1 className="page-title" style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>
+            Portfolio
+          </h1>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>
+            {portfolio.length} {portfolio.length === 1 ? 'asset' : 'asset'} in totale
+          </span>
         </div>
         {portfolio.length > 0 && (
           <button
             onClick={() => updatePrices(true)}
             disabled={refreshing}
-            className="btn-secondary flex items-center gap-2"
+            aria-label="Aggiorna prezzi"
+            className="refresh-btn"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 14px', borderRadius: 10,
+              background: 'var(--surface-2)', color: 'var(--text-1)',
+              border: '1px solid var(--border)',
+              fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer',
+              opacity: refreshing ? 0.6 : 1, flexShrink: 0,
+            }}
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Aggiorna
+            <RefreshCw size={14} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+            <span className="refresh-label">{refreshing ? 'Aggiornamento…' : 'Aggiorna prezzi'}</span>
           </button>
         )}
       </div>
 
       {portfolio.length === 0 ? (
-        <div className="card text-center py-12">
-          <Wallet className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+        <div style={{
+          background: 'var(--card-bg)', border: '1px solid var(--border)',
+          borderRadius: 14, padding: '3rem 1.5rem', textAlign: 'center',
+        }}>
+          <Wallet size={44} style={{ color: 'var(--text-3)', margin: '0 auto 12px', display: 'block' }} />
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-1)', margin: '0 0 6px' }}>
             Nessun asset nel portfolio
           </h3>
-          <p className="text-gray-600 mb-6">
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-3)', margin: '0 0 20px' }}>
             Aggiungi una transazione per iniziare a tracciare i tuoi investimenti
           </p>
-          <a href="/transactions/new" className="btn-primary inline-block">
+          <a href="/transactions/new" className="btn-primary" style={{ display: 'inline-flex' }}>
             Aggiungi Transazione
           </a>
         </div>

@@ -770,7 +770,9 @@ function PortfolioPerformance() {
 
       const avgWeight = filteredData.length > 0 ? totalWeight / filteredData.length : 0;
       let cumulativeTWR = 100;
-      monthlyTickerReturns.forEach(m => { cumulativeTWR *= (1 + m.return / 100); });
+      monthlyTickerReturns
+        .filter(m => !excludedMonths.has(m.monthKey))
+        .forEach(m => { cumulativeTWR *= (1 + m.return / 100); });
       const tickerTotalReturn = cumulativeTWR - 100;
       const contributionPercent = (avgWeight / 100) * tickerTotalReturn;
       const contributionEuro = totalReturnPercent !== 0 ? (contributionPercent / totalReturnPercent) * totalReturn : 0;
@@ -834,7 +836,7 @@ function PortfolioPerformance() {
     const calculatePeriodReturn = (startMonthKey) => {
       const startIdx = filteredData.findIndex(m => m.monthKey >= startMonthKey);
       if (startIdx === -1 || startIdx >= filteredData.length - 1) return null;
-      const periodMonthlyReturns = calculatedMonthlyReturns.filter(r => r.monthKey >= startMonthKey);
+      const periodMonthlyReturns = calculatedMonthlyReturns.filter(r => r.monthKey >= startMonthKey && !excludedMonths.has(r.monthKey));
       if (periodMonthlyReturns.length === 0) return null;
       let cumulativeTWR = 100;
       periodMonthlyReturns.forEach(m => { cumulativeTWR *= (1 + m.return / 100); });
@@ -852,23 +854,25 @@ function PortfolioPerformance() {
     const fiveYearsAgo = new Date(now); fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
     periodResults['5y'] = calculatePeriodReturn(format(fiveYearsAgo, 'yyyy-MM'));
 
-    if (calculatedMonthlyReturns.length > 0) {
+    const allStatsReturns = calculatedMonthlyReturns.filter(m => !excludedMonths.has(m.monthKey));
+    if (allStatsReturns.length > 0) {
       let allTWR = 100;
-      calculatedMonthlyReturns.forEach(m => { allTWR *= (1 + m.return / 100); });
+      allStatsReturns.forEach(m => { allTWR *= (1 + m.return / 100); });
       const allReturn = allTWR - 100;
-      const allYrs = calculatedMonthlyReturns.length / 12;
-      periodResults.all = { return: allReturn, annualized: allYrs > 0 ? (Math.pow(allTWR / 100, 1 / allYrs) - 1) * 100 : allReturn, months: calculatedMonthlyReturns.length, startDate: calculatedMonthlyReturns[0]?.month || 'N/A' };
+      const allYrs = allStatsReturns.length / 12;
+      periodResults.all = { return: allReturn, annualized: allYrs > 0 ? (Math.pow(allTWR / 100, 1 / allYrs) - 1) * 100 : allReturn, months: allStatsReturns.length, startDate: allStatsReturns[0]?.month || 'N/A' };
     }
     setPeriodReturns(periodResults);
 
     // ── Rolling 12-month returns ─────────────────────────────────────────────
     const rollingData = [];
-    if (calculatedMonthlyReturns.length >= 12) {
-      for (let i = 11; i < calculatedMonthlyReturns.length; i++) {
-        const last12 = calculatedMonthlyReturns.slice(i - 11, i + 1);
+    const rollingBase = calculatedMonthlyReturns.filter(m => !excludedMonths.has(m.monthKey));
+    if (rollingBase.length >= 12) {
+      for (let i = 11; i < rollingBase.length; i++) {
+        const last12 = rollingBase.slice(i - 11, i + 1);
         let rolling12mTWR = 100;
         last12.forEach(m => { rolling12mTWR *= (1 + m.return / 100); });
-        rollingData.push({ month: calculatedMonthlyReturns[i].month, monthKey: calculatedMonthlyReturns[i].monthKey, rolling12m: Math.round((rolling12mTWR - 100) * 100) / 100 });
+        rollingData.push({ month: rollingBase[i].month, monthKey: rollingBase[i].monthKey, rolling12m: Math.round((rolling12mTWR - 100) * 100) / 100 });
       }
     }
     setRollingReturns(rollingData);
@@ -1669,81 +1673,49 @@ function PortfolioPerformance() {
       {/* ── 3. KPI STRIP (metriche %) ── */}
       {(() => {
         const excl = statistics.excludedCount > 0;
-        const adjBadge = excl ? ` · adj. ${statistics.excludedCount} mes${statistics.excludedCount === 1 ? 'e' : 'i'}` : '';
+        const inclMonths = statistics.monthsTracked - statistics.excludedCount;
+        const adjBadge = excl ? ` · −${statistics.excludedCount} mes${statistics.excludedCount === 1 ? 'e' : 'i'}` : '';
+        const rendVal = excl ? twrPercent : statistics.totalReturnPercent;
+        const rendSub = excl ? `TWR adj. · ${inclMonths} mesi` : 'Sul capitale investito';
+        const twrSub = excl ? `${inclMonths} mesi inclusi · esclusi versamenti` : `${statistics.monthsTracked} mesi · esclusi versamenti`;
         const kpis = [
-          { label: 'Rendimento', value: `${statistics.totalReturnPercent >= 0 ? '+' : ''}${statistics.totalReturnPercent.toFixed(2)}%`, color: statistics.totalReturnPercent >= 0 ? '#30D158' : '#FF453A', sub: 'Sul capitale investito' },
-          { label: 'TWR', value: `${twrPercent >= 0 ? '+' : ''}${twrPercent.toFixed(2)}%`, color: twrPercent >= 0 ? '#30D158' : '#FF453A', sub: `${statistics.monthsTracked} mesi · esclusi versamenti` },
+          { label: 'Rendimento', value: `${rendVal >= 0 ? '+' : ''}${rendVal.toFixed(2)}%`, color: rendVal >= 0 ? '#30D158' : '#FF453A', sub: rendSub },
+          { label: 'TWR', value: `${twrPercent >= 0 ? '+' : ''}${twrPercent.toFixed(2)}%`, color: twrPercent >= 0 ? '#30D158' : '#FF453A', sub: twrSub },
           { label: 'CAGR', value: `${statistics.cagr >= 0 ? '+' : ''}${statistics.cagr.toFixed(2)}%`, color: statistics.cagr >= 0 ? '#30D158' : '#FF453A', sub: `Annualizzato${adjBadge}` },
           { label: 'Volatilità', value: `${statistics.volatility.toFixed(2)}%`, color: 'var(--text-1)', sub: `Ann. mensile${adjBadge}` },
           { label: 'Sharpe Ratio', value: statistics.sharpeRatio.toFixed(2), color: statistics.sharpeRatio >= 1 ? '#30D158' : statistics.sharpeRatio >= 0 ? 'var(--text-1)' : '#FF453A', sub: `${statistics.sharpeRatio >= 1 ? 'Buono (>1)' : 'Nella media'}${adjBadge}` },
           { label: 'Max Drawdown', value: `-${statistics.maxDrawdown.toFixed(2)}%`, color: '#FF453A', sub: `Dal picco${adjBadge}` },
         ];
         return (
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${excl ? 7 : 6}, 1fr)`, gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
             {kpis.map(kpi => (
-              <div key={kpi.label} style={{ background: 'var(--card-bg)', borderRadius: 16, padding: '16px 20px' }}>
-                <p style={{ fontSize: '0.72rem', color: 'var(--text-3)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{kpi.label}</p>
+              <div key={kpi.label} style={{ background: 'var(--card-bg)', borderRadius: 16, padding: '16px 20px', border: excl ? '1px solid rgba(10,132,255,0.22)' : 'none' }}>
+                <p style={{ fontSize: '0.72rem', color: excl ? '#0A84FF' : 'var(--text-3)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{kpi.label}</p>
                 <p style={{ fontSize: '1.5rem', fontWeight: 700, color: kpi.color, margin: 0, ...MONO }}>{kpi.value}</p>
                 <p style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginTop: 4 }}>{kpi.sub}</p>
               </div>
             ))}
-            {excl && statistics.adjCompoundReturn != null && (() => {
-              const adjLabelMonth = statistics.adjMonth
-                ? new Intl.DateTimeFormat('it-IT', { month: 'long', year: 'numeric' }).format(
-                    new Date(Number(statistics.adjMonth.split('-')[0]), Number(statistics.adjMonth.split('-')[1]) - 1, 1))
-                : '';
-              return (
-                <div style={{ background: 'rgba(10,132,255,0.10)', border: '1px solid rgba(10,132,255,0.28)', borderRadius: 16, padding: '16px 20px' }}>
-                  <p style={{ fontSize: '0.72rem', color: '#0A84FF', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>
-                    Rend. a {adjLabelMonth || 'ultimo mese incluso'}
-                  </p>
-                  <p style={{ fontSize: '1.5rem', fontWeight: 700, color: statistics.adjCompoundReturn >= 0 ? '#30D158' : '#FF453A', margin: 0, ...MONO }}>
-                    {statistics.adjCompoundReturn >= 0 ? '+' : ''}{statistics.adjCompoundReturn.toFixed(2)}%
-                  </p>
-                  <p style={{ fontSize: '0.72rem', color: '#0A84FF', marginTop: 4 }}>
-                    Senza {statistics.excludedCount} mes{statistics.excludedCount === 1 ? 'e' : 'i'}
-                  </p>
-                </div>
-              );
-            })()}
           </div>
         );
       })()}
 
       {/* ── 3.5 BANNER ESCLUSIONE MESI ── */}
-      {statistics.excludedCount > 0 && statistics.adjCompoundReturn != null && (
-        <div style={{ background: 'rgba(10,132,255,0.06)', border: '1px solid rgba(10,132,255,0.22)', borderRadius: 14, padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ fontSize: '0.8rem', color: '#0A84FF', fontWeight: 600 }}>
-            Scenario · {statistics.excludedCount} {statistics.excludedCount === 1 ? 'mese escluso' : 'mesi esclusi'} dalle statistiche
-          </div>
-          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', flex: 1 }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-3)' }}>
-              Rendimento a fine {statistics.adjMonth
-                ? new Intl.DateTimeFormat('it-IT', { month: 'long', year: 'numeric' })
-                    .format(new Date(Number(statistics.adjMonth.split('-')[0]), Number(statistics.adjMonth.split('-')[1]) - 1, 1))
-                : 'ultimo mese incluso'}{' '}
-              <strong style={{ color: statistics.adjCompoundReturn >= 0 ? '#30D158' : '#FF453A' }}>
-                {statistics.adjCompoundReturn >= 0 ? '+' : ''}{statistics.adjCompoundReturn.toFixed(2)}%
-              </strong>
-              <span style={{ color: 'var(--text-3)', marginLeft: 6 }}>
-                (vs {statistics.totalReturnPercent >= 0 ? '+' : ''}{statistics.totalReturnPercent.toFixed(2)}% oggi)
-              </span>
-            </span>
-            {statistics.adjCagr != null && (
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-3)' }}>
-                CAGR adj.{' '}
-                <strong style={{ color: statistics.adjCagr >= 0 ? '#30D158' : '#FF453A' }}>
-                  {statistics.adjCagr >= 0 ? '+' : ''}{statistics.adjCagr.toFixed(2)}%
-                </strong>
-                <span style={{ color: 'var(--text-3)', marginLeft: 6 }}>
-                  (vs {statistics.cagr >= 0 ? '+' : ''}{statistics.cagr.toFixed(2)}%)
-                </span>
-              </span>
-            )}
-          </div>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-3)', fontStyle: 'italic' }}>
-            Ctrl+clic sulla heatmap per aggiungere/togliere mesi
+      {excludedMonths.size > 0 && (
+        <div style={{ background: 'rgba(10,132,255,0.06)', border: '1px solid rgba(10,132,255,0.22)', borderRadius: 14, padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.78rem', color: '#0A84FF', fontWeight: 600 }}>
+            Scenario · {excludedMonths.size} {excludedMonths.size === 1 ? 'mese escluso' : 'mesi esclusi'}
           </span>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
+            {[...excludedMonths].sort().map(mk => (
+              <span key={mk} style={{ fontSize: '0.68rem', background: 'rgba(10,132,255,0.12)', color: '#0A84FF', padding: '2px 8px', borderRadius: 6, fontWeight: 600 }}>
+                {mk}
+                <button onClick={() => setExcludedMonths(prev => { const n = new Set(prev); n.delete(mk); return n; })} style={{ background: 'none', border: 'none', color: '#0A84FF', cursor: 'pointer', padding: '0 0 0 4px', fontSize: '0.68rem', fontWeight: 700 }}>×</button>
+              </span>
+            ))}
+          </div>
+          <button onClick={() => setExcludedMonths(new Set())} style={{ fontSize: '0.72rem', color: '#0A84FF', background: 'none', border: '1px solid rgba(10,132,255,0.3)', borderRadius: 8, padding: '4px 12px', cursor: 'pointer', fontWeight: 600 }}>
+            Reset
+          </button>
         </div>
       )}
 

@@ -7,7 +7,7 @@ import { getCachedPrices, cachePrices, clearPriceCache } from '../services/price
 import { calculateAnnualTERCost, getTERBadgeColor } from '../services/terDetectionService';
 import { getDividendInfo } from '../data/dividendData';
 import { getStockDefaults } from '../data/stockDividendData';
-import AllocationBreakdown from '../components/AllocationBreakdown';
+import AllocationDonut from '../components/AllocationDonut';
 import { classifyHolding } from '../services/classificationService';
 import { isCrypto } from '../services/coinGecko';
 import { calculateXIRR } from '../services/twrrService';
@@ -317,8 +317,11 @@ function Portfolio() {
         </div>
       ) : (
         <>
-          {/* Allocazione derivata — torta grande + filtro portafoglio */}
-          <AllocationBreakdown holdings={portfolio} title="Allocazione patrimonio" />
+          {/* Allocazione — stesso donut unificato della Dashboard
+              (Ruolo / Asset Class / Fattore, scoping per portafoglio, drilldown) */}
+          <div style={{ marginBottom: '1rem' }}>
+            <AllocationDonut holdings={portfolio} />
+          </div>
 
           {/* Filters */}
           <div className="card">

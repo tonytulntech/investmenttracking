@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, Layers, X, PieChart } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Layers, X, PieChart, Sparkles } from 'lucide-react';
 import { getPortfolioAlerts, getPortfolioConfig, MACRO_CATEGORIES } from '../services/portfolioConfigService';
-import { buildAllocation, classifyHolding, VEHICLE_LABELS } from '../services/classificationService';
+import { buildAllocation, buildStyleAllocation, classifyHolding, classifyStyle, VEHICLE_LABELS } from '../services/classificationService';
 
 const MONO = { fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' };
 const eur0 = (n) => '€' + Math.abs(Math.round(n)).toLocaleString('it-IT');
@@ -31,7 +31,7 @@ const C = 2 * Math.PI * R;
 export default function AllocationDonut({ holdings = [], macroAllocation = [], subAllocation = [] }) {
   const [hot, setHot] = useState(null);          // slice hoverato
   const [selectedRole, setSelectedRole] = useState(null); // slice cliccato (drilldown)
-  const [dim, setDim] = useState('role');        // 'role' | 'macro'
+  const [dim, setDim] = useState('role');        // 'role' | 'macro' | 'factor'
   const [expanded, setExpanded] = useState(false); // mostra tutte le voci nella legenda
   const cfg = getPortfolioConfig();
   const portfolios = cfg.portfolios || [];
@@ -148,8 +148,26 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
 
   const macroHasTarget = macroRows.some(r => r.targetPct > 0);
 
+  // Righe vista FATTORE / STILE (buildStyleAllocation → Momentum, Quality,
+  // Value, Small Cap, High Dividend, Oro/Materie prime/REIT/Bond/Crypto...).
+  // Nessun target per il fattore (per ora): stessa PALETTE del donut.
+  const factorRows = useMemo(() => {
+    const arr = buildStyleAllocation(scopedHoldings);
+    return (arr || [])
+      .filter(r => (r.percentage || 0) > 0)
+      .map((r, i) => ({
+        name: r.name,
+        value: r.value,
+        currentPct: r.percentage,
+        targetPct: 0,
+        diff: 0,
+        color: PALETTE[i % PALETTE.length],
+        factorKey: (r.name || '').trim().toLowerCase(),
+      }));
+  }, [scopedHoldings]);
+
   // Righe attive in base alla dimensione selezionata + totale di riferimento
-  const activeRows = dim === 'role' ? allRoles : macroRows;
+  const activeRows = dim === 'role' ? allRoles : dim === 'macro' ? macroRows : factorRows;
   const referenceTotal = dim === 'role' ? refTotalRole : scopeTotal;
 
   // Alert scoped
@@ -165,11 +183,17 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
     const target = selectedRole.name.trim().toLowerCase();
     if (dim === 'macro') {
       // Per macro: usa l'asset class DEDOTTA da classifyHolding (macroLabel),
-      // non h.macroCategory che contiene il VEICOLO ("ETF"/"Azioni"). Cosi'
-      // gli ETF azionari finiscono in "Azioni" e non spariscono dal drilldown.
+      // non h.macroCategory che contiene il VEICOLO ("ETF"/"Azioni").
       return scopedHoldings.filter(h => {
         const c = classifyHolding(h);
         return (c.macroLabel || '').trim().toLowerCase() === target;
+      }).sort((a, b) => (b.marketValue || 0) - (a.marketValue || 0));
+    }
+    if (dim === 'factor') {
+      // Per fattore/stile: match sulla label di classifyStyle
+      return scopedHoldings.filter(h => {
+        const s = classifyStyle(h);
+        return (s.label || '').trim().toLowerCase() === target;
       }).sort((a, b) => (b.marketValue || 0) - (a.marketValue || 0));
     }
     // Ruolo: filtra per bucket assegnato dentro lo scope
@@ -217,7 +241,7 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
       {/* Header con toggle vista Ruolo / Macro */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)' }}>
-          Allocazione {dim === 'role' ? 'per Ruolo' : 'Macro Asset Class'}
+          Allocazione {dim === 'role' ? 'per Ruolo' : dim === 'macro' ? 'Macro Asset Class' : 'per Fattore/Stile'}
         </span>
 
         {/* Toggle Ruolo / Macro */}
@@ -242,6 +266,15 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
             color: dim === 'macro' ? 'var(--bg)' : 'var(--text-2)',
           }}>
             <PieChart size={11} /> Asset Class
+          </button>
+          <button onClick={() => { setDim('factor'); setSelectedRole(null); setExpanded(false); }} style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            padding: '4px 10px', border: 'none', cursor: 'pointer',
+            fontSize: '0.7rem', fontWeight: 600,
+            background: dim === 'factor' ? 'var(--text-1)' : 'transparent',
+            color: dim === 'factor' ? 'var(--bg)' : 'var(--text-2)',
+          }}>
+            <Sparkles size={11} /> Fattore
           </button>
         </div>
 
@@ -343,7 +376,7 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
                   {eur0(referenceTotal)}
                 </span>
                 <span style={{ fontSize: '0.62rem', color: 'var(--text-3)', marginTop: 2 }}>
-                  {activeRows.length} {dim === 'role' ? 'ruoli' : 'classi'}
+                  {activeRows.length} {dim === 'role' ? 'ruoli' : dim === 'macro' ? 'classi' : 'fattori'}
                 </span>
               </>
             )}
@@ -411,7 +444,7 @@ export default function AllocationDonut({ holdings = [], macroAllocation = [], s
                 color: 'var(--accent)', fontWeight: 600, textAlign: 'left',
               }}
             >
-              {expanded ? 'Mostra meno' : `+ altri ${activeRows.length - 6} ${dim === 'role' ? 'ruoli' : 'classi'}`}
+              {expanded ? 'Mostra meno' : `+ altri ${activeRows.length - 6} ${dim === 'role' ? 'ruoli' : dim === 'macro' ? 'classi' : 'fattori'}`}
             </button>
           )}
         </div>

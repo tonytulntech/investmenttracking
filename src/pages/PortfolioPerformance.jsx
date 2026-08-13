@@ -3,6 +3,7 @@ import { TrendingUp, TrendingDown, DollarSign, Calendar, BarChart3, Activity, Al
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, Cell, ReferenceLine, AreaChart, Area } from 'recharts';
 import { getTransactions, portfolioSnapshot } from '../services/localStorageService';
 import { getPortfolioConfig } from '../services/portfolioConfigService';
+import { classifyHolding } from '../services/classificationService';
 import { fetchMultipleHistoricalPrices, buildMonthlyPriceTable, clearHistoricalPriceCache } from '../services/historicalPriceService';
 import { fetchMultiplePrices, getNativeConversionFactor } from '../services/priceService';
 import { calculateAllMetrics, calculateCAGR, calculateMaxDrawdown, calculateSharpeRatio, calculateVolatility, calculateBeta, calculateAlpha, calculateTrackingError, calculateInformationRatio, calculateCalmarRatio, calculateRSquared } from '../services/advancedMetricsService';
@@ -203,9 +204,10 @@ function buildMonthlyGrowthData(assetTransactions, priceTables, allMonths, curre
 
         totalValue += value;
         byTicker[holding.ticker] = Math.round(value);
-        const macro = holding.macroCategory || 'Altro';
+        const cl = classifyHolding(holding);
+        const macro = cl.macroLabel || 'Altro';
         byMacro[macro] = (byMacro[macro] || 0) + value;
-        const micro = holding.microCategory || 'N/A';
+        const micro = cl.microLabel || macro;
         byMicro[micro] = (byMicro[micro] || 0) + value;
       }
     });
@@ -377,8 +379,9 @@ function PortfolioPerformance() {
             if (!filteredByTicker[t]) return;
             const tx = filteredTxs.find(x => x.ticker === t);
             if (tx) {
-              const mac = tx.macroCategory || tx.category || 'Altro';
-              const mic = tx.microCategory || tx.subCategory || 'N/A';
+              const cl = classifyHolding(tx);
+              const mac = cl.macroLabel || 'Altro';
+              const mic = cl.microLabel || mac;
               byMacro[mac] = (byMacro[mac] || 0) + filteredByTicker[t];
               byMicro[mic] = (byMicro[mic] || 0) + filteredByTicker[t];
             }
@@ -675,10 +678,11 @@ function PortfolioPerformance() {
     const tickerInfoMap = {};
     txs.forEach(tx => {
       if (!tickerInfoMap[tx.ticker]) {
+        const cl = classifyHolding(tx);
         tickerInfoMap[tx.ticker] = {
           name: tx.name || tx.ticker,
-          microCategory: tx.microCategory || tx.subCategory || 'N/A',
-          macroCategory: tx.macroCategory || tx.category || 'Altro'
+          microCategory: cl.microLabel || 'N/A',
+          macroCategory: cl.macroLabel || 'Altro'
         };
       }
     });
@@ -735,7 +739,7 @@ function PortfolioPerformance() {
         }
       }
 
-      const avgWeight = weightCount > 0 ? totalWeight / weightCount : 0;
+      const avgWeight = filteredData.length > 0 ? totalWeight / filteredData.length : 0;
       let cumulativeTWR = 100;
       monthlyTickerReturns.forEach(m => { cumulativeTWR *= (1 + m.return / 100); });
       const tickerTotalReturn = cumulativeTWR - 100;
@@ -2316,13 +2320,21 @@ function PortfolioPerformance() {
 
           {/* MACRO heatmap */}
           {heatmapTab === 'macro' && (() => {
-            const macroRows = Object.keys(CATEGORY_COLORS)
-              .filter(cat => cat !== 'Totale' && cat !== 'Cash')
-              .filter(cat => monthlyData.some(m => (monthlyCategoryValues[m.monthKey] || {})[cat] > 0));
+            const allMacro = new Set();
+            Object.values(monthlyCategoryValues).forEach(mv => {
+              Object.keys(mv).forEach(k => { if (k !== 'Liquidità' && mv[k] > 0) allMacro.add(k); });
+            });
+            const macroRows = Array.from(allMacro).sort();
+            const txClassCache = {};
+            const getTxMacro = (tx) => {
+              if (!tx.ticker) return 'Altro';
+              if (!txClassCache[tx.ticker]) txClassCache[tx.ticker] = classifyHolding(tx).macroLabel || 'Altro';
+              return txClassCache[tx.ticker];
+            };
             const sortedMacro = sortRows(
               macroRows,
               (cat) => Object.fromEntries(monthlyData.map(m => [m.monthKey, monthlyCategoryValues[m.monthKey]?.[cat] || 0])),
-              (cat, tx) => tx.macroCategory === cat
+              (cat, tx) => getTxMacro(tx) === cat
             );
             return (
             <div style={{ overflowX: 'auto' }}>
@@ -2346,7 +2358,7 @@ function PortfolioPerformance() {
                         {monthlyData.map((month, index) => {
                           const currentValue = values[month.monthKey] || 0;
                           if (currentValue === 0) return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', color: 'var(--text-3)' }}>-</td>;
-                          const r = calcMonthPerf(values, index, (tx) => tx.macroCategory === category);
+                          const r = calcMonthPerf(values, index, (tx) => getTxMacro(tx) === category);
                           if (r === null) return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', color: 'var(--text-3)' }}>-</td>;
                           const s = getHeatmapStyle(r.perfPct);
                           return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', background: s.bg, color: s.text, fontWeight: s.fw, ...MONO }}>{fmtCell(r)}</td>;
@@ -2367,10 +2379,16 @@ function PortfolioPerformance() {
               Object.keys(mv).forEach(mc => { if (mc !== 'N/A' && mv[mc] > 0) allMicro.add(mc); });
             });
             const microRows = Array.from(allMicro).sort();
+            const txMicroCache = {};
+            const getTxMicro = (tx) => {
+              if (!tx.ticker) return 'N/A';
+              if (!txMicroCache[tx.ticker]) txMicroCache[tx.ticker] = classifyHolding(tx).microLabel || 'N/A';
+              return txMicroCache[tx.ticker];
+            };
             const sortedMicro = sortRows(
               microRows,
               (mc) => Object.fromEntries(monthlyData.map(m => [m.monthKey, monthlyMicroCategoryValues[m.monthKey]?.[mc] || 0])),
-              (mc, tx) => (tx.microCategory || tx.macroCategory || 'N/A') === mc
+              (mc, tx) => getTxMicro(tx) === mc
             );
             return (
             <div style={{ overflowX: 'auto' }}>
@@ -2394,7 +2412,7 @@ function PortfolioPerformance() {
                         {monthlyData.map((month, index) => {
                           const currentValue = values[month.monthKey] || 0;
                           if (currentValue === 0) return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', color: 'var(--text-3)' }}>-</td>;
-                          const r = calcMonthPerf(values, index, (tx) => (tx.microCategory || tx.macroCategory || 'N/A') === microCategory);
+                          const r = calcMonthPerf(values, index, (tx) => getTxMicro(tx) === microCategory);
                           if (r === null) return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', color: 'var(--text-3)' }}>-</td>;
                           const s = getHeatmapStyle(r.perfPct);
                           return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', background: s.bg, color: s.text, fontWeight: s.fw, ...MONO }}>{fmtCell(r)}</td>;
@@ -2413,7 +2431,10 @@ function PortfolioPerformance() {
             const tickerData = {};
             transactions.forEach(tx => {
               if (!tx.isCash && tx.macroCategory !== 'Cash' && tx.ticker) {
-                if (!tickerData[tx.ticker]) tickerData[tx.ticker] = { ticker: tx.ticker, category: tx.macroCategory || 'N/A' };
+                if (!tickerData[tx.ticker]) {
+                  const cl = classifyHolding(tx);
+                  tickerData[tx.ticker] = { ticker: tx.ticker, category: cl.macroLabel || 'N/A' };
+                }
               }
             });
             const tickerRows = Object.values(tickerData)

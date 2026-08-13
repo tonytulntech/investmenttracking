@@ -1662,16 +1662,12 @@ function PortfolioPerformance() {
         const inclMonths = statistics.includedReturnMonths || statistics.totalReturnMonths || (statistics.monthsTracked - 1);
         const totalMonths = statistics.totalReturnMonths || (statistics.monthsTracked - 1);
         const adjBadge = excl ? ` · ${inclMonths}/${totalMonths} mesi` : '';
-        const rendVal = excl ? twrPercent : statistics.totalReturnPercent;
-        const rendSub = excl
-          ? `TWR su ${inclMonths} mesi (era ${statistics.twrFull >= 0 ? '+' : ''}${(statistics.twrFull || 0).toFixed(2)}% su ${totalMonths})`
-          : 'Sul capitale investito';
         const twrSub = excl
-          ? `${inclMonths}/${totalMonths} mesi · esclusi versamenti`
+          ? `${inclMonths}/${totalMonths} mesi (era ${statistics.twrFull >= 0 ? '+' : ''}${(statistics.twrFull || 0).toFixed(2)}% su ${totalMonths})`
           : `${totalMonths} mesi · esclusi versamenti`;
         const kpis = [
-          { label: excl ? 'Rendimento adj.' : 'Rendimento', value: `${rendVal >= 0 ? '+' : ''}${rendVal.toFixed(2)}%`, color: rendVal >= 0 ? '#30D158' : '#FF453A', sub: rendSub },
-          { label: 'TWR', value: `${twrPercent >= 0 ? '+' : ''}${twrPercent.toFixed(2)}%`, color: twrPercent >= 0 ? '#30D158' : '#FF453A', sub: twrSub },
+          { label: 'Rendimento', value: `${statistics.totalReturnPercent >= 0 ? '+' : ''}${statistics.totalReturnPercent.toFixed(2)}%`, color: statistics.totalReturnPercent >= 0 ? '#30D158' : '#FF453A', sub: 'Sul capitale investito' },
+          { label: excl ? 'TWR adj.' : 'TWR', value: `${twrPercent >= 0 ? '+' : ''}${twrPercent.toFixed(2)}%`, color: twrPercent >= 0 ? '#30D158' : '#FF453A', sub: twrSub },
           { label: 'CAGR', value: `${statistics.cagr >= 0 ? '+' : ''}${statistics.cagr.toFixed(2)}%`, color: statistics.cagr >= 0 ? '#30D158' : '#FF453A', sub: `Annualizzato${adjBadge}` },
           { label: 'Volatilità', value: `${statistics.volatility.toFixed(2)}%`, color: 'var(--text-1)', sub: `Ann. mensile${adjBadge}` },
           { label: 'Sharpe Ratio', value: statistics.sharpeRatio.toFixed(2), color: statistics.sharpeRatio >= 1 ? '#30D158' : statistics.sharpeRatio >= 0 ? 'var(--text-1)' : '#FF453A', sub: `${statistics.sharpeRatio >= 1 ? 'Buono (>1)' : 'Nella media'}${adjBadge}` },

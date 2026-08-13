@@ -1425,10 +1425,17 @@ function PortfolioPerformance() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 384 }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 48, height: 48, border: '4px solid #0A84FF', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }}></div>
-          <p style={{ color: 'var(--text-2)' }}>Caricamento dati storici...</p>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 1rem 3rem' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          minHeight: 320, flexDirection: 'column', gap: 12,
+        }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: '50%',
+            border: '3px solid var(--border)', borderTopColor: 'var(--text-1)',
+            animation: 'spin 1s linear infinite',
+          }} />
+          <p style={{ color: 'var(--text-3)', fontSize: '0.85rem' }}>Caricamento dati storici…</p>
         </div>
       </div>
     );
@@ -1436,12 +1443,12 @@ function PortfolioPerformance() {
 
   if (error) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Performance</h1>
-        <div style={{ background: 'rgba(255,69,58,0.1)', border: '1px solid rgba(255,69,58,0.4)', borderRadius: 12, padding: 16, display: 'flex', gap: 12 }}>
-          <AlertCircle size={18} style={{ color: '#FF453A', flexShrink: 0, marginTop: 2 }} />
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 1rem 3rem' }}>
+        <h1 className="page-title" style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-1)', margin: '0.5rem 0 1.5rem' }}>Performance</h1>
+        <div style={{ background: 'rgba(248,81,73,0.10)', border: '1px solid rgba(248,81,73,0.35)', borderRadius: 12, padding: 16, display: 'flex', gap: 12 }}>
+          <AlertCircle size={18} style={{ color: 'var(--neg)', flexShrink: 0, marginTop: 2 }} />
           <div>
-            <p style={{ fontWeight: 600, color: '#FF453A', margin: 0 }}>Errore</p>
+            <p style={{ fontWeight: 600, color: 'var(--neg)', margin: 0 }}>Errore</p>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-2)', marginTop: 4 }}>{error}</p>
           </div>
         </div>
@@ -1479,30 +1486,38 @@ function PortfolioPerformance() {
   const dataKeys = getDataKeys();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 1rem 3rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-      {/* ── 1. HEADER + PERIOD SELECTOR ── */}
+      {/* ── 1. HEADER + PERIOD SELECTOR (Direzione C, allineato a Dashboard/Portfolio) ── */}
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-          <div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Performance</h1>
-            <p style={{ color: 'var(--text-3)', fontSize: '0.8rem', margin: '4px 0 0' }}>
-              Rendimenti TWR · esclude cash flows · {statistics.totalAssets} asset · {statistics.monthsTracked} mesi
-              {isRefreshing && <span style={{ marginLeft: 8, color: '#FF9F0A' }}>· Aggiornamento prezzi…</span>}
-            </p>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          marginBottom: 16, paddingTop: '0.5rem', gap: 12,
+        }}>
+          <div style={{ minWidth: 0 }}>
+            <h1 className="page-title" style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>
+              Performance
+            </h1>
+            <span style={{ color: 'var(--text-3)', fontSize: '0.72rem' }}>
+              TWR · {statistics.totalAssets} asset · {statistics.monthsTracked} mesi
+              {isRefreshing && <span style={{ marginLeft: 8, color: '#FF9F0A' }}>· aggiornamento…</span>}
+            </span>
           </div>
           <button
             onClick={() => { clearHistoricalPriceCache(); clearPerfCache(); calculatePerformance(true); }}
             disabled={loading || isRefreshing}
+            aria-label="Aggiorna dati"
+            className="refresh-btn"
             style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
               background: 'var(--surface-2)', border: '1px solid var(--border)',
-              borderRadius: 10, color: 'var(--text-2)', fontSize: '0.82rem', fontWeight: 500,
-              cursor: 'pointer', opacity: (loading || isRefreshing) ? 0.6 : 1
+              borderRadius: 10, color: 'var(--text-1)', fontSize: '0.82rem', fontWeight: 600,
+              cursor: 'pointer', opacity: (loading || isRefreshing) ? 0.6 : 1, flexShrink: 0,
             }}
           >
-            <Activity size={14} />
-            {loading ? 'Caricamento...' : isRefreshing ? 'Aggiornamento...' : 'Aggiorna prezzi'}
+            <Activity size={14} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} />
+            <span className="refresh-label">{loading ? 'Caricamento…' : isRefreshing ? 'Aggiornamento…' : 'Aggiorna prezzi'}</span>
           </button>
         </div>
 
@@ -2908,6 +2923,7 @@ function PortfolioPerformance() {
           </div>
         );
       })()}
+      </div>
     </div>
   );
 }

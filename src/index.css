@@ -1058,6 +1058,18 @@
   }
 }
 
+/* Portfolio table: nasconde colonne meno essenziali sotto certi breakpoint
+   così su mobile resta leggibile senza scroll infinito. */
+@media (max-width: 1024px) {
+  .pf-hide-lg { display: none !important; }
+}
+@media (max-width: 768px) {
+  .pf-hide-md { display: none !important; }
+}
+@media (max-width: 640px) {
+  .pf-hide-sm { display: none !important; }
+}
+
 /* Projection chart SVG più corto su mobile */
 @media (max-width: 640px) {
   .projection-svg { height: 200px !important; }

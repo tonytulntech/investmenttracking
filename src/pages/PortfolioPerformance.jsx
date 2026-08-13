@@ -70,6 +70,8 @@ const CATEGORY_COLORS = {
   'Totale': '#1f2937'
 };
 
+const MONO = { fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' };
+
 // Heatmap cell color helper
 function getHeatmapStyle(perf) {
   if (perf > 10) return { bg: '#166534', text: '#fff', fw: 700 };
@@ -1607,7 +1609,7 @@ function PortfolioPerformance() {
           ].map(item => (
             <div key={item.label} style={{ background: 'var(--card-bg)', borderRadius: 16, padding: '16px 20px' }}>
               <p style={{ fontSize: '0.72rem', color: 'var(--text-3)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{item.label}</p>
-              <p style={{ fontSize: '1.6rem', fontWeight: 700, color: item.color, margin: 0 }}>{item.value}</p>
+              <p style={{ fontSize: '1.6rem', fontWeight: 700, color: item.color, margin: 0, ...MONO }}>{item.value}</p>
               <p style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginTop: 4 }}>{item.sub}</p>
             </div>
           ))}
@@ -1631,7 +1633,7 @@ function PortfolioPerformance() {
             {kpis.map(kpi => (
               <div key={kpi.label} style={{ background: 'var(--card-bg)', borderRadius: 16, padding: '16px 20px' }}>
                 <p style={{ fontSize: '0.72rem', color: 'var(--text-3)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{kpi.label}</p>
-                <p style={{ fontSize: '1.5rem', fontWeight: 700, color: kpi.color, margin: 0 }}>{kpi.value}</p>
+                <p style={{ fontSize: '1.5rem', fontWeight: 700, color: kpi.color, margin: 0, ...MONO }}>{kpi.value}</p>
                 <p style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginTop: 4 }}>{kpi.sub}</p>
               </div>
             ))}
@@ -1645,7 +1647,7 @@ function PortfolioPerformance() {
                   <p style={{ fontSize: '0.72rem', color: '#0A84FF', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>
                     Rend. a {adjLabelMonth || 'ultimo mese incluso'}
                   </p>
-                  <p style={{ fontSize: '1.5rem', fontWeight: 700, color: statistics.adjCompoundReturn >= 0 ? '#30D158' : '#FF453A', margin: 0 }}>
+                  <p style={{ fontSize: '1.5rem', fontWeight: 700, color: statistics.adjCompoundReturn >= 0 ? '#30D158' : '#FF453A', margin: 0, ...MONO }}>
                     {statistics.adjCompoundReturn >= 0 ? '+' : ''}{statistics.adjCompoundReturn.toFixed(2)}%
                   </p>
                   <p style={{ fontSize: '0.72rem', color: '#0A84FF', marginTop: 4 }}>
@@ -1719,7 +1721,7 @@ function PortfolioPerformance() {
                   </span>
                 )}
               </div>
-              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>
+              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-1)', margin: 0, ...MONO }}>
                 €{Math.round(peakStats.peakValue).toLocaleString('it-IT')}
               </p>
               <p style={{ fontSize: '0.7rem', color: 'var(--text-3)', margin: '3px 0 8px' }}>
@@ -1728,10 +1730,10 @@ function PortfolioPerformance() {
               {!peakStats.isAtValuePeak && (
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>Attuale:</span>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-1)' }}>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-1)', ...MONO }}>
                     €{Math.round(peakStats.currentValue).toLocaleString('it-IT')}
                   </span>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#FF453A', marginLeft: 'auto' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#FF453A', marginLeft: 'auto', ...MONO }}>
                     {peakStats.valueGapPct.toFixed(2)}% (−€{Math.round(-peakStats.valueGapAbs).toLocaleString('it-IT')})
                   </span>
                 </div>
@@ -1753,7 +1755,7 @@ function PortfolioPerformance() {
                   </span>
                 )}
               </div>
-              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: peakStats.peakReturnPct >= 0 ? '#30D158' : '#FF453A', margin: 0 }}>
+              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: peakStats.peakReturnPct >= 0 ? '#30D158' : '#FF453A', margin: 0, ...MONO }}>
                 {peakStats.peakReturnPct >= 0 ? '+' : ''}{peakStats.peakReturnPct.toFixed(2)}%
               </p>
               <p style={{ fontSize: '0.7rem', color: 'var(--text-3)', margin: '3px 0 8px' }}>
@@ -1762,10 +1764,10 @@ function PortfolioPerformance() {
               {!peakStats.isAtReturnPeak && (
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>Attuale:</span>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: peakStats.currentReturnPct >= 0 ? '#30D158' : '#FF453A' }}>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: peakStats.currentReturnPct >= 0 ? '#30D158' : '#FF453A', ...MONO }}>
                     {peakStats.currentReturnPct >= 0 ? '+' : ''}{peakStats.currentReturnPct.toFixed(2)}%
                   </span>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#FF453A', marginLeft: 'auto' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#FF453A', marginLeft: 'auto', ...MONO }}>
                     {peakStats.returnGap.toFixed(2)}pp dal picco
                   </span>
                 </div>
@@ -1787,7 +1789,7 @@ function PortfolioPerformance() {
                   </span>
                 )}
               </div>
-              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: peakStats.peakTwrPct >= 0 ? '#30D158' : '#FF453A', margin: 0 }}>
+              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: peakStats.peakTwrPct >= 0 ? '#30D158' : '#FF453A', margin: 0, ...MONO }}>
                 {peakStats.peakTwrPct >= 0 ? '+' : ''}{peakStats.peakTwrPct.toFixed(2)}%
               </p>
               <p style={{ fontSize: '0.7rem', color: 'var(--text-3)', margin: '3px 0 8px' }}>
@@ -1796,10 +1798,10 @@ function PortfolioPerformance() {
               {!peakStats.isAtTwrPeak && (
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>Attuale:</span>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: peakStats.currentTwrPct >= 0 ? '#30D158' : '#FF453A' }}>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: peakStats.currentTwrPct >= 0 ? '#30D158' : '#FF453A', ...MONO }}>
                     {peakStats.currentTwrPct >= 0 ? '+' : ''}{peakStats.currentTwrPct.toFixed(2)}%
                   </span>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#FF453A', marginLeft: 'auto' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#FF453A', marginLeft: 'auto', ...MONO }}>
                     {peakStats.twrGap.toFixed(2)}pp dal picco
                   </span>
                 </div>
@@ -1895,9 +1897,9 @@ function PortfolioPerformance() {
                       ].map(row => (
                         <tr key={row.label} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td style={{ padding: '6px 10px', color: 'var(--text-3)', fontSize: '0.78rem' }}>{row.label}</td>
-                          <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 700, color: row.myColor, fontSize: '0.82rem' }}>{row.myVal}</td>
+                          <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 700, color: row.myColor, fontSize: '0.82rem', ...MONO }}>{row.myVal}</td>
                           {Object.entries(benchmarkData).map(([name, data]) => (
-                            <td key={name} style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600, color: row.getColor(data), fontSize: '0.82rem' }}>{row.getVal(data)}</td>
+                            <td key={name} style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600, color: row.getColor(data), fontSize: '0.82rem', ...MONO }}>{row.getVal(data)}</td>
                           ))}
                         </tr>
                       ))}
@@ -1935,7 +1937,7 @@ function PortfolioPerformance() {
                 }}>
                   <span style={{ fontSize: '0.82rem', color: 'var(--text-2)', fontWeight: isTotal ? 600 : 400 }}>{label}</span>
                   {data ? (
-                    <span style={{ fontWeight: 700, fontSize: '0.92rem', color: data.return >= 0 ? '#30D158' : '#FF453A' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.92rem', color: data.return >= 0 ? '#30D158' : '#FF453A', ...MONO }}>
                       {data.return >= 0 ? '+' : ''}{data.return.toFixed(1)}%
                     </span>
                   ) : (
@@ -1954,13 +1956,13 @@ function PortfolioPerformance() {
                 {statistics.bestMonth && (
                   <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(48,209,88,0.1)', border: '1px solid rgba(48,209,88,0.25)' }}>
                     <p style={{ fontSize: '0.72rem', color: 'var(--text-3)', margin: '0 0 3px' }}>Miglior mese · {statistics.bestMonth.month}</p>
-                    <p style={{ fontWeight: 700, color: '#30D158', fontSize: '1.2rem', margin: 0 }}>+{statistics.bestMonth.return.toFixed(2)}%</p>
+                    <p style={{ fontWeight: 700, color: '#30D158', fontSize: '1.2rem', margin: 0, ...MONO }}>+{statistics.bestMonth.return.toFixed(2)}%</p>
                   </div>
                 )}
                 {statistics.worstMonth && (
                   <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(255,69,58,0.1)', border: '1px solid rgba(255,69,58,0.25)' }}>
                     <p style={{ fontSize: '0.72rem', color: 'var(--text-3)', margin: '0 0 3px' }}>Peggior mese · {statistics.worstMonth.month}</p>
-                    <p style={{ fontWeight: 700, color: '#FF453A', fontSize: '1.2rem', margin: 0 }}>{statistics.worstMonth.return.toFixed(2)}%</p>
+                    <p style={{ fontWeight: 700, color: '#FF453A', fontSize: '1.2rem', margin: 0, ...MONO }}>{statistics.worstMonth.return.toFixed(2)}%</p>
                   </div>
                 )}
               </div>
@@ -1978,7 +1980,7 @@ function PortfolioPerformance() {
               ].map(item => (
                 <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-3)' }}>{item.label}</span>
-                  <span style={{ fontWeight: 600, fontSize: '0.88rem', color: item.color }}>{item.value}</span>
+                  <span style={{ fontWeight: 600, fontSize: '0.88rem', color: item.color, ...MONO }}>{item.value}</span>
                 </div>
               ))}
             </div>
@@ -2124,9 +2126,9 @@ function PortfolioPerformance() {
                               <span style={{ color: 'var(--text-2)', fontWeight: name === 'Il mio Portafoglio' ? 700 : 400 }}>{name}</span>
                             </span>
                           </td>
-                          <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 700, color: '#FF453A', fontSize: '0.82rem' }}>{maxDD.toFixed(2)}%</td>
-                          <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600, color: currentDD < -1 ? '#FF453A' : '#30D158', fontSize: '0.82rem' }}>{currentDD.toFixed(2)}%</td>
-                          <td style={{ padding: '6px 10px', textAlign: 'center', color: 'var(--text-2)', fontSize: '0.82rem' }}>{avgDD ? avgDD.toFixed(2) + '%' : '—'}</td>
+                          <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 700, color: '#FF453A', fontSize: '0.82rem', ...MONO }}>{maxDD.toFixed(2)}%</td>
+                          <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600, color: currentDD < -1 ? '#FF453A' : '#30D158', fontSize: '0.82rem', ...MONO }}>{currentDD.toFixed(2)}%</td>
+                          <td style={{ padding: '6px 10px', textAlign: 'center', color: 'var(--text-2)', fontSize: '0.82rem', ...MONO }}>{avgDD ? avgDD.toFixed(2) + '%' : '—'}</td>
                         </tr>
                       );
                     })}
@@ -2347,7 +2349,7 @@ function PortfolioPerformance() {
                           const r = calcMonthPerf(values, index, (tx) => tx.macroCategory === category);
                           if (r === null) return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', color: 'var(--text-3)' }}>-</td>;
                           const s = getHeatmapStyle(r.perfPct);
-                          return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', background: s.bg, color: s.text, fontWeight: s.fw }}>{fmtCell(r)}</td>;
+                          return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', background: s.bg, color: s.text, fontWeight: s.fw, ...MONO }}>{fmtCell(r)}</td>;
                         })}
                       </tr>
                     );
@@ -2395,7 +2397,7 @@ function PortfolioPerformance() {
                           const r = calcMonthPerf(values, index, (tx) => (tx.microCategory || tx.macroCategory || 'N/A') === microCategory);
                           if (r === null) return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', color: 'var(--text-3)' }}>-</td>;
                           const s = getHeatmapStyle(r.perfPct);
-                          return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', background: s.bg, color: s.text, fontWeight: s.fw }}>{fmtCell(r)}</td>;
+                          return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', background: s.bg, color: s.text, fontWeight: s.fw, ...MONO }}>{fmtCell(r)}</td>;
                         })}
                       </tr>
                     );
@@ -2460,7 +2462,7 @@ function PortfolioPerformance() {
                             tooltipHideTimer.current = setTimeout(() => setTickerTooltip(null), 250);
                           }}
                         >
-                          <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--text-1)' }}>{ticker}</span>
+                          <span style={{ ...MONO, fontWeight: 600, color: 'var(--text-1)' }}>{ticker}</span>
                           <span style={{ fontSize: '0.65rem', color: 'var(--text-3)', marginLeft: 5 }}>{category}</span>
                         </td>
                         {monthlyData.map((month, index) => {
@@ -2469,7 +2471,7 @@ function PortfolioPerformance() {
                           const r = calcMonthPerf(values, index, (tx) => tx.ticker === ticker);
                           if (r === null) return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', color: 'var(--text-3)' }}>•</td>;
                           const s = getHeatmapStyle(r.perfPct);
-                          return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', background: s.bg, color: s.text, fontWeight: s.fw }}>{fmtCell(r)}</td>;
+                          return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', background: s.bg, color: s.text, fontWeight: s.fw, ...MONO }}>{fmtCell(r)}</td>;
                         })}
                       </tr>
                     );
@@ -2542,7 +2544,7 @@ function PortfolioPerformance() {
                       <tr key={key} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: '8px 12px', color: 'var(--text-1)', fontWeight: 600 }}>
                           {contributionView === 'ticker' ? (
-                            <><div style={{ fontFamily: 'monospace' }}>{item.ticker}</div><div style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>{item.name}</div></>
+                            <><div style={{ ...MONO }}>{item.ticker}</div><div style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>{item.name}</div></>
                           ) : (
                             <><div>{item.microCategory}</div><div style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>{item.macroCategory}</div></>
                           )}
@@ -2550,10 +2552,10 @@ function PortfolioPerformance() {
                         <td style={{ padding: '8px 12px', color: 'var(--text-3)', fontSize: '0.75rem' }}>
                           {contributionView === 'ticker' ? item.microCategory : (item.tickers.slice(0, 3).join(', ') + (item.tickers.length > 3 ? ` +${item.tickers.length - 3}` : ''))}
                         </td>
-                        <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-1)' }}>{item.avgWeight.toFixed(1)}%</td>
-                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: item.assetReturn >= 0 ? '#30D158' : '#FF453A' }}>{item.assetReturn >= 0 ? '+' : ''}{item.assetReturn.toFixed(1)}%</td>
-                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: item.contributionEuro >= 0 ? '#30D158' : '#FF453A' }}>{item.contributionEuro >= 0 ? '+' : ''}€{item.contributionEuro.toLocaleString('it-IT', { maximumFractionDigits: 0 })}</td>
-                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: item.contributionPercent >= 0 ? '#30D158' : '#FF453A' }}>{item.contributionPercent >= 0 ? '+' : ''}{item.contributionPercent.toFixed(2)}%</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-1)', ...MONO }}>{item.avgWeight.toFixed(1)}%</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: item.assetReturn >= 0 ? '#30D158' : '#FF453A', ...MONO }}>{item.assetReturn >= 0 ? '+' : ''}{item.assetReturn.toFixed(1)}%</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: item.contributionEuro >= 0 ? '#30D158' : '#FF453A', ...MONO }}>{item.contributionEuro >= 0 ? '+' : ''}€{item.contributionEuro.toLocaleString('it-IT', { maximumFractionDigits: 0 })}</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: item.contributionPercent >= 0 ? '#30D158' : '#FF453A', ...MONO }}>{item.contributionPercent >= 0 ? '+' : ''}{item.contributionPercent.toFixed(2)}%</td>
                       </tr>
                     );
                   })}
@@ -2561,14 +2563,14 @@ function PortfolioPerformance() {
                 <tfoot>
                   <tr style={{ borderTop: '2px solid var(--border)', background: 'rgba(10,132,255,0.06)' }}>
                     <td colSpan={2} style={{ padding: '8px 12px', fontWeight: 700, color: 'var(--text-1)' }}>TOTALE</td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--text-1)' }}>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--text-1)', ...MONO }}>
                       {(contributionView === 'ticker' ? contributionData.byTicker : contributionData.byMicroCategory).reduce((s, t) => s + t.avgWeight, 0).toFixed(0)}%
                     </td>
                     <td style={{ padding: '8px 12px' }}></td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: contributionData.totalReturnEuro >= 0 ? '#30D158' : '#FF453A' }}>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: contributionData.totalReturnEuro >= 0 ? '#30D158' : '#FF453A', ...MONO }}>
                       {contributionData.totalReturnEuro >= 0 ? '+' : ''}€{contributionData.totalReturnEuro.toLocaleString('it-IT', { maximumFractionDigits: 0 })}
                     </td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: contributionData.totalReturnPercent >= 0 ? '#30D158' : '#FF453A' }}>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: contributionData.totalReturnPercent >= 0 ? '#30D158' : '#FF453A', ...MONO }}>
                       {contributionData.totalReturnPercent >= 0 ? '+' : ''}{contributionData.totalReturnPercent.toFixed(2)}%
                     </td>
                   </tr>
@@ -2596,11 +2598,11 @@ function PortfolioPerformance() {
                 {monthlyReturns.map(monthData => (
                   <tr key={monthData.month} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '8px 12px', fontWeight: 500, color: 'var(--text-1)' }}>{monthData.month}</td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: 'var(--text-1)' }}>€{monthData.value.toLocaleString('it-IT', { maximumFractionDigits: 0 })}</td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', color: monthData.netCashFlow > 0 ? '#30D158' : monthData.netCashFlow < 0 ? '#FF453A' : 'var(--text-3)' }}>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: 'var(--text-1)', ...MONO }}>€{monthData.value.toLocaleString('it-IT', { maximumFractionDigits: 0 })}</td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: monthData.netCashFlow > 0 ? '#30D158' : monthData.netCashFlow < 0 ? '#FF453A' : 'var(--text-3)', ...MONO }}>
                       {monthData.netCashFlow !== undefined && monthData.netCashFlow !== 0 ? `${monthData.netCashFlow > 0 ? '+' : ''}€${(monthData.netCashFlow || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 })}` : '-'}
                     </td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: monthData.return >= 0 ? '#30D158' : '#FF453A' }}>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: monthData.return >= 0 ? '#30D158' : '#FF453A', ...MONO }}>
                       {monthData.return >= 0 ? '+' : ''}{monthData.return.toFixed(2)}%
                     </td>
                   </tr>
@@ -2609,7 +2611,7 @@ function PortfolioPerformance() {
               <tfoot>
                 <tr style={{ borderTop: '2px solid var(--border)', background: 'rgba(10,132,255,0.06)' }}>
                   <td style={{ padding: '8px 12px', fontWeight: 700, color: 'var(--text-1)' }}>TOTALE</td>
-                  <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--text-1)' }}>€{monthlyReturns[monthlyReturns.length - 1].value.toLocaleString('it-IT', { maximumFractionDigits: 0 })}</td>
+                  <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--text-1)', ...MONO }}>€{monthlyReturns[monthlyReturns.length - 1].value.toLocaleString('it-IT', { maximumFractionDigits: 0 })}</td>
                   <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-3)' }}>-</td>
                   <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700 }}>
                     {(() => {
@@ -2649,7 +2651,7 @@ function PortfolioPerformance() {
                 return (
                   <div key={stat.label} style={{ background: 'var(--surface-2)', borderRadius: 10, padding: '12px 16px', textAlign: 'center' }}>
                     <p style={{ fontSize: '0.72rem', color: 'var(--text-3)', margin: '0 0 4px' }}>{stat.label}</p>
-                    <p style={{ fontWeight: 700, fontSize: '1.1rem', color: stat.color(val), margin: 0 }}>{stat.fmt(val)}</p>
+                    <p style={{ fontWeight: 700, fontSize: '1.1rem', color: stat.color(val), margin: 0, ...MONO }}>{stat.fmt(val)}</p>
                   </div>
                 );
               })}
@@ -2791,7 +2793,7 @@ function PortfolioPerformance() {
           >
             {/* Header: ticker + prezzo */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 2 }}>
-              <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--text-1)', fontSize: '0.95rem', letterSpacing: '0.03em' }}>
+              <span style={{ ...MONO, fontWeight: 700, color: 'var(--text-1)', fontSize: '0.95rem', letterSpacing: '0.03em' }}>
                 {tickerTooltip.ticker}
               </span>
               {cur != null && (

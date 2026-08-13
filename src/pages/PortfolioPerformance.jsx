@@ -660,24 +660,10 @@ function PortfolioPerformance() {
     const uniqueTickers = Object.keys(lastMonth.byTicker).length;
     const advancedMetrics = calculateAllMetrics(statsReturns, 2, totalInvested);
 
-    // Adjusted return — portfolio value at the end of the last NON-EXCLUDED month
-    // "Se escludo luglio, quanto valeva il portafoglio a fine giugno?"
-    let adjCompoundReturn = null;
-    let adjCagr = null;
-    let adjMonth = null;
-    if (excludedMonths.size > 0) {
-      const lastIncluded = [...filteredData].reverse().find(m => !excludedMonths.has(m.monthKey));
-      if (lastIncluded && lastIncluded.invested > 0) {
-        adjCompoundReturn = ((lastIncluded.total - lastIncluded.invested) / lastIncluded.invested) * 100;
-        adjMonth = lastIncluded.monthKey;
-      }
-      // CAGR adj: use compound of statsReturns for consistency with other metrics
-      const adjYears = statsReturns.length / 12;
-      if (adjYears > 0 && statsReturns.length > 0) {
-        const twrAdj = statsReturns.reduce((prod, m) => prod * (1 + m.return / 100), 1) - 1;
-        adjCagr = (Math.pow(1 + twrAdj, 1 / adjYears) - 1) * 100;
-      }
-    }
+    // Full TWR (all months, no exclusion) — for comparison when months are excluded
+    const twrFull = calculatedMonthlyReturns.length > 0
+      ? (calculatedMonthlyReturns.reduce((prod, m) => prod * (1 + m.return / 100), 1) - 1) * 100
+      : 0;
 
     setStatistics({
       totalAssets: uniqueTickers,
@@ -690,15 +676,15 @@ function PortfolioPerformance() {
       worstMonth,
       startDate,
       monthsTracked: filteredData.length,
+      totalReturnMonths: calculatedMonthlyReturns.length,
+      includedReturnMonths: statsReturns.length,
+      twrFull,
       cagr: advancedMetrics.cagr,
       maxDrawdown: advancedMetrics.maxDrawdown,
       recoveryTime: advancedMetrics.recoveryTime,
       sharpeRatio: advancedMetrics.sharpeRatio,
       sortinoRatio: advancedMetrics.sortinoRatio,
       volatility: advancedMetrics.volatility,
-      adjCompoundReturn,
-      adjCagr,
-      adjMonth,
       excludedCount: excludedMonths.size,
     });
 
@@ -1673,13 +1659,18 @@ function PortfolioPerformance() {
       {/* ── 3. KPI STRIP (metriche %) ── */}
       {(() => {
         const excl = statistics.excludedCount > 0;
-        const inclMonths = statistics.monthsTracked - statistics.excludedCount;
-        const adjBadge = excl ? ` · −${statistics.excludedCount} mes${statistics.excludedCount === 1 ? 'e' : 'i'}` : '';
+        const inclMonths = statistics.includedReturnMonths || statistics.totalReturnMonths || (statistics.monthsTracked - 1);
+        const totalMonths = statistics.totalReturnMonths || (statistics.monthsTracked - 1);
+        const adjBadge = excl ? ` · ${inclMonths}/${totalMonths} mesi` : '';
         const rendVal = excl ? twrPercent : statistics.totalReturnPercent;
-        const rendSub = excl ? `TWR adj. · ${inclMonths} mesi` : 'Sul capitale investito';
-        const twrSub = excl ? `${inclMonths} mesi inclusi · esclusi versamenti` : `${statistics.monthsTracked} mesi · esclusi versamenti`;
+        const rendSub = excl
+          ? `TWR su ${inclMonths} mesi (era ${statistics.twrFull >= 0 ? '+' : ''}${(statistics.twrFull || 0).toFixed(2)}% su ${totalMonths})`
+          : 'Sul capitale investito';
+        const twrSub = excl
+          ? `${inclMonths}/${totalMonths} mesi · esclusi versamenti`
+          : `${totalMonths} mesi · esclusi versamenti`;
         const kpis = [
-          { label: 'Rendimento', value: `${rendVal >= 0 ? '+' : ''}${rendVal.toFixed(2)}%`, color: rendVal >= 0 ? '#30D158' : '#FF453A', sub: rendSub },
+          { label: excl ? 'Rendimento adj.' : 'Rendimento', value: `${rendVal >= 0 ? '+' : ''}${rendVal.toFixed(2)}%`, color: rendVal >= 0 ? '#30D158' : '#FF453A', sub: rendSub },
           { label: 'TWR', value: `${twrPercent >= 0 ? '+' : ''}${twrPercent.toFixed(2)}%`, color: twrPercent >= 0 ? '#30D158' : '#FF453A', sub: twrSub },
           { label: 'CAGR', value: `${statistics.cagr >= 0 ? '+' : ''}${statistics.cagr.toFixed(2)}%`, color: statistics.cagr >= 0 ? '#30D158' : '#FF453A', sub: `Annualizzato${adjBadge}` },
           { label: 'Volatilità', value: `${statistics.volatility.toFixed(2)}%`, color: 'var(--text-1)', sub: `Ann. mensile${adjBadge}` },

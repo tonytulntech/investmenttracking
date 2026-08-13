@@ -129,8 +129,22 @@ export function clearPerfCache() {
   localStorage.removeItem(PERF_CACHE_KEY);
 }
 
+function buildTickerRoleMap() {
+  const cfg = getPortfolioConfig();
+  const bucketById = {};
+  (cfg.portfolios || []).forEach(p => {
+    (p.buckets || []).forEach(b => { bucketById[b.id] = b.name; });
+  });
+  const map = {};
+  Object.entries(cfg.bucketAssignments || {}).forEach(([ticker, bId]) => {
+    if (bucketById[bId]) map[ticker] = bucketById[bId];
+  });
+  return map;
+}
+
 // ── Monthly data builder (pure function — no side effects) ────────────────────
 function buildMonthlyGrowthData(assetTransactions, priceTables, allMonths, currentPrices) {
+  const tickerRoleMap = buildTickerRoleMap();
   const monthlyGrowth = [];
 
   allMonths.forEach(monthDate => {
@@ -179,6 +193,7 @@ function buildMonthlyGrowthData(assetTransactions, priceTables, allMonths, curre
     const byTicker = {};
     const byMacro = {};
     const byMicro = {};
+    const byRole = {};
 
     Object.values(holdings).forEach(holding => {
       if (holding.quantity > 0) {
@@ -209,11 +224,14 @@ function buildMonthlyGrowthData(assetTransactions, priceTables, allMonths, curre
         byMacro[macro] = (byMacro[macro] || 0) + value;
         const micro = cl.microLabel || macro;
         byMicro[micro] = (byMicro[micro] || 0) + value;
+        const role = tickerRoleMap[holding.ticker] || 'Non assegnato';
+        byRole[role] = (byRole[role] || 0) + value;
       }
     });
 
     Object.keys(byMacro).forEach(key => { byMacro[key] = Math.round(byMacro[key]); });
     Object.keys(byMicro).forEach(key => { byMicro[key] = Math.round(byMicro[key]); });
+    Object.keys(byRole).forEach(key => { byRole[key] = Math.round(byRole[key]); });
 
     monthlyGrowth.push({
       month: format(monthDate, 'MMM yyyy', { locale: it }),
@@ -222,6 +240,7 @@ function buildMonthlyGrowthData(assetTransactions, priceTables, allMonths, curre
       byTicker,
       byMacro,
       byMicro,
+      byRole,
       total: Math.round(totalValue),
       invested: Math.round(totalInvested)
     });
@@ -310,6 +329,7 @@ function PortfolioPerformance() {
   const [contributionData, setContributionData] = useState({
     byTicker: [],
     byMicroCategory: [],
+    byRole: [],
     totalReturnEuro: 0,
     totalReturnPercent: 0
   });
@@ -374,7 +394,8 @@ function PortfolioPerformance() {
           portfolioTickers.forEach(t => {
             if (month.byTicker[t]) { filteredByTicker[t] = month.byTicker[t]; total += month.byTicker[t]; }
           });
-          const byMacro = {}, byMicro = {};
+          const byMacro = {}, byMicro = {}, byRole = {};
+          const trm = buildTickerRoleMap();
           portfolioTickers.forEach(t => {
             if (!filteredByTicker[t]) return;
             const tx = filteredTxs.find(x => x.ticker === t);
@@ -385,8 +406,10 @@ function PortfolioPerformance() {
               byMacro[mac] = (byMacro[mac] || 0) + filteredByTicker[t];
               byMicro[mic] = (byMicro[mic] || 0) + filteredByTicker[t];
             }
+            const role = trm[t] || 'Non assegnato';
+            byRole[role] = (byRole[role] || 0) + filteredByTicker[t];
           });
-          return { ...month, byTicker: filteredByTicker, byMacro, byMicro, total: Math.round(total) };
+          return { ...month, byTicker: filteredByTicker, byMacro, byMicro, byRole, total: Math.round(total) };
         });
 
     const sortedTxs = [...filteredTxs].sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -395,7 +418,7 @@ function PortfolioPerformance() {
   }, [selectedPortfolioId, allMonthlyData, assetTxs, fullStartDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // UI tab state
-  const [heatmapTab, setHeatmapTab] = useState('macro');
+  const [heatmapTab, setHeatmapTab] = useState('role');
   const [heatmapValueMode, setHeatmapValueMode] = useState('percent'); // 'percent' | 'euro'
   const [heatmapSort, setHeatmapSort] = useState({ monthKey: null, dir: 'desc' }); // click su header mese
   const [excludedMonths, setExcludedMonths] = useState(new Set()); // mesi esclusi dalle statistiche
@@ -747,11 +770,13 @@ function PortfolioPerformance() {
       const contributionEuro = totalReturnPercent !== 0 ? (contributionPercent / totalReturnPercent) * totalReturn : 0;
 
       if (avgWeight > 0.01) {
+        const trm = buildTickerRoleMap();
         tickerContributions.push({
           ticker,
           name: tickerInfoMap[ticker]?.name || ticker,
           microCategory: tickerInfoMap[ticker]?.microCategory || 'N/A',
           macroCategory: tickerInfoMap[ticker]?.macroCategory || 'Altro',
+          roleName: trm[ticker] || 'Non assegnato',
           avgWeight, assetReturn: tickerTotalReturn, contributionEuro, contributionPercent
         });
       }
@@ -778,7 +803,25 @@ function PortfolioPerformance() {
     }));
     microContributions.sort((a, b) => b.contributionEuro - a.contributionEuro);
 
-    setContributionData({ byTicker: tickerContributions, byMicroCategory: microContributions, totalReturnEuro: totalReturn, totalReturnPercent });
+    const roleMap = {};
+    tickerContributions.forEach(tc => {
+      const role = tc.roleName || 'Non assegnato';
+      if (!roleMap[role]) {
+        roleMap[role] = { roleName: role, tickers: [], totalWeight: 0, weightedReturn: 0, contributionEuro: 0, contributionPercent: 0 };
+      }
+      roleMap[role].tickers.push(tc.ticker);
+      roleMap[role].totalWeight += tc.avgWeight;
+      roleMap[role].weightedReturn += tc.avgWeight * tc.assetReturn;
+      roleMap[role].contributionEuro += tc.contributionEuro;
+      roleMap[role].contributionPercent += tc.contributionPercent;
+    });
+    const roleContributions = Object.values(roleMap).map(rc => ({
+      ...rc, avgWeight: rc.totalWeight,
+      assetReturn: rc.totalWeight > 0 ? rc.weightedReturn / rc.totalWeight : 0
+    }));
+    roleContributions.sort((a, b) => b.contributionEuro - a.contributionEuro);
+
+    setContributionData({ byTicker: tickerContributions, byMicroCategory: microContributions, byRole: roleContributions, totalReturnEuro: totalReturn, totalReturnPercent });
 
     // ── Period returns ───────────────────────────────────────────────────────
     const currentYear = now.getFullYear();
@@ -1206,23 +1249,20 @@ function PortfolioPerformance() {
   }, [tickerTooltip?.ticker, tooltipPeriod]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Transform monthlyData into format needed by heat maps
-  const { monthlyCategoryValues, monthlyMicroCategoryValues, monthlyTickerValues } = useMemo(() => {
+  const { monthlyCategoryValues, monthlyMicroCategoryValues, monthlyTickerValues, monthlyRoleValues } = useMemo(() => {
     const categoryValues = {};
     const microCategoryValues = {};
     const tickerValues = {};
+    const roleValues = {};
 
     monthlyData.forEach(month => {
-      // Store category values
       categoryValues[month.monthKey] = month.byMacro || {};
-
-      // Store micro category values
       microCategoryValues[month.monthKey] = month.byMicro || {};
-
-      // Store ticker values
       tickerValues[month.monthKey] = month.byTicker || {};
+      roleValues[month.monthKey] = month.byRole || {};
     });
 
-    return { monthlyCategoryValues: categoryValues, monthlyMicroCategoryValues: microCategoryValues, monthlyTickerValues: tickerValues };
+    return { monthlyCategoryValues: categoryValues, monthlyMicroCategoryValues: microCategoryValues, monthlyTickerValues: tickerValues, monthlyRoleValues: roleValues };
   }, [monthlyData]);
 
   // Massimi storici: picco patrimonio (€) e picco rendimento TWR (%).
@@ -2279,9 +2319,9 @@ function PortfolioPerformance() {
                   >{label}</button>
                 ))}
               </div>
-              {/* Tab MACRO/MICRO/TICKER */}
+              {/* Tab RUOLO/MACRO/MICRO/TICKER */}
               <div style={{ display: 'flex', gap: 3, background: 'var(--surface-2)', padding: 4, borderRadius: 10 }}>
-                {[['macro', 'MACRO'], ['micro', 'MICRO'], ['ticker', 'TICKER']].map(([val, label]) => (
+                {[['role', 'RUOLO'], ['macro', 'MACRO'], ['micro', 'MICRO'], ['ticker', 'TICKER']].map(([val, label]) => (
                   <button
                     key={val}
                     onClick={() => setHeatmapTab(val)}
@@ -2317,6 +2357,55 @@ function PortfolioPerformance() {
               </div>
             ))}
           </div>
+
+          {/* RUOLO heatmap */}
+          {heatmapTab === 'role' && (() => {
+            const allRoles = new Set();
+            Object.values(monthlyRoleValues).forEach(mv => {
+              Object.keys(mv).forEach(k => { if (k !== 'Non assegnato' && mv[k] > 0) allRoles.add(k); });
+            });
+            const roleRows = Array.from(allRoles).sort();
+            const trm = buildTickerRoleMap();
+            const sortedRoles = sortRows(
+              roleRows,
+              (role) => Object.fromEntries(monthlyData.map(m => [m.monthKey, monthlyRoleValues[m.monthKey]?.[role] || 0])),
+              (role, tx) => (trm[tx.ticker] || 'Non assegnato') === role
+            );
+            return (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', fontSize: '0.75rem', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: '6px 12px', color: 'var(--text-3)', fontWeight: 600, position: 'sticky', left: 0, background: 'var(--card-bg)', minWidth: 160, zIndex: 10 }}>Ruolo</th>
+                    {monthlyData.map(month => (
+                      <th key={month.monthKey} onClick={(e) => onMonthClick(e, month.monthKey)} style={headerCellStyle(month.monthKey)} title="Click: ordina · Shift+click: escludi mese dalle statistiche">
+                        {month.month}{sortIndicator(month.monthKey)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedRoles.map(role => {
+                    const values = Object.fromEntries(monthlyData.map(m => [m.monthKey, monthlyRoleValues[m.monthKey]?.[role] || 0]));
+                    return (
+                      <tr key={role}>
+                        <td style={{ padding: '5px 12px', fontWeight: 600, color: 'var(--text-2)', position: 'sticky', left: 0, background: 'var(--card-bg)', borderRight: '1px solid var(--border)', zIndex: 10 }}>{role}</td>
+                        {monthlyData.map((month, index) => {
+                          const currentValue = values[month.monthKey] || 0;
+                          if (currentValue === 0) return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', color: 'var(--text-3)' }}>-</td>;
+                          const r = calcMonthPerf(values, index, (tx) => (trm[tx.ticker] || 'Non assegnato') === role);
+                          if (r === null) return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', color: 'var(--text-3)' }}>-</td>;
+                          const s = getHeatmapStyle(r.perfPct);
+                          return <td key={month.monthKey} style={{ padding: '5px 6px', textAlign: 'center', background: s.bg, color: s.text, fontWeight: s.fw, ...MONO }}>{fmtCell(r)}</td>;
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            );
+          })()}
 
           {/* MACRO heatmap */}
           {heatmapTab === 'macro' && (() => {
@@ -2534,7 +2623,7 @@ function PortfolioPerformance() {
         {analysisTab === 'contribution' && contributionData.byTicker.length > 0 && (
           <>
             <div style={{ display: 'flex', gap: 3, marginBottom: 16, background: 'var(--surface-2)', padding: 4, borderRadius: 10, width: 'fit-content' }}>
-              {[['ticker', 'Per Ticker'], ['micro', 'Per Micro Categoria']].map(([val, label]) => (
+              {[['role', 'Per Ruolo'], ['ticker', 'Per Ticker'], ['micro', 'Per Micro Categoria']].map(([val, label]) => (
                 <button
                   key={val}
                   onClick={() => setContributionView(val)}
@@ -2559,19 +2648,21 @@ function PortfolioPerformance() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(contributionView === 'ticker' ? contributionData.byTicker : contributionData.byMicroCategory).map(item => {
-                    const key = contributionView === 'ticker' ? item.ticker : item.microCategory;
+                  {(contributionView === 'role' ? contributionData.byRole : contributionView === 'ticker' ? contributionData.byTicker : contributionData.byMicroCategory).map(item => {
+                    const key = contributionView === 'role' ? item.roleName : contributionView === 'ticker' ? item.ticker : item.microCategory;
                     return (
                       <tr key={key} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: '8px 12px', color: 'var(--text-1)', fontWeight: 600 }}>
-                          {contributionView === 'ticker' ? (
+                          {contributionView === 'role' ? (
+                            <div>{item.roleName}</div>
+                          ) : contributionView === 'ticker' ? (
                             <><div style={{ ...MONO }}>{item.ticker}</div><div style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>{item.name}</div></>
                           ) : (
                             <><div>{item.microCategory}</div><div style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>{item.macroCategory}</div></>
                           )}
                         </td>
                         <td style={{ padding: '8px 12px', color: 'var(--text-3)', fontSize: '0.75rem' }}>
-                          {contributionView === 'ticker' ? item.microCategory : (item.tickers.slice(0, 3).join(', ') + (item.tickers.length > 3 ? ` +${item.tickers.length - 3}` : ''))}
+                          {contributionView === 'role' ? (item.tickers.slice(0, 3).join(', ') + (item.tickers.length > 3 ? ` +${item.tickers.length - 3}` : '')) : contributionView === 'ticker' ? item.microCategory : (item.tickers.slice(0, 3).join(', ') + (item.tickers.length > 3 ? ` +${item.tickers.length - 3}` : ''))}
                         </td>
                         <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-1)', ...MONO }}>{item.avgWeight.toFixed(1)}%</td>
                         <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: item.assetReturn >= 0 ? '#30D158' : '#FF453A', ...MONO }}>{item.assetReturn >= 0 ? '+' : ''}{item.assetReturn.toFixed(1)}%</td>
@@ -2585,7 +2676,7 @@ function PortfolioPerformance() {
                   <tr style={{ borderTop: '2px solid var(--border)', background: 'rgba(10,132,255,0.06)' }}>
                     <td colSpan={2} style={{ padding: '8px 12px', fontWeight: 700, color: 'var(--text-1)' }}>TOTALE</td>
                     <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: 'var(--text-1)', ...MONO }}>
-                      {(contributionView === 'ticker' ? contributionData.byTicker : contributionData.byMicroCategory).reduce((s, t) => s + t.avgWeight, 0).toFixed(0)}%
+                      {(contributionView === 'role' ? contributionData.byRole : contributionView === 'ticker' ? contributionData.byTicker : contributionData.byMicroCategory).reduce((s, t) => s + t.avgWeight, 0).toFixed(0)}%
                     </td>
                     <td style={{ padding: '8px 12px' }}></td>
                     <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: contributionData.totalReturnEuro >= 0 ? '#30D158' : '#FF453A', ...MONO }}>

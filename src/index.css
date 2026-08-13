@@ -656,6 +656,17 @@
   background: var(--surface-2);
   border-top: 1px solid var(--border);
   padding-bottom: env(safe-area-inset-bottom, 0);
+  display: block;
+}
+
+/* Enforce responsive behavior indipendente dalle classi Tailwind:
+   sotto 768 solo mobile-nav, sopra solo sidebar. */
+@media (min-width: 768px) {
+  .mobile-nav { display: none !important; }
+}
+@media (max-width: 767px) {
+  .sidebar    { display: none !important; }
+  main.md\:pl-\[188px\], main[class*="md:pl-"] { padding-left: 0 !important; }
 }
 .mobile-nav-link {
   display: flex;

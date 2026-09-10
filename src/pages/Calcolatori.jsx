@@ -1081,10 +1081,14 @@ function RenditaCalc() {
   // fvVal  = capitale accumulato in N anni (calcolato fuori)
   // pmtNeeded = solo per ETF, rata per centrare l'obiettivo
   // rateLabel = stringa descrittiva del tasso
+  const totalVersato = capInit + monthlyInput * months;
+
   const ScenarioCard = ({ emoji, label, rateLabel, fvVal, pmtNeeded, color, best, note }) => {
     const rendita = monthlyRendita(fvVal, withdrawalRate);
     const gap     = rendita - targetRendita;          // >0 = supera, <0 = manca
     const onTrack = gap >= 0;
+    const guadagno = fvVal - totalVersato;
+    const guadagnoPct = totalVersato > 0 ? (guadagno / totalVersato * 100) : 0;
     return (
       <div style={{
         flex: 1, minWidth: 200, borderRadius: 16, padding: '18px 16px',
@@ -1110,12 +1114,37 @@ function RenditaCalc() {
           </div>
         </div>
 
+        {/* Totale versato di tasca tua */}
+        <div style={{
+          padding: '8px 12px', borderRadius: 10, marginBottom: 10,
+          background: 'var(--surface-2, rgba(255,255,255,0.04))',
+          border: '1px solid var(--border, rgba(255,255,255,0.08))',
+        }}>
+          <div style={{ fontSize: '0.62rem', color: 'var(--text-3)', marginBottom: 2 }}>
+            Totale versato in {years} anni
+          </div>
+          <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-1)', lineHeight: 1 }}>
+            {fmtEur(totalVersato)}
+          </div>
+          <div style={{ fontSize: '0.6rem', color: 'var(--text-3)', marginTop: 3 }}>
+            {capInit > 0 ? `${fmtEur(capInit)} iniziale + ${fmtEur(monthlyInput)}/mese × ${years}a` : `${fmtEur(monthlyInput)}/mese × ${years} anni`}
+          </div>
+        </div>
+
         {/* Capitale accumulato */}
         <div style={{ fontSize: '0.62rem', color: 'var(--text-3)', marginBottom: 2 }}>
           Capitale accumulato in {years} anni
         </div>
-        <div style={{ fontSize: '1.5rem', fontWeight: 900, color, lineHeight: 1, marginBottom: 10 }}>
+        <div style={{ fontSize: '1.5rem', fontWeight: 900, color, lineHeight: 1, marginBottom: 4 }}>
           {fmtEur(fvVal)}
+        </div>
+
+        {/* Guadagno netto */}
+        <div style={{
+          fontSize: '0.72rem', fontWeight: 700, marginBottom: 10,
+          color: guadagno >= 0 ? '#30D158' : '#FF453A',
+        }}>
+          {guadagno >= 0 ? '+' : ''}{fmtEur(guadagno)} ({guadagnoPct >= 0 ? '+' : ''}{guadagnoPct.toFixed(0)}%)
         </div>
 
         {/* Rendita e gap */}

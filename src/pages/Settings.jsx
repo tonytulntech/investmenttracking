@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Trash2, Database, Download, AlertCircle, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Settings as SettingsIcon, Trash2, Database, Download, Upload, AlertCircle, RefreshCw, ShieldCheck } from 'lucide-react';
 import { getSettings, updateSettings, getStorageInfo, clearAllTransactions, exportTransactions, updateAllSubCategories } from '../services/localStorageService';
 import { clearTERCache, getCachedTERs } from '../services/terCache';
 import { clearPriceCache } from '../services/priceCache';
+import {
+  createBackup, serializeBackup, parseBackup, summarizeBackup, restoreBackup, backupFilename,
+} from '../services/backupService';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 
@@ -11,6 +14,9 @@ function Settings() {
   const [storageInfo, setStorageInfo] = useState(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [updatingSubCategories, setUpdatingSubCategories] = useState(false);
+  const [pendingRestore, setPendingRestore] = useState(null);
+  const [restoreMode, setRestoreMode] = useState('replace');
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     loadStorageInfo();
@@ -48,6 +54,41 @@ function Settings() {
     a.download = `backup_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportFullBackup = () => {
+    const backup = createBackup();
+    const blob = new Blob([serializeBackup(backup)], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = backupFilename();
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleBackupFileSelected = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    const { backup, valid, errors } = parseBackup(await file.text());
+    if (!valid) {
+      alert(`❌ Backup non valido:\n\n${errors.join('\n')}`);
+      return;
+    }
+    setPendingRestore({ backup, summary: summarizeBackup(backup), filename: file.name });
+  };
+
+  const handleConfirmRestore = () => {
+    try {
+      const { restored } = restoreBackup(pendingRestore.backup, { mode: restoreMode });
+      setPendingRestore(null);
+      alert(`✅ Ripristinate ${restored.length} chiavi.\n\nRicarica la pagina per vedere i dati.`);
+      window.location.reload();
+    } catch (error) {
+      alert(`❌ Ripristino fallito: ${error.message}`);
+    }
   };
 
   const handleUpdateSubCategories = async () => {
@@ -182,6 +223,108 @@ function Settings() {
         </div>
       </div>
 
+      {/* Backup completo */}
+      <div className="card">
+        <h2 className="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
+          <ShieldCheck className="w-5 h-5" />
+          Backup Completo
+        </h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Salva in un unico file tutti i dati dell'app: transazioni, portafogli, strategia e
+          impostazioni. Le cache dei prezzi non sono incluse perché si rigenerano da sole.
+        </p>
+
+        <div className="flex flex-wrap gap-3">
+          <button onClick={handleExportFullBackup} className="btn-primary flex items-center gap-2">
+            <Download className="w-4 h-4" />
+            Esporta Backup Completo
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <Upload className="w-4 h-4" />
+            Ripristina da Backup
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            onChange={handleBackupFileSelected}
+            className="hidden"
+          />
+        </div>
+      </div>
+
+      {/* Conferma ripristino */}
+      {pendingRestore && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-apple-lg max-w-lg w-full p-6 animate-slide-up">
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Ripristina backup</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {pendingRestore.filename}
+              {pendingRestore.backup.createdAt &&
+                ` · ${format(new Date(pendingRestore.backup.createdAt), 'dd/MM/yyyy HH:mm')}`}
+            </p>
+
+            <div className="border border-gray-200 rounded-lg divide-y max-h-52 overflow-y-auto mb-4">
+              {pendingRestore.summary.map(row => (
+                <div key={row.key} className="flex justify-between px-3 py-2 text-sm">
+                  <span className="text-gray-700">{row.label}</span>
+                  <span className="text-gray-500">
+                    {row.count !== null ? `${row.count} elementi` : `${(row.bytes / 1024).toFixed(1)} KB`}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-2 mb-4">
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="radio"
+                  checked={restoreMode === 'replace'}
+                  onChange={() => setRestoreMode('replace')}
+                  className="mt-1"
+                />
+                <span>
+                  <strong>Sostituisci tutto.</strong> I dati attuali vengono cancellati e rimpiazzati
+                  da quelli del backup.
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="radio"
+                  checked={restoreMode === 'merge'}
+                  onChange={() => setRestoreMode('merge')}
+                  className="mt-1"
+                />
+                <span>
+                  <strong>Solo i dati mancanti.</strong> Non tocca nulla di quello che c'è già.
+                </span>
+              </label>
+            </div>
+
+            {restoreMode === 'replace' && (
+              <div className="bg-danger-50 border border-danger-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-danger-800">
+                  Esporta un backup dello stato attuale prima di procedere: questa operazione non
+                  è annullabile.
+                </p>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button onClick={() => setPendingRestore(null)} className="btn-secondary flex-1">
+                Annulla
+              </button>
+              <button onClick={handleConfirmRestore} className="btn-primary flex-1">
+                Ripristina
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Storage Info */}
       <div className="card">
         <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -219,7 +362,7 @@ function Settings() {
                 className="btn-secondary flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
-                Esporta Backup
+                Esporta CSV Transazioni
               </button>
               <button
                 onClick={handleUpdateSubCategories}
@@ -296,7 +439,7 @@ function Settings() {
             <div className="bg-danger-50 border border-danger-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-danger-800">
                 Stai per eliminare <strong>tutte le transazioni</strong> e i dati dell'app.
-                Assicurati di aver esportato un backup prima di procedere.
+                Assicurati di aver esportato un backup completo prima di procedere.
               </p>
             </div>
 

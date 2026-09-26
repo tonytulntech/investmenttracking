@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, Calendar, BarChart3, AlertTriangle, Play, Settings, Info, RefreshCw } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart, Bar } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart, BarChart, Bar } from 'recharts';
 import { getTransactions } from '../services/localStorageService';
 import { getPACTemplates } from '../services/pacService';
 import { fetchMultipleHistoricalPrices, buildMonthlyPriceTable } from '../services/historicalPriceService';
 import { getProxyInfo, adjustPricesForTER, ETF_PROXY_MAP } from '../config/etfProxyMap';
 import { calculateCAGR, calculateMaxDrawdown, calculateVolatility, calculateSharpeRatio } from '../services/advancedMetricsService';
+import { runMonteCarlo, buildHistogram, buildPathChartData } from '../lib/monteCarlo';
 import { format, parseISO, eachMonthOfInterval, startOfMonth, subYears, subMonths } from 'date-fns';
 import { it } from 'date-fns/locale';
 
@@ -316,124 +317,22 @@ export default function Backtest() {
     }
   };
 
-  // Monte Carlo Simulation
+  // Monte Carlo Simulation — la logica vive in src/lib/monteCarlo.js
   const runMonteCarloSimulation = () => {
     setMonteCarloRunning(true);
 
-    // Use setTimeout to allow UI to update
+    // setTimeout per lasciare aggiornare la UI prima del calcolo sincrono
     setTimeout(() => {
       try {
-        const {
-          expectedReturn,
-          volatility,
-          initialInvestment,
-          monthlyContribution,
-          years,
-          targetAmount,
-          simulations
-        } = monteCarloParams;
-
-        const monthlyReturn = expectedReturn / 12 / 100;
-        const monthlyVolatility = (volatility / Math.sqrt(12)) / 100;
-        const totalMonths = years * 12;
-
-        const results = [];
-        const samplePaths = [];
-        const numSamplePaths = 20;
-
-        // Run simulations
-        for (let sim = 0; sim < simulations; sim++) {
-          let value = initialInvestment;
-          const path = [value];
-
-          for (let month = 1; month <= totalMonths; month++) {
-            // Add monthly contribution
-            value += monthlyContribution;
-
-            // Apply random return (geometric brownian motion)
-            const randomReturn = monthlyReturn + monthlyVolatility * gaussianRandom();
-            value = value * (1 + randomReturn);
-
-            if (sim < numSamplePaths) {
-              path.push(value);
-            }
-          }
-
-          results.push(value);
-
-          if (sim < numSamplePaths) {
-            samplePaths.push(path);
-          }
-        }
-
-        // Sort results for percentile calculation
-        results.sort((a, b) => a - b);
-
-        // Calculate percentiles
-        const getPercentile = (arr, p) => {
-          const index = Math.floor(arr.length * p / 100);
-          return arr[index];
-        };
-
-        const percentile10 = getPercentile(results, 10);
-        const percentile25 = getPercentile(results, 25);
-        const percentile50 = getPercentile(results, 50);
-        const percentile75 = getPercentile(results, 75);
-        const percentile90 = getPercentile(results, 90);
-
-        // Calculate probability of reaching target
-        const successCount = results.filter(v => v >= targetAmount).length;
-        const successProbability = (successCount / simulations) * 100;
-
-        // Calculate total contributions
-        const totalContributions = initialInvestment + (monthlyContribution * totalMonths);
-
-        // Build histogram data
-        const minVal = Math.min(...results);
-        const maxVal = Math.max(...results);
-        const bucketCount = 30;
-        const bucketSize = (maxVal - minVal) / bucketCount;
-        const histogram = [];
-
-        for (let i = 0; i < bucketCount; i++) {
-          const bucketStart = minVal + (i * bucketSize);
-          const bucketEnd = bucketStart + bucketSize;
-          const count = results.filter(v => v >= bucketStart && v < bucketEnd).length;
-          histogram.push({
-            range: `€${Math.round(bucketStart / 1000)}k`,
-            value: bucketStart + bucketSize / 2,
-            count,
-            frequency: (count / simulations) * 100
-          });
-        }
-
-        // Build sample paths data for chart
-        const pathsData = [];
-        for (let month = 0; month <= totalMonths; month++) {
-          const dataPoint = { month };
-          samplePaths.forEach((path, idx) => {
-            dataPoint[`path${idx}`] = path[month];
-          });
-
-          // Add percentile bands
-          dataPoint.p10 = percentile10 * (month / totalMonths);
-          dataPoint.p50 = percentile50 * (month / totalMonths);
-          dataPoint.p90 = percentile90 * (month / totalMonths);
-
-          pathsData.push(dataPoint);
-        }
+        const result = runMonteCarlo(monteCarloParams);
 
         setMonteCarloResults({
-          percentile10,
-          percentile25,
-          percentile50,
-          percentile75,
-          percentile90,
-          successProbability,
-          totalContributions,
-          histogram,
-          samplePaths: pathsData,
-          numPaths: numSamplePaths
+          ...result.percentiles,
+          successProbability: result.successProbability ?? 0,
+          totalContributions: result.totalContributions,
+          histogram: buildHistogram(result.finalValues),
+          pathChartData: buildPathChartData(result),
+          numPaths: result.samplePaths.length,
         });
       } catch (err) {
         console.error('Monte Carlo error:', err);
@@ -441,14 +340,6 @@ export default function Backtest() {
         setMonteCarloRunning(false);
       }
     }, 100);
-  };
-
-  // Gaussian random number generator (Box-Muller transform)
-  const gaussianRandom = () => {
-    let u = 0, v = 0;
-    while (u === 0) u = Math.random();
-    while (v === 0) v = Math.random();
-    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
   };
 
   // Custom tooltip for historical chart
@@ -825,23 +716,23 @@ export default function Backtest() {
             {/* Results Summary */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div className="bg-red-50 rounded-lg p-4 text-center border border-red-200">
-                <div className="text-xs text-red-600 uppercase mb-1">10° Percentile (Pessimista)</div>
+                <div className="text-xs text-red-600 uppercase mb-1">5° Percentile (Pessimista)</div>
                 <div className="text-2xl font-bold text-red-700">
-                  €{Math.round(monteCarloResults.percentile10).toLocaleString('it-IT')}
+                  €{Math.round(monteCarloResults.p5).toLocaleString('it-IT')}
                 </div>
               </div>
 
               <div className="bg-primary-50 rounded-lg p-4 text-center border border-primary-200">
                 <div className="text-xs text-primary-600 uppercase mb-1">50° Percentile (Mediano)</div>
                 <div className="text-2xl font-bold text-primary-700">
-                  €{Math.round(monteCarloResults.percentile50).toLocaleString('it-IT')}
+                  €{Math.round(monteCarloResults.p50).toLocaleString('it-IT')}
                 </div>
               </div>
 
               <div className="bg-green-50 rounded-lg p-4 text-center border border-green-200">
-                <div className="text-xs text-green-600 uppercase mb-1">90° Percentile (Ottimista)</div>
+                <div className="text-xs text-green-600 uppercase mb-1">95° Percentile (Ottimista)</div>
                 <div className="text-2xl font-bold text-green-700">
-                  €{Math.round(monteCarloResults.percentile90).toLocaleString('it-IT')}
+                  €{Math.round(monteCarloResults.p95).toLocaleString('it-IT')}
                 </div>
               </div>
 
@@ -871,11 +762,11 @@ export default function Backtest() {
               </div>
               <div className="bg-gray-100 px-4 py-2 rounded-lg">
                 <span className="text-gray-600">25° Percentile: </span>
-                <span className="font-semibold">€{Math.round(monteCarloResults.percentile25).toLocaleString('it-IT')}</span>
+                <span className="font-semibold">€{Math.round(monteCarloResults.p25).toLocaleString('it-IT')}</span>
               </div>
               <div className="bg-gray-100 px-4 py-2 rounded-lg">
                 <span className="text-gray-600">75° Percentile: </span>
-                <span className="font-semibold">€{Math.round(monteCarloResults.percentile75).toLocaleString('it-IT')}</span>
+                <span className="font-semibold">€{Math.round(monteCarloResults.p75).toLocaleString('it-IT')}</span>
               </div>
             </div>
 
@@ -917,11 +808,11 @@ export default function Backtest() {
             </div>
 
             {/* Sample Paths Chart */}
-            {showSamplePaths && monteCarloResults.samplePaths && (
+            {showSamplePaths && monteCarloResults.pathChartData && (
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Traiettorie Campione</h3>
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={monteCarloResults.samplePaths}>
+                  <LineChart data={monteCarloResults.pathChartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis
                       dataKey="month"

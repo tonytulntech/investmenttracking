@@ -647,6 +647,47 @@ function PACCalc() {
   const renditaGap  = etfRow.rendita - bankRow.rendita;         // rendita mensile in più
   const gapInYears  = monthly > 0 ? capitalGap / (monthly * 12) : null; // quanti anni di versamenti vale il gap
 
+  // ── PERCHÉ conviene il fai-da-te: scomposizione del vantaggio ─────────────
+  // Il divario ETF vs banca nasce da due cause: rendimento più alto e costi più bassi.
+  // Le isoliamo con la media delle due sequenze possibili (decomposizione simmetrica),
+  // così i due effetti sommati danno esattamente il divario totale.
+  const ETF_TER = 0.20;
+  const fvAtRate = (netRate) => {
+    const r = Math.max(0, netRate) / 100 / 12;
+    const n = years * 12;
+    return r === 0
+      ? capitalInit + monthly * n
+      : capitalInit * Math.pow(1 + r, n) + monthly * (Math.pow(1 + r, n) - 1) / r;
+  };
+  const fvBank        = fvAtRate(bankGrossReturn - bankRow.fee);  // banca così com'è
+  const fvBankLowCost = fvAtRate(bankGrossReturn - ETF_TER);      // rendimento banca, costi ETF
+  const fvEtfHighCost = fvAtRate(annualReturn - bankRow.fee);     // rendimento ETF, costi banca
+  const fvEtf         = fvAtRate(annualReturn - ETF_TER);         // ETF così com'è
+  const costEffectRaw   = ((fvBankLowCost - fvBank) + (fvEtf - fvEtfHighCost)) / 2;
+  const returnEffectRaw = ((fvEtfHighCost - fvBank) + (fvEtf - fvBankLowCost)) / 2;
+  // Riallineati a capitalGap (valori già arrotondati mostrati sopra), così i numeri combaciano
+  const effectScale   = (costEffectRaw + returnEffectRaw) !== 0 ? capitalGap / (costEffectRaw + returnEffectRaw) : 1;
+  const costEffect    = costEffectRaw * effectScale;
+  const returnEffect  = returnEffectRaw * effectScale;
+  const effectTotal   = capitalGap;
+  const splitValid    = effectTotal > 0 && costEffect > 0 && returnEffect > 0;
+  const costShare     = splitValid ? costEffect / effectTotal * 100 : null;
+  const returnShare   = splitValid ? returnEffect / effectTotal * 100 : null;
+
+  // Commissioni effettivamente pagate nel periodo (prelevate mese per mese sul montante)
+  const feesPaid = (grossRate, feePct) => {
+    const r = Math.max(0, grossRate - feePct) / 100 / 12;
+    let bal = capitalInit, fees = 0;
+    for (let m = 0; m < years * 12; m++) {
+      bal = bal * (1 + r) + monthly;
+      fees += bal * feePct / 100 / 12;
+    }
+    return fees;
+  };
+  const bankFeesPaid = feesPaid(bankGrossReturn, bankRow.fee);
+  const etfFeesPaid  = feesPaid(annualReturn, ETF_TER);
+  const feesSaved    = bankFeesPaid - etfFeesPaid;
+
   const presetActive = PAC_PRESETS.find(p => p.key === presetKey);
 
   return (
@@ -1016,6 +1057,124 @@ function PACCalc() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* ── PERCHÉ conviene il fai-da-te ───────────────────────────────── */}
+          <div className="card" style={{ padding: '16px 18px', background: 'linear-gradient(135deg, rgba(48,209,88,0.05) 0%, rgba(10,132,255,0.03) 100%)', outline: '1.5px solid rgba(48,209,88,0.2)' }}>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: 700 }}>
+                🧑‍💻 Quanto guadagni in più investendo in autonomia — e perché
+              </div>
+              <div style={{ fontSize: '0.65rem', color: 'var(--analysis-dim)', marginTop: 2 }}>
+                PAC in ETF fai-da-te vs banca {bankGrossReturn}% lordo con {bankRow.fee}% di costi, su {years} anni
+              </div>
+            </div>
+
+            {/* Numero chiave */}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+              <div style={{ fontSize: '2.6rem', fontWeight: 900, color: '#30D158', lineHeight: 1 }}>
+                +{fmtEurFull(Math.max(0, effectTotal))}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--analysis-dim)', lineHeight: 1.4 }}>
+                in più nel tuo portafoglio facendo da solo<br />
+                <span style={{ fontSize: '0.68rem' }}>a parità di {fmtEurFull(capitalInit)} iniziali e {fmtEurFull(monthly)}/mese</span>
+              </div>
+            </div>
+
+            {/* Barra di scomposizione: banca → costi risparmiati → maggior rendimento */}
+            {splitValid && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', height: 34, borderRadius: 9, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ width: `${bankRow.finalValue / etfRow.finalValue * 100}%`, background: 'rgba(255,69,58,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-1)', minWidth: 0, overflow: 'hidden' }}>
+                    Banca {fmtEur(bankRow.finalValue)}
+                  </div>
+                  <div style={{ width: `${costEffect / etfRow.finalValue * 100}%`, background: 'rgba(10,132,255,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-1)', minWidth: 0, overflow: 'hidden' }}>
+                    +{fmtEur(costEffect)}
+                  </div>
+                  <div style={{ width: `${returnEffect / etfRow.finalValue * 100}%`, background: 'rgba(48,209,88,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-1)', minWidth: 0, overflow: 'hidden' }}>
+                    +{fmtEur(returnEffect)}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.62rem', color: 'var(--analysis-dim)', marginTop: 5 }}>
+                  <span>Quello che ti resta in banca</span>
+                  <span style={{ fontWeight: 700, color: '#30D158' }}>Totale ETF {fmtEurFull(etfRow.finalValue)}</span>
+                </div>
+              </div>
+            )}
+
+            {/* I due motivi */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+
+              {/* 1 — Rendono di più */}
+              <div style={{ padding: '14px 16px', borderRadius: 12, background: 'rgba(48,209,88,0.07)', border: '1px solid rgba(48,209,88,0.25)' }}>
+                <div style={{ fontSize: '0.66rem', fontWeight: 700, color: '#30D158', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
+                  1️⃣ Rendono di più
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: '1.6rem', fontWeight: 900, color: '#30D158', lineHeight: 1 }}>+{fmtEurFull(Math.max(0, returnEffect))}</span>
+                  {returnShare != null && (
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--analysis-dim)' }}>{returnShare.toFixed(0)}% del vantaggio</span>
+                  )}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-1)', lineHeight: 1.55 }}>
+                  <strong>{annualReturn}% contro {bankGrossReturn}% lordo.</strong> Un ETF azionario globale replica
+                  tutto il mercato: prendi il rendimento dell'economia mondiale, senza gestore che prova a batterla
+                  (e che nella maggior parte dei casi non ci riesce). I prodotti di banche e polizze sono quasi sempre
+                  bilanciati o obbligazionari, quindi partono da un rendimento atteso più basso.
+                </div>
+                <div style={{ marginTop: 8, fontSize: '0.66rem', color: 'var(--analysis-dim)', lineHeight: 1.5 }}>
+                  Su {years} anni l'interesse composto amplifica la differenza: {(annualReturn - bankGrossReturn).toFixed(1)} punti
+                  in più all'anno valgono {fmtEur(Math.max(0, returnEffect))}.
+                </div>
+              </div>
+
+              {/* 2 — Costano di meno */}
+              <div style={{ padding: '14px 16px', borderRadius: 12, background: 'rgba(10,132,255,0.07)', border: '1px solid rgba(10,132,255,0.25)' }}>
+                <div style={{ fontSize: '0.66rem', fontWeight: 700, color: '#0A84FF', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
+                  2️⃣ Costano di meno
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: '1.6rem', fontWeight: 900, color: '#0A84FF', lineHeight: 1 }}>+{fmtEurFull(Math.max(0, costEffect))}</span>
+                  {costShare != null && (
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--analysis-dim)' }}>{costShare.toFixed(0)}% del vantaggio</span>
+                  )}
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-1)', lineHeight: 1.55 }}>
+                  <strong>0,20% di TER contro {bankRow.fee}% di commissioni.</strong> Comprando l'ETF da solo tramite
+                  broker paghi solo il costo del fondo: niente commissioni di gestione, di collocamento o caricamenti
+                  sui versamenti. Le commissioni le paghi ogni anno su <em>tutto</em> il capitale, anche quando il
+                  mercato scende.
+                </div>
+                <div style={{ marginTop: 10, padding: '9px 11px', borderRadius: 9, background: 'rgba(255,69,58,0.08)', border: '1px solid rgba(255,69,58,0.2)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: '0.68rem', marginBottom: 3 }}>
+                    <span style={{ color: 'var(--analysis-dim)' }}>Commissioni pagate alla banca</span>
+                    <strong style={{ color: '#FF453A' }}>{fmtEurFull(bankFeesPaid)}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: '0.68rem', marginBottom: 3 }}>
+                    <span style={{ color: 'var(--analysis-dim)' }}>TER pagato sull'ETF</span>
+                    <strong style={{ color: 'var(--text-1)' }}>{fmtEurFull(etfFeesPaid)}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: '0.68rem', paddingTop: 4, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                    <span style={{ color: '#30D158', fontWeight: 700 }}>Risparmiate in {years} anni</span>
+                    <strong style={{ color: '#30D158' }}>{fmtEurFull(feesSaved)}</strong>
+                  </div>
+                </div>
+                <div style={{ marginTop: 7, fontSize: '0.63rem', color: 'var(--analysis-dim)', lineHeight: 1.5 }}>
+                  E non è solo la commissione: ogni euro di costo è un euro che esce dal PAC e smette di generare
+                  interesse composto. Per questo il danno finale ({fmtEur(Math.max(0, costEffect))}) è più grande delle
+                  commissioni stesse.
+                </div>
+              </div>
+            </div>
+
+            {/* Nota onesta */}
+            <div style={{ marginTop: 12, padding: '10px 13px', borderRadius: 9, background: 'rgba(255,159,10,0.07)', border: '1px solid rgba(255,159,10,0.2)', fontSize: '0.68rem', color: 'var(--text-1)', lineHeight: 1.55 }}>
+              ⚠️ <strong>Da tenere presente:</strong> il {annualReturn}% è un rendimento medio atteso, non garantito —
+              l'azionario può perdere il 30–50% in un anno brutto e recuperare negli anni successivi. Il vantaggio del
+              fai-da-te si realizza solo se resti investito e continui il PAC anche quando il mercato scende: la parte
+              difficile non è scegliere l'ETF, è non vendere. Il risparmio sui costi, invece, è l'unica parte certa
+              del calcolo.
             </div>
           </div>
 

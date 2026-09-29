@@ -445,6 +445,51 @@ function PACTooltip({ active, payload, label }) {
   );
 }
 
+function ResultBreakdownCard({ row, years, withdrawalRate, inflationRate, highlight, badge, compareValue }) {
+  const rows = [
+    { label: 'Totale versato',            value: fmtEurFull(row.finalValue - row.gain), dim: true },
+    { label: 'Interessi generati',        value: `+${fmtEurFull(row.gain)}`, accent: row.color, sub: `+${row.gainPct.toFixed(0)}% sul versato · ×${row.multiplier.toFixed(2)}` },
+    { label: `Valore reale (inflazione ${inflationRate}%)`, value: fmtEurFull(row.real), dim: true },
+    { label: `Rendita mensile (${withdrawalRate}%)`, value: `${fmtEurFull(row.rendita)}/mese`, accent: row.color },
+  ];
+  return (
+    <div style={{
+      padding: '18px 20px', borderRadius: 14,
+      background: highlight ? 'rgba(48,209,88,0.07)' : 'rgba(255,69,58,0.05)',
+      border: `1.5px solid ${row.color}${highlight ? '55' : '30'}`,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
+        <div style={{ fontSize: '0.66rem', fontWeight: 700, color: row.color, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          {badge}
+        </div>
+        <div style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--analysis-dim)' }}>
+          {row.netReturn.toFixed(2)}% netto/anno
+        </div>
+      </div>
+
+      <div style={{ fontSize: '0.62rem', color: 'var(--analysis-dim)', marginBottom: 3 }}>Capitale generato in {years} anni</div>
+      <div style={{ fontSize: '2.3rem', fontWeight: 900, color: row.color, lineHeight: 1 }}>{fmtEurFull(row.finalValue)}</div>
+      {compareValue != null && compareValue > 0 && (
+        <div style={{ fontSize: '0.68rem', color: '#FF453A', fontWeight: 700, marginTop: 5 }}>
+          −{fmtEurFull(compareValue)} rispetto all'ETF
+        </div>
+      )}
+
+      <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {rows.map(r => (
+          <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, paddingBottom: 7, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--analysis-dim)' }}>{r.label}</span>
+            <span style={{ textAlign: 'right' }}>
+              <span style={{ fontSize: '0.88rem', fontWeight: 700, color: r.accent ?? 'var(--text-1)' }}>{r.value}</span>
+              {r.sub && <span style={{ display: 'block', fontSize: '0.62rem', color: 'var(--analysis-dim)', fontWeight: 500, marginTop: 1 }}>{r.sub}</span>}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PACCalc() {
   const [capitalInit,    setCapitalInit]    = useState(10000);
   const [monthly,        setMonthly]        = useState(300);
@@ -504,6 +549,7 @@ function PACCalc() {
 
   const [targetRendita, setTargetRendita] = useState(1000);
   const [bankGrossReturn, setBankGrossReturn] = useState(4);
+  const [bankCompareKey, setBankCompareKey] = useState('bank2');
 
   // Scenari bidirenzionali: ETF (8% lordo − 0.20%) vs Banca con rendimento base diverso + 3 livelli di commissioni
   const SCENARIOS = useMemo(() => [
@@ -579,6 +625,27 @@ function PACCalc() {
     cost:       etfFinal - lastFee[s.key],
     costYears:  monthly > 0 ? ((etfFinal - lastFee[s.key]) / (monthly * 12)).toFixed(1) : '0',
   }));
+
+  // Risultato finale di ogni scenario: quanto genera davvero il PAC
+  const resultRows = costScenarios.map(s => {
+    const gain = s.finalValue - totalInvested;
+    const real = s.finalValue / Math.pow(1 + inflationRate / 100, years);
+    return {
+      ...s,
+      gain,
+      gainPct:    totalInvested > 0 ? gain / totalInvested * 100 : 0,
+      multiplier: totalInvested > 0 ? s.finalValue / totalInvested : 1,
+      real,
+      rendita:     s.finalValue * withdrawalRate / 100 / 12,
+      renditaReal: real * withdrawalRate / 100 / 12,
+    };
+  });
+  const etfRow      = resultRows[0];
+  const bankRow     = resultRows.find(r => r.key === bankCompareKey) ?? resultRows[2];
+  const capitalGap  = etfRow.finalValue - bankRow.finalValue;   // € in più generati dall'ETF
+  const capitalRatio = bankRow.finalValue > 0 ? etfRow.finalValue / bankRow.finalValue : null; // quante volte tanto
+  const renditaGap  = etfRow.rendita - bankRow.rendita;         // rendita mensile in più
+  const gapInYears  = monthly > 0 ? capitalGap / (monthly * 12) : null; // quanti anni di versamenti vale il gap
 
   const presetActive = PAC_PRESETS.find(p => p.key === presetKey);
 
@@ -850,6 +917,106 @@ function PACCalc() {
                 ))}
               </AreaChart>
             </ResponsiveContainer>
+          </div>
+
+          {/* ── QUANTO GENERI: PAC in ETF vs PAC in banca ──────────────────── */}
+          <div className="card" style={{ padding: '16px 18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700 }}>
+                  💰 Quanto generi in {years} anni — PAC in ETF vs PAC in banca
+                </div>
+                <div style={{ fontSize: '0.65rem', color: 'var(--analysis-dim)', marginTop: 2 }}>
+                  {fmtEurFull(capitalInit)} iniziali + {fmtEurFull(monthly)}/mese · ETF {annualReturn}% lordo vs banca {bankGrossReturn}% lordo
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: '0.62rem', color: 'var(--analysis-dim)', fontWeight: 600 }}>COSTI BANCA</span>
+                {resultRows.filter(r => r.key !== 'etf').map(r => (
+                  <button key={r.key} onClick={() => setBankCompareKey(r.key)} style={{
+                    padding: '5px 11px', borderRadius: 8, cursor: 'pointer', border: 'none',
+                    fontSize: '0.72rem', fontWeight: 700,
+                    color: bankCompareKey === r.key ? '#fff' : 'var(--analysis-dim)',
+                    background: bankCompareKey === r.key ? r.color : 'var(--surface-2, rgba(255,255,255,0.05))',
+                    outline: bankCompareKey === r.key ? 'none' : '1px solid var(--border, rgba(255,255,255,0.1))',
+                  }}>{r.fee}%</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
+              <ResultBreakdownCard
+                row={etfRow} years={years} withdrawalRate={withdrawalRate} inflationRate={inflationRate}
+                highlight badge={`📈 PAC in ETF — ${annualReturn}% − 0.20% TER`} />
+              <ResultBreakdownCard
+                row={bankRow} years={years} withdrawalRate={withdrawalRate} inflationRate={inflationRate}
+                badge={`🏦 PAC in banca — ${bankGrossReturn}% − ${bankRow.fee}% costi`}
+                compareValue={capitalGap} />
+            </div>
+
+            {/* Differenza */}
+            <div style={{ marginTop: 14, padding: '14px 16px', borderRadius: 12, background: 'linear-gradient(135deg, rgba(48,209,88,0.10) 0%, rgba(10,132,255,0.05) 100%)', border: '1px solid rgba(48,209,88,0.25)' }}>
+              <div style={{ fontSize: '0.64rem', fontWeight: 700, color: '#30D158', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                ✓ Differenza a tuo favore con l'ETF
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: '0.62rem', color: 'var(--analysis-dim)', marginBottom: 2 }}>Capitale in più</div>
+                  <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#30D158', lineHeight: 1 }}>{fmtEurFull(capitalGap)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.62rem', color: 'var(--analysis-dim)', marginBottom: 2 }}>Capitale ETF vs banca</div>
+                  <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#30D158', lineHeight: 1 }}>
+                    {capitalRatio != null ? `×${capitalRatio.toFixed(1)}` : '—'}
+                    <span style={{ fontSize: '0.7rem', fontWeight: 600 }}> volte tanto</span>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.62rem', color: 'var(--analysis-dim)', marginBottom: 2 }}>Rendita mensile in più</div>
+                  <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#30D158', lineHeight: 1 }}>{fmtEurFull(renditaGap)}<span style={{ fontSize: '0.75rem', fontWeight: 600 }}>/mese</span></div>
+                </div>
+                {gapInYears != null && (
+                  <div>
+                    <div style={{ fontSize: '0.62rem', color: 'var(--analysis-dim)', marginBottom: 2 }}>Equivale a</div>
+                    <div style={{ fontSize: '1.45rem', fontWeight: 800, color: '#30D158', lineHeight: 1 }}>{gapInYears.toFixed(1)}<span style={{ fontSize: '0.75rem', fontWeight: 600 }}> anni di versamenti PAC</span></div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Tabella riepilogo tutti gli scenari */}
+            <div style={{ marginTop: 14, overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
+                <thead>
+                  <tr style={{ color: 'var(--analysis-dim)', textAlign: 'right' }}>
+                    <th style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 600 }}>Scenario</th>
+                    <th style={{ padding: '6px 8px', fontWeight: 600 }}>Netto</th>
+                    <th style={{ padding: '6px 8px', fontWeight: 600 }}>Versato</th>
+                    <th style={{ padding: '6px 8px', fontWeight: 600 }}>Interessi</th>
+                    <th style={{ padding: '6px 8px', fontWeight: 600 }}>Capitale a {years} anni</th>
+                    <th style={{ padding: '6px 8px', fontWeight: 600 }}>Rendita {withdrawalRate}%</th>
+                    <th style={{ padding: '6px 8px', fontWeight: 600 }}>vs ETF</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resultRows.map(r => (
+                    <tr key={r.key} style={{ borderTop: '1px solid rgba(255,255,255,0.06)', textAlign: 'right' }}>
+                      <td style={{ textAlign: 'left', padding: '8px', fontWeight: 700, color: r.color }}>
+                        {r.key === 'etf' ? '📈 ETF' : `🏦 Banca ${r.fee}%`}
+                      </td>
+                      <td style={{ padding: '8px', color: 'var(--analysis-dim)' }}>{r.netReturn.toFixed(2)}%</td>
+                      <td style={{ padding: '8px', color: 'var(--analysis-dim)' }}>{fmtEurFull(totalInvested)}</td>
+                      <td style={{ padding: '8px', fontWeight: 600, color: 'var(--text-1)' }}>+{fmtEurFull(r.gain)}</td>
+                      <td style={{ padding: '8px', fontWeight: 800, color: r.color }}>{fmtEurFull(r.finalValue)}</td>
+                      <td style={{ padding: '8px', fontWeight: 600, color: 'var(--text-1)' }}>{fmtEurFull(r.rendita)}</td>
+                      <td style={{ padding: '8px', fontWeight: 700, color: r.key === 'etf' ? '#30D158' : '#FF453A' }}>
+                        {r.key === 'etf' ? '—' : `−${fmtEurFull(etfRow.finalValue - r.finalValue)}`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Anni per raggiungere l'obiettivo */}

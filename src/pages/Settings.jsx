@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Trash2, Database, Download, AlertCircle, RefreshCw } from 'lucide-react';
-import { getSettings, updateSettings, getStorageInfo, clearAllTransactions, exportTransactions, updateAllSubCategories } from '../services/localStorageService';
+import { Settings as SettingsIcon, Trash2, Database, Download, Upload, AlertCircle, RefreshCw } from 'lucide-react';
+import { getSettings, updateSettings, getStorageInfo, clearAllTransactions, exportTransactions, updateAllSubCategories, exportFullBackup, restoreFullBackup } from '../services/localStorageService';
 import { clearTERCache, getCachedTERs } from '../services/terCache';
 import { clearPriceCache } from '../services/priceCache';
 import { format } from 'date-fns';
@@ -48,6 +48,41 @@ function Settings() {
     a.download = `backup_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportJSON = () => {
+    try {
+      const backup = exportFullBackup();
+      const json = JSON.stringify(backup, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `investitore_backup_${format(new Date(), 'yyyy-MM-dd_HHmmss')}.json`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      alert('Errore durante l\'esportazione: ' + error.message);
+    }
+  };
+
+  const handleImportJSON = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const backup = JSON.parse(evt.target.result);
+        if (!window.confirm('Importare il backup? I dati attuali verranno sovrascritti.')) return;
+        const count = restoreFullBackup(backup);
+        alert(`Backup ripristinato! ${count} chiavi importate.\nRicarica la pagina per applicare.`);
+        loadStorageInfo();
+      } catch (error) {
+        alert('Errore: ' + error.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const handleUpdateSubCategories = async () => {
@@ -215,11 +250,23 @@ function Settings() {
 
             <div className="flex flex-wrap gap-3">
               <button
+                onClick={handleExportJSON}
+                className="btn-primary flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Backup Completo (JSON)
+              </button>
+              <label className="btn-secondary flex items-center gap-2 cursor-pointer">
+                <Upload className="w-4 h-4" />
+                Ripristina Backup
+                <input type="file" accept=".json" onChange={handleImportJSON} hidden />
+              </label>
+              <button
                 onClick={handleExportBackup}
                 className="btn-secondary flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
-                Esporta Backup
+                Esporta CSV
               </button>
               <button
                 onClick={handleUpdateSubCategories}

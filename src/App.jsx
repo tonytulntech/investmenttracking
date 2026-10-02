@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import {
   TrendingUp, LayoutDashboard, Wallet, FileText, Settings, Plus,
@@ -6,19 +6,21 @@ import {
   Sun, Moon, ScanSearch, Layers, Eye, EyeOff, Coins,
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
-
-// Pages
 import { migrateTickersPersistent } from './services/localStorageService';
-import Dashboard            from './pages/Dashboard';
-import Portfolio            from './pages/Portfolio';
-import PortfolioPerformance from './pages/PortfolioPerformance';
-import Transactions         from './pages/Transactions';
-import SettingsPage         from './pages/Settings';
-import Rebalancing          from './pages/Rebalancing';
-import Patrimonio           from './pages/Patrimonio';
-import PortfolioAnalysis    from './pages/PortfolioAnalysis';
-import PortfolioManager     from './pages/PortfolioManager';
-import Dividendi            from './pages/Dividendi';
+
+// Eager: lightweight, always-visible pages
+import Dashboard from './pages/Dashboard';
+import Portfolio from './pages/Portfolio';
+
+// Lazy: heavy pages loaded on demand
+const PortfolioPerformance = lazy(() => import('./pages/PortfolioPerformance'));
+const PortfolioAnalysis    = lazy(() => import('./pages/PortfolioAnalysis'));
+const Dividendi            = lazy(() => import('./pages/Dividendi'));
+const Patrimonio           = lazy(() => import('./pages/Patrimonio'));
+const PortfolioManager     = lazy(() => import('./pages/PortfolioManager'));
+const Rebalancing          = lazy(() => import('./pages/Rebalancing'));
+const Transactions         = lazy(() => import('./pages/Transactions'));
+const SettingsPage         = lazy(() => import('./pages/Settings'));
 
 // ── Navigation structure ─────────────────────────────────────────
 // Nav snella: solo pagine che l'utente usa davvero. Le pagine "nascoste"
@@ -222,20 +224,22 @@ function App() {
       {/* ── Main Content ───────────────────────────────────── */}
       <main style={{ flex: 1, minWidth: 0 }} className="md:pl-[188px]">
         <div className="main-page max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28 md:pb-8">
-          <Routes>
-            <Route path="/"                 element={<Dashboard />} />
-            <Route path="/portfolio"        element={<Portfolio />} />
-            <Route path="/performance"      element={<PortfolioPerformance />} />
-            <Route path="/analysis"         element={<PortfolioAnalysis />} />
-            <Route path="/patrimonio"       element={<Patrimonio />} />
-            <Route path="/transactions"     element={<Transactions />} />
-            <Route path="/transactions/new" element={<Transactions />} />
-            <Route path="/dividendi"        element={<Dividendi />} />
-            <Route path="/rebalancing"      element={<Rebalancing />} />
-            <Route path="/portfolios"       element={<PortfolioManager />} />
-            <Route path="/settings"         element={<SettingsPage />} />
-            <Route path="*"                 element={<Navigate to="/" />} />
-          </Routes>
+          <Suspense fallback={<div style={{ padding: '3rem', textAlign: 'center', opacity: 0.5 }}>Caricamento…</div>}>
+            <Routes>
+              <Route path="/"                 element={<Dashboard />} />
+              <Route path="/portfolio"        element={<Portfolio />} />
+              <Route path="/performance"      element={<PortfolioPerformance />} />
+              <Route path="/analysis"         element={<PortfolioAnalysis />} />
+              <Route path="/patrimonio"       element={<Patrimonio />} />
+              <Route path="/transactions"     element={<Transactions />} />
+              <Route path="/transactions/new" element={<Transactions />} />
+              <Route path="/dividendi"        element={<Dividendi />} />
+              <Route path="/rebalancing"      element={<Rebalancing />} />
+              <Route path="/portfolios"       element={<PortfolioManager />} />
+              <Route path="/settings"         element={<SettingsPage />} />
+              <Route path="*"                 element={<Navigate to="/" />} />
+            </Routes>
+          </Suspense>
         </div>
       </main>
 

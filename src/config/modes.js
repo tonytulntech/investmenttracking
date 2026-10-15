@@ -6,7 +6,7 @@ export const MODES = {
   guided: {
     label: 'Guidata',
     description: 'Per iniziare: poche pagine, tutto spiegato passo passo.',
-    routes: ['/', '/obiettivi', '/regole', '/guida', '/portfolio', '/transactions', '/settings'],
+    routes: ['/', '/obiettivi', '/regole', '/mio-portafoglio', '/guida', '/transactions', '/settings'],
   },
   advanced: {
     label: 'Avanzata',

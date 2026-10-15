@@ -163,12 +163,21 @@ export function createGoal(input, { riskProfile, monthlyExpenses, now = new Date
  * Per la rendita l'orizzonte del glide path è la durata fino a `horizonEndAge`, non la data di inizio (§12.3).
  * Semplificazione v1: la fase "transizione" (riserva negli ultimi 24 mesi) non è ancora simulata.
  */
+const scheduleFor = (goal, equityShift) => glideSchedule({
+  type: goal.type === 'emergency' ? 'emergency' : undefined,
+  riskProfile: goal.riskProfile,
+  extraYears: goal.type === 'income' ? Math.max(0, incomeHorizon(goal).horizonYears) : 0,
+  equityShift,
+});
+
+/** Composizione del modello del corso per questo obiettivo, oggi (% per bucket, somma 100). */
+export function targetAllocationNow(goal, now = new Date()) {
+  const years = yearsUntilGoal(goal.targetDate, now);
+  return scheduleFor(goal, goal.equityShift ?? 0)(Math.max(1, Math.round(years * 12)));
+}
+
 export function evaluatePlan(goal, { now = new Date(), simulations = 1500, equityShift = goal.equityShift ?? 0 } = {}) {
-  const extraYears = goal.type === 'income' ? Math.max(0, incomeHorizon(goal).horizonYears) : 0;
-  const allocationAt = glideSchedule({
-    type: goal.type === 'emergency' ? 'emergency' : undefined,
-    riskProfile: goal.riskProfile, extraYears, equityShift,
-  });
+  const allocationAt = scheduleFor(goal, equityShift);
   const input = {
     currentValue: goal.initialCapital,
     targetAmount: goal.targetAmount,

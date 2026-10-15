@@ -28,6 +28,7 @@ export const SYNC_KEYS = [
   'inv_student_progress_v1',
   'inv_goal_wizard_draft_v1',
   'inv_goal_revisions_v1',
+  'inv_goal_bucket_map_v1',
 ];
 
 // Chiavi che da sole non contano come "dati": preferenze/default creati all'avvio.

@@ -2,7 +2,7 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import {
   TrendingUp, LayoutDashboard, Wallet, FileText, Settings, Plus,
-  RefreshCcw, BarChart3, PiggyBank, Target, ScrollText,
+  RefreshCcw, BarChart3, PiggyBank, Target, ScrollText, Briefcase,
   Sun, Moon, ScanSearch, Layers, Eye, EyeOff, Coins,
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
@@ -28,6 +28,7 @@ const Transactions         = lazy(() => import('./pages/Transactions'));
 const SettingsPage         = lazy(() => import('./pages/Settings'));
 const Goals                = lazy(() => import('./pages/Goals'));
 const Rules                = lazy(() => import('./pages/Rules'));
+const GoalPortfolio        = lazy(() => import('./pages/GoalPortfolio'));
 const GoalWizard           = lazy(() => import('./pages/GoalWizard'));
 
 // ── Navigation structure ─────────────────────────────────────────
@@ -39,6 +40,7 @@ const primaryNav = [
   { name: 'Dashboard',   href: '/',             icon: LayoutDashboard },
   { name: 'Obiettivi',   href: '/obiettivi',    icon: Target },
   { name: 'Regole',      href: '/regole',       icon: ScrollText },
+  { name: 'Per obiettivo', href: '/mio-portafoglio', icon: Briefcase },
   { name: 'Portfolio',   href: '/portfolio',    icon: Wallet },
   { name: 'Performance', href: '/performance',  icon: BarChart3 },
   { name: 'Transazioni', href: '/transactions', icon: FileText },
@@ -57,11 +59,11 @@ const mobileNav = [
   { name: 'Ribilancia',   href: '/rebalancing',  icon: RefreshCcw },
   { name: 'Impostazioni', href: '/settings',     icon: Settings },
 ];
-// In modalità Guidata "Ribilancia" non è raggiungibile: al suo posto Obiettivi (le transazioni restano raggiungibili dal pulsante +).
+// In modalità Guidata: Home, Obiettivi, Portafoglio (per obiettivo), Impostazioni; le transazioni dal pulsante +, le regole da Obiettivi.
 const mobileNavGuided = [
   mobileNav[0],
-  mobileNav[1],
   { name: 'Obiettivi',    href: '/obiettivi',    icon: Target },
+  { name: 'Portafoglio',  href: '/mio-portafoglio', icon: Briefcase },
   mobileNav[3],
 ];
 
@@ -69,6 +71,7 @@ const appRoutes = [
   { path: '/',                 element: <Dashboard /> },
   { path: '/obiettivi',        element: <Goals /> },
   { path: '/regole',           element: <Rules /> },
+  { path: '/mio-portafoglio',  element: <GoalPortfolio /> },
   { path: '/guida/inizia',     element: <GoalWizard /> },
   { path: '/portfolio',        element: <Portfolio /> },
   { path: '/performance',      element: <PortfolioPerformance /> },

@@ -11,6 +11,7 @@ export const GOAL_KEYS = {
   progress: 'inv_student_progress_v1',
   draft: 'inv_goal_wizard_draft_v1',
   revisions: 'inv_goal_revisions_v1',
+  bucketMap: 'inv_goal_bucket_map_v1',
 };
 
 const EVENT = 'inv-goals-changed';
@@ -45,6 +46,13 @@ export const getRules = () => {
   return Array.isArray(v) ? v.filter(isRules) : [];
 };
 export const saveRules = (rules) => write(GOAL_KEYS.rules, rules);
+
+/** Bucket scelto dallo studente per ogni titolo: { ticker: 'equity' | 'bondShort' | ... } */
+export const getBucketMap = () => {
+  const v = read(GOAL_KEYS.bucketMap, {});
+  return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+};
+export const saveBucketMap = (map) => write(GOAL_KEYS.bucketMap, map);
 
 const isRevision = (r) => r && typeof r.id === 'string' && typeof r.goalId === 'string' && typeof r.status === 'string';
 export const getRevisions = () => {
@@ -98,7 +106,7 @@ export function completeOnboarding({ goals, rules, now = new Date() }) {
   window.dispatchEvent(new Event(EVENT));
 }
 
-export const snapshot = () => ({ goals: getGoals(), rules: getRules(), revisions: getRevisions(), progress: getProgress(), draft: getDraft() });
+export const snapshot = () => ({ goals: getGoals(), rules: getRules(), revisions: getRevisions(), bucketMap: getBucketMap(), progress: getProgress(), draft: getDraft() });
 
 /** Hook: dati sempre aggiornati (stessa scheda e altre schede). */
 export function useGoalData() {

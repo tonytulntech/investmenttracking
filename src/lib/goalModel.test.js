@@ -174,3 +174,15 @@ describe('tipi e utilità', () => {
   });
   it('currentMonth formatta con lo zero', () => expect(currentMonth(NOW)).toBe('2026-10'));
 });
+
+describe('targetAllocationNow', () => {
+  it('coincide con l\'allocazione di evaluatePlan e somma 100', async () => {
+    const { targetAllocationNow, evaluatePlan, createGoal } = await import('./goalModel');
+    const now = new Date('2026-10-15T10:00:00Z');
+    const goal = createGoal({ id: 'g', type: 'house', name: 'Casa', initialCapital: 1000, monthlyContribution: 500, taxResidence: { country: 'IT' }, targetAmount: 60000, targetDate: '2034-10' },
+      { riskProfile: { maxTolerableLoss: 30, incomeStability: 'stable', experience: 'some' }, monthlyExpenses: 2000, now });
+    const a = targetAllocationNow(goal, now);
+    expect(a).toEqual(evaluatePlan(goal, { now, simulations: 100 }).allocationNow);
+    expect(Object.values(a).reduce((x, y) => x + y, 0)).toBe(100);
+  });
+});

@@ -14,6 +14,7 @@ import { getPerformanceSummary } from '../services/performanceService';
 import { getCachedPrices, cachePrices } from '../services/priceCache';
 import { getPortfolioConfig, getHiddenPortfolioIds, toggleHiddenPortfolio, clearHiddenPortfolios } from '../services/portfolioConfigService';
 import { format } from 'date-fns';
+import { useMode } from '../context/ModeContext';
 
 // ── Palette ─────────────────────────────────────────────────────────────────
 const GREEN  = 'var(--pos)';
@@ -113,6 +114,7 @@ function PortfolioMiniCard({ portfolio, value, pl, plPct, count, rebalanceNeeded
 // ── Main Component ────────────────────────────────────────────────────────────
 
 function Dashboard() {
+  const { canAccess } = useMode();
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
@@ -624,7 +626,7 @@ function Dashboard() {
           <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 14, padding: '1.25rem 1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
               <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-1)' }}>Top Holdings</span>
-              <a href="/portfolio" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', color: 'var(--text-2)', textDecoration: 'none', fontWeight: 500 }}>
+              <a href={canAccess('/portfolio') ? '/portfolio' : '/mio-portafoglio'} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', color: 'var(--text-2)', textDecoration: 'none', fontWeight: 500 }}>
                 Tutti <ArrowRight size={12} />
               </a>
             </div>

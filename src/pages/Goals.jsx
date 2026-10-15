@@ -94,6 +94,10 @@ export default function Goals() {
         <h1 className="page-title" style={{ fontWeight: 700, color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: 8 }}>
           <Target size={20} /> I miei obiettivi
         </h1>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: 6, fontSize: '0.85rem' }}>
+          <Link to="/regole" style={{ color: 'var(--accent)' }}>Le mie regole</Link>
+          <Link to="/mio-portafoglio" style={{ color: 'var(--accent)' }}>Il mio portafoglio</Link>
+        </div>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-3)', marginTop: 4 }}>
           Importi in euro di oggi, al netto delle tasse. Stime basate su simulazioni: non sono previsioni né consigli.
         </p>

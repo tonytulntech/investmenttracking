@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Trash2, Database, Download, Upload, AlertCircle, RefreshCw } from 'lucide-react';
-import { getSettings, updateSettings, getStorageInfo, clearAllTransactions, exportTransactions, updateAllSubCategories, exportFullBackup, restoreFullBackup } from '../services/localStorageService';
+import { getSettings, updateSettings, getStorageInfo, exportTransactions, updateAllSubCategories, exportFullBackup, restoreFullBackup } from '../services/localStorageService';
 import { clearTERCache, getCachedTERs } from '../services/terCache';
 import { clearPriceCache } from '../services/priceCache';
 import { format } from 'date-fns';
@@ -8,6 +8,8 @@ import Papa from 'papaparse';
 import { useMode } from '../context/ModeContext';
 import { useAuth } from '../context/AuthContext';
 import { MODES } from '../config/modes';
+import { clearAllUserData, resetGoalExercise } from '../services/userData';
+import { useGoalData } from '../services/goalStore';
 
 const SYNC_LABEL = {
   idle: 'Dati sincronizzati',
@@ -18,6 +20,11 @@ const SYNC_LABEL = {
 function Settings() {
   const { mode, setMode, canChangeMode } = useMode();
   const { cloudEnabled, user, syncStatus, signOut } = useAuth();
+  const goalData = useGoalData();
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const hasSignedRules = goalData.rules.some(r => r.status === 'active');
+  // Con le regole firmate l'esercizio non si azzera da qui (servirebbe a saltare l'attesa di 7 giorni): solo il proprietario/amministratore.
+  const canResetExercise = (goalData.goals.length > 0 || goalData.progress.onboardingCompleted) && (!hasSignedRules || canChangeMode);
   const [signOutError, setSignOutError] = useState(false);
 
   const handleSignOut = async (force = false) => {
@@ -46,13 +53,18 @@ function Settings() {
 
   const handleClearData = () => {
     try {
-      clearAllTransactions();
+      clearAllUserData();
       setShowClearConfirm(false);
       loadStorageInfo();
       alert('Tutti i dati sono stati eliminati');
     } catch (error) {
       alert('Errore nell\'eliminazione dei dati');
     }
+  };
+
+  const handleResetExercise = () => {
+    resetGoalExercise();
+    setShowResetConfirm(false);
   };
 
   const handleExportBackup = () => {
@@ -379,6 +391,25 @@ function Settings() {
         )}
       </div>
 
+      {/* Esercizio Obiettivi: ricominciare da capo */}
+      {canResetExercise && (
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-1">Esercizio Obiettivi</h2>
+          <p className="text-sm mb-3" style={{ color: 'var(--text-3)' }}>
+            Vuoi rifare l&apos;esercizio da capo? Elimina i tuoi obiettivi{hasSignedRules ? ', le regole firmate e lo storico' : ''}. Le operazioni importate restano e tornano «da assegnare».
+          </p>
+          {!showResetConfirm ? (
+            <button type="button" className="btn-secondary" onClick={() => setShowResetConfirm(true)}>Ricomincia l&apos;esercizio</button>
+          ) : (
+            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <span className="text-sm" style={{ color: 'var(--text-2)' }}>Sei sicuro? Non si può annullare.</span>
+              <button type="button" className="btn-primary" onClick={handleResetExercise}>Sì, ricomincia</button>
+              <button type="button" className="btn-secondary" onClick={() => setShowResetConfirm(false)}>Annulla</button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Danger Zone */}
       <div className="card border-2 border-danger-200">
         <h2 className="text-lg font-semibold text-danger-700 mb-4 flex items-center gap-2">
@@ -389,7 +420,7 @@ function Settings() {
         <div className="space-y-4">
           <div>
             <p className="text-sm mb-2" style={{ color: 'var(--text-2)' }}>
-              Elimina tutti i dati dell'app. <strong>Questa azione è irreversibile.</strong>
+              Elimina tutti i tuoi dati: operazioni, obiettivi, regole firmate e storico. <strong>Questa azione è irreversibile.</strong>
             </p>
             <button
               onClick={() => setShowClearConfirm(true)}
@@ -418,7 +449,7 @@ function Settings() {
 
             <div className="bg-danger-50 border border-danger-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-danger-800">
-                Stai per eliminare <strong>tutte le transazioni</strong> e i dati dell'app.
+                Stai per eliminare <strong>tutte le transazioni, gli obiettivi, le regole firmate</strong> e lo storico.
                 Assicurati di aver esportato un backup prima di procedere.
               </p>
             </div>

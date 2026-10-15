@@ -17,6 +17,9 @@ export const GOAL_KEYS = {
 const EVENT = 'inv-goals-changed';
 const SCHEMA_VERSION = 1;
 
+/** Avvisa le pagine aperte che i dati degli obiettivi sono cambiati (anche dopo una cancellazione). */
+export const notifyGoalsChanged = () => window.dispatchEvent(new Event(EVENT));
+
 function read(key, fallback) {
   try {
     const raw = localStorage.getItem(key);

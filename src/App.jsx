@@ -9,6 +9,7 @@ import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
 import { ModeProvider, useMode } from './context/ModeContext';
 import { AuthProvider } from './context/AuthContext';
 import AuthGate from './components/AuthGate';
+import { PrivacyPage, TermsPage } from './pages/Legal';
 import { migrateTickersPersistent } from './services/localStorageService';
 
 // Eager: lightweight, always-visible pages
@@ -310,7 +311,14 @@ function AppShell() {
 
 // AuthGate sta fuori dai provider che leggono localStorage all'avvio (privacy, modalità):
 // montano solo dopo che i dati dell'utente sono stati sincronizzati.
+// Pagine pubbliche: leggibili senza accesso (richieste anche da Google per il consenso OAuth).
+const PUBLIC_PAGES = { '/privacy': PrivacyPage, '/termini': TermsPage };
+
 function App() {
+  const { pathname } = useLocation();
+  const PublicPage = PUBLIC_PAGES[pathname.replace(/\/+$/, '')];
+  if (PublicPage) return <PublicPage />;
+
   return (
     <AuthProvider>
       <AuthGate>

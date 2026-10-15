@@ -1821,7 +1821,7 @@ function PortfolioPerformance() {
       )}
 
       {/* ── 4. BENCHMARK CHART + SIDEBAR ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16, alignItems: 'start' }}>
+      <div className="perf-split" style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16, alignItems: 'start' }}>
 
         {/* Benchmark normalized chart card */}
         <div style={{ background: 'var(--card-bg)', borderRadius: 16, padding: '20px 24px' }}>
@@ -2659,7 +2659,7 @@ function PortfolioPerformance() {
 
       {/* ── 6. ANALYSIS TABS ── */}
       <div style={{ background: 'var(--card-bg)', borderRadius: 16, padding: '20px 24px' }}>
-        <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 24 }}>
+        <div className="table-scroll" style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 24 }}>
           {[
             ['contribution', 'Contribuzione'],
             ['monthly', 'Dettaglio Mensile'],
@@ -2670,7 +2670,7 @@ function PortfolioPerformance() {
               key={val}
               onClick={() => setAnalysisTab(val)}
               style={{
-                padding: '8px 20px', fontSize: '0.85rem', fontWeight: 500, border: 'none', background: 'none',
+                padding: '8px 14px', fontSize: '0.85rem', fontWeight: 500, border: 'none', background: 'none', whiteSpace: 'nowrap', flexShrink: 0,
                 color: analysisTab === val ? 'var(--info)' : 'var(--text-3)',
                 borderBottom: analysisTab === val ? '2px solid #0A84FF' : '2px solid transparent',
                 marginBottom: -1, cursor: 'pointer'

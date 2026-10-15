@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Edit2, Trash2, Search, FileText, X, Calendar, DollarSign, Hash, Tag, FileDown, FileUp, Loader, Sparkles, AlertTriangle, CheckCircle2, Info, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction, exportTransactions, bulkImportTransactions, clearAllTransactions, getImportBatches, deleteImportBatch } from '../services/localStorageService';
 import { searchSecurity, fetchMultiplePrices } from '../services/priceService';
@@ -15,6 +16,8 @@ import { parseCSVFile, findDuplicates } from '../services/csvImportService';
 import { reportTickers } from '../services/tickerReportService';
 
 function Transactions() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [transactions, setTransactions] = useState([]);
   const [filteredTransactions, setFilteredTransactions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -214,6 +217,13 @@ function Transactions() {
     setAutoFillSource(null);
     setShowModal(true);
   };
+
+  useEffect(() => {
+    if (location.pathname === '/transactions/new') {
+      handleAdd();
+      navigate('/transactions', { replace: true });
+    }
+  }, [location.pathname]);
 
   const handleEdit = (transaction) => {
     setEditingTransaction(transaction);
@@ -514,12 +524,12 @@ function Transactions() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold" style={{ color: 'var(--text-1)' }}>Transazioni</h1>
+          <h1 className="page-title font-bold" style={{ color: 'var(--text-1)' }}>Transazioni</h1>
           <p style={{ color: 'var(--text-2)', marginTop: '0.25rem' }}>Gestisci le tue operazioni</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <label className={`btn-secondary flex items-center gap-2 cursor-pointer ${importLoading ? 'opacity-60 pointer-events-none' : ''}`}>
             {importLoading
               ? <Loader className="w-4 h-4 animate-spin" />
@@ -533,15 +543,17 @@ function Transactions() {
           </button>
           <button
             onClick={() => { loadBatches(); setShowBatches(true); }}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-indigo-600 border border-indigo-200 hover:bg-indigo-50 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+            style={{ color: 'var(--accent)', border: '1px solid var(--accent)', background: 'var(--accent-weak)' }}
           >
             <FileText className="w-4 h-4" />
             <span className="hidden sm:inline">Cronologia import</span>
             {importBatches.length > 0 && (
-              <span className="text-xs bg-indigo-100 text-indigo-700 rounded-full px-1.5 py-0.5 font-semibold">{importBatches.length}</span>
+              <span className="text-xs rounded-full px-1.5 py-0.5 font-semibold" style={{ background: 'var(--accent-weak)', color: 'var(--accent)' }}>{importBatches.length}</span>
             )}
           </button>
-          <button onClick={handleDeleteAll} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 transition-colors">
+          <button onClick={handleDeleteAll} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+            style={{ color: 'var(--neg)', border: '1px solid var(--neg)', background: 'var(--neg-weak)' }}>
             <Trash2 className="w-4 h-4" />
             <span className="hidden sm:inline">Elimina tutto</span>
           </button>
@@ -568,7 +580,7 @@ function Transactions() {
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="select w-32 sm:w-36"
+            className="select w-full sm:w-36"
           >
             <option value="all">Tutti i tipi</option>
             <option value="buy">Acquisto</option>
@@ -577,7 +589,7 @@ function Transactions() {
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="select w-32 sm:w-40"
+            className="select w-full sm:w-40"
           >
             <option value="all">Tutte le categorie</option>
             {getAllMacroCategories().map(category => (
@@ -587,7 +599,7 @@ function Transactions() {
           <select
             value={filterPlatform}
             onChange={(e) => setFilterPlatform(e.target.value)}
-            className="select w-32 sm:w-36"
+            className="select w-full sm:w-36"
           >
             <option value="all">Tutti i broker</option>
             {[...new Set(transactions.map(tx => tx.platform || 'Manuale'))].sort().map(p => (
@@ -694,7 +706,7 @@ function Transactions() {
           </button>
         </div>
       ) : (
-        <div className="card overflow-hidden">
+        <div className="card overflow-hidden p-0 sm:p-6">
           {/* ── Mobile card view ── */}
           <div className="mobile-cards" style={{ padding: '0.65rem' }}>
             {filteredTransactions.map((tx) => {
@@ -885,7 +897,7 @@ function Transactions() {
 
       {/* Modal Form */}
       {showModal && (
-        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-[60] p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
           <div className="rounded-apple-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-slide-up" style={{ background: 'var(--surface-1)' }}>
             <div className="sticky top-0 px-6 py-4 flex items-center justify-between" style={{ background: 'var(--surface-1)', borderBottom: '1px solid var(--border)' }}>
               <h2 className="text-xl font-bold" style={{ color: 'var(--text-1)' }}>

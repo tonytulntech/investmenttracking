@@ -203,10 +203,10 @@ function Settings() {
             </div>
             <button
               onClick={() => handleSettingChange('autoRefreshPrices', !settings.autoRefreshPrices)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                 settings.autoRefreshPrices ? 'bg-primary-600' : ''
               }`}
-              style={settings.autoRefreshPrices ? {} : { background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+              style={{ minHeight: 24, ...(settings.autoRefreshPrices ? {} : { background: 'var(--surface-2)', border: '1px solid var(--border)' }) }}
             >
               <span
                 className={`inline-block h-4 w-4 transform rounded-full transition-transform ${
@@ -330,7 +330,7 @@ function Settings() {
 
       {/* Clear Confirmation Modal */}
       {showClearConfirm && (
-        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-[60] p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
           <div className="rounded-apple-lg max-w-md w-full p-6 animate-slide-up" style={{ background: 'var(--surface-1)' }}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'var(--neg-weak)' }}>

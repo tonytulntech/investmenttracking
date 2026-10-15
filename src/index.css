@@ -984,7 +984,11 @@
   margin-bottom: 1.5rem;
 }
 @media (max-width: 640px) {
-  .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+  .kpi-card { padding: 0.8rem 0.85rem !important; min-width: 0; }
+  .kpi-value { font-size: 1.2rem !important; overflow-wrap: anywhere; }
+  .pl-summary { flex-wrap: wrap; gap: 0.75rem 1.25rem !important; min-width: 0; }
+  .pl-summary > div { padding-left: 0 !important; border-left: none !important; }
 }
 
 /* Split grafico + laterale: 2 col desktop → stack mobile */
@@ -1007,6 +1011,26 @@
 /* Mobile: riduci padding globale contenuti pagina */
 @media (max-width: 640px) {
   .main-page { padding-left: 12px !important; padding-right: 12px !important; padding-top: 16px !important; padding-bottom: 88px !important; }
+}
+
+/* Griglie KPI inline a 3/4/6 colonne fisse: su mobile diventano adattive
+   (senza, 1fr non scende sotto il min-content e la pagina scorre in orizzontale). */
+@media (max-width: 768px) {
+  [style*="grid-template-columns: repeat(3, 1fr)"],
+  [style*="grid-template-columns: repeat(4, 1fr)"],
+  [style*="grid-template-columns: repeat(6, 1fr)"] {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+  }
+}
+
+/* Grafico + colonna laterale fissa (Performance): impila sotto i 900px */
+@media (max-width: 900px) {
+  .perf-split { grid-template-columns: 1fr !important; }
+}
+
+/* Pagine con padding proprio: su mobile usa solo quello di .main-page */
+@media (max-width: 640px) {
+  .patrimonio-page { padding: 0 !important; }
 }
 
 /* Tap target ≥ 44px su mobile */

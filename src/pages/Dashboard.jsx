@@ -42,13 +42,13 @@ function KpiCard({ label, main, deltaPct, caption, large }) {
   const Arrow = up ? TrendingUp : TrendingDown;
   const dColor = up ? GREEN : RED;
   return (
-    <div style={{
+    <div className="kpi-card" style={{
       background: 'var(--card-bg)', border: '1px solid var(--border)',
       borderRadius: 14, padding: '1.1rem 1.3rem', display: 'flex', flexDirection: 'column', gap: 6,
       boxShadow: '0 1px 2px rgba(0,0,0,0.28)',
     }}>
       <span style={{ fontSize: '0.6875rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
-      <span style={{
+      <span className="kpi-value" style={{
         fontSize: large ? '1.9rem' : '1.5rem', fontWeight: 600, color: 'var(--text-1)', lineHeight: 1.1,
         fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums',
       }}>{main}</span>
@@ -450,7 +450,7 @@ function Dashboard() {
             >
               {/* Header sempre visibile */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.3rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+                <div className="pl-summary" style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
                   <div>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 2 }}>
                       P&L Realizzato (totale)

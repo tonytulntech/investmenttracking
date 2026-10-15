@@ -1114,21 +1114,21 @@ function PositionsTable({ positions, prices, onEdit }) {
           }}>
             {/* header: ticker+name, badges, configure */}
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'0.5rem' }}>
-              <div style={{ minWidth:0, flex:1 }}>
-                <span style={{ fontWeight:700, fontSize:'0.88rem' }}>{pos.ticker}</span>
-                <span style={{ color:'var(--text-3)', fontSize:'0.72rem', marginLeft:6, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{pos.name}</span>
+              <div style={{ minWidth:0, flex:1, display:'flex', alignItems:'baseline', gap:6 }}>
+                <span style={{ fontWeight:700, fontSize:'0.88rem', flexShrink:0 }}>{pos.ticker}</span>
+                <span style={{ color:'var(--text-3)', fontSize:'0.72rem', minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{pos.name}</span>
               </div>
-              <div style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
-                <AssetBadge type={pos.assetType} />
-                <MoatBadge rating={pos.moatRating} />
-                <button onClick={() => onEdit(pos)} title="Configura" style={{
-                  background:'var(--bg)', border:'1px solid var(--border)', borderRadius:7,
-                  padding:'4px 6px', cursor:'pointer', color:'var(--text-2)',
-                  display:'flex', alignItems:'center',
-                }}>
-                  <Settings2 size={12} />
-                </button>
-              </div>
+              <button onClick={() => onEdit(pos)} title="Configura" style={{
+                background:'var(--bg)', border:'1px solid var(--border)', borderRadius:7,
+                padding:'4px 6px', cursor:'pointer', color:'var(--text-2)',
+                display:'flex', alignItems:'center', flexShrink:0,
+              }}>
+                <Settings2 size={12} />
+              </button>
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:4, flexWrap:'wrap' }}>
+              <AssetBadge type={pos.assetType} />
+              <MoatBadge rating={pos.moatRating} />
             </div>
             {/* data grid: Valore | Div./anno | YoC */}
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'0.4rem', fontSize:'0.78rem' }}>

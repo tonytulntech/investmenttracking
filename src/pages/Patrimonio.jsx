@@ -438,7 +438,7 @@ export default function Patrimonio() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="patrimonio-page" style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
@@ -461,7 +461,7 @@ export default function Patrimonio() {
       </div>
 
       {/* ── KPI Strip ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
         {[
           { label: 'Patrimonio Attuale', value: eur(kpis.patrimonio), color: 'var(--info)', sub: 'Valore di mercato' },
           { label: 'Capitale Versato', value: eur(kpis.totalDeposits), color: 'var(--text-1)', sub: 'Depositi totali' },

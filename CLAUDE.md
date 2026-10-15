@@ -33,7 +33,7 @@ Investment Tracker → **Investitore 1.0**: web app di analisi di portafoglio in
 - `src/context/ModeContext.jsx`: `useMode()` → `{ mode, setMode, canAccess }`. Chiave localStorage `inv-mode`, default `advanced`.
 - `App.jsx`: `AppShell` filtra sidebar, bottom-nav e `<Routes>` per modalità (rotta vietata → redirect a `/`). In Guidata la bottom-nav usa Transazioni al posto di Ribilancia.
 - Selettore in Impostazioni. Guidata oggi = Dashboard, Portfolio, Transazioni, Impostazioni (**provvisorio**, finché non esistono le pagine guidate). Pro = Avanzata (nessuna feature ancora).
-- Da fare: `GUIDED_MODE_SPEC.md`, pagine guidate, feature Pro, onboarding che propone la modalità.
+- Spec in `GUIDED_MODE_SPEC.md` (v1, decisioni D1–D5 e piano di costruzione). Da fare: pagine guidate, feature Pro, onboarding che propone la modalità.
 
 ## UI: note da QA mobile (ott 2026)
 - Griglie inline `repeat(3|4|6, 1fr)` diventano adattive sotto 768px via regola in `index.css` (attributo `style*=`). Per nuove griglie usare `repeat(auto-fit, minmax(…, 1fr))`.
@@ -81,6 +81,5 @@ Ogni portafoglio ha bucket-Ruolo liberi (nome + target %) in `portfolioConfigSer
 
 ## In sospeso
 - `marketAssumptions.js` — rendimento/volatilità/correlazioni per bucket (serve Backtesto)
-- `GUIDED_MODE_SPEC.md` — specifica completa modalità guidata
 - Migrazione servizi esistenti a `storageAdapter` (incrementale)
 - `portfolioId` per transazione (cambiamento modello dati)

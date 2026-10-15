@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
 import { ModeProvider, useMode } from './context/ModeContext';
+import { AuthProvider } from './context/AuthContext';
+import AuthGate from './components/AuthGate';
 import { migrateTickersPersistent } from './services/localStorageService';
 
 // Eager: lightweight, always-visible pages
@@ -306,13 +308,19 @@ function AppShell() {
   );
 }
 
+// AuthGate sta fuori dai provider che leggono localStorage all'avvio (privacy, modalità):
+// montano solo dopo che i dati dell'utente sono stati sincronizzati.
 function App() {
   return (
-    <PrivacyProvider>
-      <ModeProvider>
-        <AppShell />
-      </ModeProvider>
-    </PrivacyProvider>
+    <AuthProvider>
+      <AuthGate>
+        <PrivacyProvider>
+          <ModeProvider>
+            <AppShell />
+          </ModeProvider>
+        </PrivacyProvider>
+      </AuthGate>
+    </AuthProvider>
   );
 }
 

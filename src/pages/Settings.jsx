@@ -6,10 +6,24 @@ import { clearPriceCache } from '../services/priceCache';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 import { useMode } from '../context/ModeContext';
+import { useAuth } from '../context/AuthContext';
 import { MODES } from '../config/modes';
+
+const SYNC_LABEL = {
+  idle: 'Dati sincronizzati',
+  syncing: 'Sincronizzazione in corso…',
+  error: 'Sincronizzazione non riuscita: riproverò da solo',
+};
 
 function Settings() {
   const { mode, setMode } = useMode();
+  const { cloudEnabled, user, syncStatus, signOut } = useAuth();
+  const [signOutError, setSignOutError] = useState(false);
+
+  const handleSignOut = async (force = false) => {
+    const res = await signOut({ force });
+    setSignOutError(!res.ok);
+  };
   const [settings, setSettings] = useState(getSettings());
   const [storageInfo, setStorageInfo] = useState(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -153,6 +167,31 @@ function Settings() {
         <h1 className="text-3xl font-bold" style={{ color: 'var(--text-1)' }}>Impostazioni</h1>
         <p style={{ color: 'var(--text-2)', marginTop: '0.25rem' }}>Gestisci le preferenze dell'app</p>
       </div>
+
+      {/* Account */}
+      {cloudEnabled && user && (
+        <div className="card">
+          <h2 className="text-lg font-semibold mb-1">Account</h2>
+          <p className="text-sm" style={{ color: 'var(--text-2)' }}>{user.email}</p>
+          <p className="text-xs mt-1" style={{ color: syncStatus === 'error' ? 'var(--neg)' : 'var(--text-3)' }} role="status">
+            {SYNC_LABEL[syncStatus] ?? SYNC_LABEL.idle}
+          </p>
+          <div className="flex flex-wrap items-center gap-3 mt-4">
+            <button type="button" className="btn-secondary" onClick={() => handleSignOut(false)}>Esci</button>
+          </div>
+          {signOutError && (
+            <div className="rounded-lg p-3 mt-3" style={{ background: 'var(--warn-weak)', border: '1px solid var(--warn)' }}>
+              <p className="text-sm" style={{ color: 'var(--text-1)' }}>
+                Alcune modifiche non sono ancora state salvate nel tuo account. Se esci adesso andranno perse.
+              </p>
+              <div className="flex gap-2 mt-2">
+                <button type="button" className="btn-secondary" onClick={() => setSignOutError(false)}>Resta connesso</button>
+                <button type="button" className="btn-secondary" style={{ color: 'var(--neg)' }} onClick={() => handleSignOut(true)}>Esci comunque</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Modalità */}
       <div className="card">

@@ -19,7 +19,7 @@ Crea la tabella `user_data` con Row Level Security: ogni utente legge/scrive sol
 - **Sign In / Providers → Email**: attivo. **"Allow new users to sign up": OFF** (solo invitati).
 - **URL Configuration**: Site URL = URL di produzione; Redirect URLs = `http://localhost:3000` (sviluppo).
 - **Utenti**: Authentication → Users → **Invite user** (un'email per cliente).
-- **Email templates** (Magic Link **e** Invite): per permettere anche l'accesso con codice a 6 cifre, aggiungere nel testo `{{ .Token }}`, es. «Il tuo codice: {{ .Token }}».
+- **Email templates** (Authentication → Emails → solo **Magic Link**): per permettere anche l'accesso con codice a 6 cifre, aggiungere nel testo `{{ .Token }}` accanto a `{{ .ConfirmationURL }}`. Non serve toccare il template Invite: l'invitato entra col link, poi riceve il Magic Link con il codice.
 - **SMTP**: il servizio email predefinito di Supabase ha limiti molto bassi (poche email/ora). Prima di invitare più persone configurare un SMTP proprio (es. Resend) in Project Settings → Authentication → SMTP.
 
 ## 3. Vercel

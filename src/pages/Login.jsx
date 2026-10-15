@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { TrendingUp, Mail, KeyRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -147,6 +148,10 @@ export default function Login() {
 
         <p style={{ fontSize: '0.7rem', color: 'var(--text-3)', marginTop: '1.5rem', lineHeight: 1.5 }}>
           Strumento educativo e di monitoraggio personale: non costituisce consulenza finanziaria né raccomandazione di investimento.
+        </p>
+        <p style={{ fontSize: '0.72rem', marginTop: '0.6rem', display: 'flex', gap: '1rem' }}>
+          <Link to="/privacy" style={{ color: 'var(--text-3)', textDecoration: 'underline' }}>Privacy</Link>
+          <Link to="/termini" style={{ color: 'var(--text-3)', textDecoration: 'underline' }}>Termini di servizio</Link>
         </p>
       </div>
     </div>

@@ -9,6 +9,7 @@ Investment Tracker → **Investitore 1.0**: web app di analisi di portafoglio in
 ## ⚠️ Fatti architetturali critici (verificati nel codice)
 - **L'app reale è in `src/pages/`** (attualmente 10 pagine attive: Dashboard, Portfolio, Performance, Transazioni, Analisi, Portafogli, Patrimonio, Dividendi, Ribilanciamento, Impostazioni). Le pagine PAC/Strategia/Backtest/Mercati/Calcolatori/Crypto restano nel repo ma non registrate in App.jsx — riabilitabili al volo. È **local-first**: tutti i dati vivono in `localStorage` del browser via `src/services/localStorageService.js`. **Nessuna autenticazione, nessun cloud, single-user.**
 - **Codice morto Firebase RIMOSSO** (Fase 0, ott 2026): `src/config/firebase.js`, `src/context/AuthContext.jsx`, `src/services/firestoreService.js`, `firebase.json`, `.firebaserc`, `firestore.rules`, `firestore.indexes.json` — tutti eliminati. Componenti morti eliminati: `src/components/auth/`, `src/components/dashboard/Dashboard.jsx`, `src/components/portfolio/Portfolio.jsx`, `src/components/upload/CSVUpload.jsx`, `src/components/transactions/`, `AttentionPanel.jsx`, `RolesRollupCard.jsx`, `ui/card.jsx`, `ui/stat.jsx`, `ui/summary-card.jsx`, `src/styles/App.css`.
+- **Account (opzionale, via env):** con `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` l'app richiede login email (solo invitati) e sincronizza i dati su Supabase; senza, resta locale. Vedi sezione "Account e cloud sync" e `docs/SUPABASE_SETUP.md`.
 - **Il README è disallineato**: descrive un'app Firebase/auth che non è quella che gira.
 - Sorgente di verità = **transazioni**; posizioni/performance/cashflow sono *derivate* dalle transazioni.
 - **Assignment portfolio = per-ticker** (holdingKey), NON per-transazione. Le transazioni non hanno `portfolioId`. Da migrare in futuro.
@@ -35,6 +36,13 @@ Investment Tracker → **Investitore 1.0**: web app di analisi di portafoglio in
 - Selettore in Impostazioni. Guidata oggi = Dashboard, Portfolio, Transazioni, Impostazioni (**provvisorio**, finché non esistono le pagine guidate). Pro = Avanzata (nessuna feature ancora).
 - **Obiettivi (logica pronta, UI da fare):** `src/config/marketAssumptions.js` (ipotesi di mercato, glide path, soglie semaforo — unica fonte, da validare con l'autore) e `src/services/goalService.js` (`evaluateGoal`, `monthlyNeededForSuccess`, `recommendAction`, `glidePathAllocation`), 51 test. Importi in € reali dopo tasse; Monte Carlo con seme fisso (`createSeededRandom`) → risultati ripetibili. `status: 'reached'` = importo già disponibile, ma la probabilità resta quella reale di conservarlo.
 - Spec in `GUIDED_MODE_SPEC.md` (v1, decisioni D1–D5 e piano di costruzione). Da fare: pagine guidate, feature Pro, onboarding che propone la modalità.
+
+## Account e cloud sync (Supabase)
+- `src/services/supabaseClient.js` (`isCloudEnabled`), `src/context/AuthContext.jsx` (`useAuth`: phase, user, syncStatus, sendLink, verifyCode, signOut), `src/components/AuthGate.jsx` (login / sync / conflitto / errore), `src/pages/Login.jsx`. `App` = `AuthProvider > AuthGate > Privacy > Mode > AppShell`: i provider che leggono localStorage montano **dopo** la sync.
+- `src/services/cloudSyncCore.js` (puro, testato): `SYNC_KEYS` (solo dati utente; NO cache, tema, privacy) + `planInitialSync`/`resolveConflict`. `src/services/cloudSync.js`: intercetta `localStorage.setItem/removeItem` sulle SYNC_KEYS e fa upsert con debounce 1,5s verso `public.user_data`. **Nuova chiave utente da sincronizzare → aggiungerla a `SYNC_KEYS`.**
+- DB: `supabase/migrations/001_user_data.sql` (RLS per utente). Nessun accesso consulente ai dati dei clienti (scelta di prodotto).
+- Principio: mai perdere dati in silenzio. Errori di rete → conservare e riprovare; dispositivo condiviso → mai mescolare utenti; conflitto → scelta esplicita.
+- Posizionamento: strumento educativo/di monitoraggio, linguaggio neutro (nessun "ribilancia/versa X"): mostrare lo stato rispetto alle regole del cliente, non raccomandazioni.
 
 ## UI: note da QA mobile (ott 2026)
 - Griglie inline `repeat(3|4|6, 1fr)` diventano adattive sotto 768px via regola in `index.css` (attributo `style*=`). Per nuove griglie usare `repeat(auto-fit, minmax(…, 1fr))`.

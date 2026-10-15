@@ -24,6 +24,7 @@
   "author": "Investment Tracker",
   "license": "MIT",
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.3",
     "axios": "^1.6.5",
     "clsx": "^2.1.0",
     "date-fns": "^3.0.6",
@@ -43,6 +44,7 @@
     "eslint": "^8.56.0",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
+    "jsdom": "^29.1.1",
     "postcss": "^8.4.33",
     "prettier": "^3.2.4",
     "prettier-plugin-tailwindcss": "^0.5.11",

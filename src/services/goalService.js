@@ -7,7 +7,8 @@
  * convertito prima della simulazione. I versamenti mensili sono costanti
  * in termini nominali (ipotesi prudente: non indicizzati all'inflazione).
  */
-import { runMonteCarlo, createSeededRandom } from './monteCarloService';
+import { simulateGoal } from '../lib/multiAssetMonteCarlo';
+import { glidePathAllocation, withGold } from '../lib/glidePath';
 import { MARKET_ASSUMPTIONS as MA, getCorrelation } from '../config/marketAssumptions';
 
 export const GOAL_STATUS = {
@@ -24,24 +25,6 @@ const MS_PER_MONTH = 30.4375 * 24 * 60 * 60 * 1000;
 export function yearsUntilGoal(goalYear, now = new Date()) {
   const end = new Date(goalYear, 11, 31);
   return Math.round((end - now) / MS_PER_MONTH) / 12;
-}
-
-/** Quota azionaria target (%) per anni mancanti: { min, max, target }. */
-export function glidePathTarget(yearsLeft) {
-  const row = MA.glidePath.find(r => yearsLeft >= r.minYears) ?? MA.glidePath[MA.glidePath.length - 1];
-  const { min, max } = row.equity;
-  return { min, max, target: (min + max) / 2 };
-}
-
-/**
- * Allocazione target dal glide path. Il resto dell'azionario va in
- * obbligazionario; sotto i 3 anni il 40% del resto va in liquidità.
- */
-export function glidePathAllocation(yearsLeft) {
-  const equity = glidePathTarget(yearsLeft).target;
-  const rest = 100 - equity;
-  const cash = yearsLeft < 3 ? Math.round(rest * 0.4) : 0;
-  return { equity, bond: rest - cash, cash };
 }
 
 /**
@@ -64,6 +47,21 @@ export function portfolioStats(weights) {
     }
   }
   return { expectedReturn: ret, volatility: Math.sqrt(Math.max(0, variance)) };
+}
+
+/**
+ * Allocazione che segue il glide path nel tempo: `monthsLeft → pesi per bucket`.
+ * @param {Object} p
+ * @param {string} [p.type]                  tipo di obiettivo ('emergency' = niente azionario)
+ * @param {Object} [p.riskProfile]           { maxTolerableLoss, incomeStability }
+ * @param {number} [p.extraYears=0]          anni oltre la data (rendita: orizzonte fino a horizonEndAge)
+ * @param {number} [p.goldPct=0]             oro scelto a mano, 0–10
+ */
+export function glideSchedule({ type, riskProfile, extraYears = 0, goldPct = 0 } = {}) {
+  return (monthsLeft) => {
+    const a = glidePathAllocation({ years: monthsLeft / 12 + extraYears, type, riskProfile });
+    return goldPct ? withGold(a, goldPct) : a;
+  };
 }
 
 export function statusFromProbability(p) {
@@ -98,7 +96,10 @@ export function nominalTargetForSuccess(targetReal, costBasis, years, inflation 
  * @param {number} input.targetAmount          - importo obiettivo in € di oggi
  * @param {number} input.goalYear
  * @param {number} [input.monthlyContribution=0]
- * @param {Object<string, number>} input.weights - allocazione per macro categoria
+ * @param {Object<string, number>} [input.weights] - allocazione costante per macro categoria/bucket
+ * @param {(monthsLeft:number)=>Object<string, number>} [input.allocationAt] - allocazione che cambia nel tempo (glide path)
+ * @param {boolean} [input.indexContribution=false] - il versamento cresce con l'inflazione
+ * @param {boolean} [input.indexTarget=true]   - il target è in € di oggi (false: € nominali fissi)
  * @param {Date}   [input.now]
  * @param {number} [input.simulations=2000]
  * @param {number} [input.seed=42]             - seme: stesso input → stesso output
@@ -111,6 +112,9 @@ export function evaluateGoal({
   goalYear,
   monthlyContribution = 0,
   weights,
+  allocationAt,
+  indexContribution = false,
+  indexTarget = true,
   now = new Date(),
   simulations = 2000,
   seed = 42,
@@ -127,34 +131,33 @@ export function evaluateGoal({
       : { status: GOAL_STATUS.EXPIRED, successProbability: 0, yearsLeft: 0, outcomes: null, stats: null };
   }
 
-  const stats = portfolioStats(weights);
+  const stats = portfolioStats(allocationAt ? allocationAt(months) : weights);
   if (!stats) throw new Error('Allocazione vuota o sconosciuta: impossibile simulare.');
 
-  const years = months / 12;
-  const costBasis = (initialCostBasis ?? currentValue) + monthlyContribution * months;
-  const nominalTarget = nominalTargetForSuccess(targetAmount, costBasis, years, MA.inflation, taxRate);
-
-  const mc = runMonteCarlo({
+  const mc = simulateGoal({
     initialValue: currentValue,
+    initialCostBasis: initialCostBasis ?? currentValue,
     monthlyContribution,
-    expectedReturn: stats.expectedReturn,
-    volatility: stats.volatility,
-    years,
-    simulations,
-    inflation: MA.inflation,
+    indexContribution,
+    months,
+    weights,
+    weightsAt: allocationAt,
+    targetAmount,
+    indexTarget,
     taxRate,
-    targetAmount: nominalTarget,
-    rng: createSeededRandom(seed),
+    simulations,
+    seed,
   });
 
-  const real = v => toRealAfterTax(v, costBasis, years, MA.inflation, taxRate);
   // REACHED = l'importo c'è già oggi. La probabilità resta quella reale di
   // ritrovarlo alla scadenza (dopo inflazione e tasse): non è forzata a 100.
   return {
     status: funded ? GOAL_STATUS.REACHED : statusFromProbability(mc.successProbability),
     successProbability: mc.successProbability,
-    yearsLeft: years,
-    outcomes: { p10: real(mc.percentiles.p10), p50: real(mc.percentiles.p50), p90: real(mc.percentiles.p90) },
+    yearsLeft: months / 12,
+    outcomes: { p10: mc.percentiles.p10, p50: mc.percentiles.p50, p90: mc.percentiles.p90 },
+    percentiles: mc.percentiles,
+    fan: mc.fan,
     stats,
     assumptionsVersion: MA.version,
   };

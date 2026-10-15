@@ -16,7 +16,7 @@ const SYNC_LABEL = {
 };
 
 function Settings() {
-  const { mode, setMode } = useMode();
+  const { mode, setMode, canChangeMode } = useMode();
   const { cloudEnabled, user, syncStatus, signOut } = useAuth();
   const [signOutError, setSignOutError] = useState(false);
 
@@ -193,7 +193,8 @@ function Settings() {
         </div>
       )}
 
-      {/* Modalità */}
+      {/* Modalità: visibile solo a chi può cambiarla (proprietario / amministratore) */}
+      {canChangeMode && (
       <div className="card">
         <h2 className="text-lg font-semibold mb-1">Modalità di utilizzo</h2>
         <p className="text-sm mb-4" style={{ color: 'var(--text-3)' }}>
@@ -222,6 +223,7 @@ function Settings() {
           })}
         </div>
       </div>
+      )}
 
       {/* General Settings */}
       <div className="card">

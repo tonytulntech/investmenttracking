@@ -15,6 +15,12 @@ Se si fa il punto 3 prima del punto 1, al login compare "Sincronizzazione non ri
 Supabase → **SQL Editor** → New query → incollare il contenuto di `supabase/migrations/001_user_data.sql` → **Run**.
 Crea la tabella `user_data` con Row Level Security: ogni utente legge/scrive solo le proprie righe; l'accesso anonimo è negato.
 
+**Profili e modalità (obbligatorio prima di dare l'app ai clienti):** nuova query con il contenuto di `supabase/migrations/002_user_profiles.sql` → Run.
+- Crea `user_profiles` (modalità `guided`/`advanced`/`pro` + `is_admin`), leggibile dal solo proprietario e **non modificabile dall'app**.
+- Ogni nuovo utente parte in **Guidata**; l'admin (`tonypezzella.fa@gmail.com`) viene impostato in **Avanzata** con selettore visibile.
+- Per cambiare la modalità di un cliente: Table Editor → `user_profiles` → modifica la colonna `mode`.
+- Se lo script non è stato eseguito, l'app mostra tutte le pagine a tutti (comportamento storico) e nessuno vede il selettore.
+
 ## 2. Authentication
 - **Sign In / Providers → Email**: attivo. **"Allow new users to sign up": OFF** (solo invitati).
 - **URL Configuration**: Site URL = URL di produzione; Redirect URLs = `http://localhost:3000` (sviluppo).

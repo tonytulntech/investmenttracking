@@ -39,7 +39,7 @@ describe('canChangeMode', () => {
 
 describe('modalità e rotte', () => {
   it('Guidata consente solo le pagine previste', () => {
-    for (const p of ['/', '/obiettivi', '/guida/inizia', '/portfolio', '/transactions', '/transactions/new', '/settings']) expect(isRouteAllowed('guided', p)).toBe(true);
+    for (const p of ['/', '/obiettivi', '/regole', '/guida/inizia', '/portfolio', '/transactions', '/transactions/new', '/settings']) expect(isRouteAllowed('guided', p)).toBe(true);
     for (const p of ['/performance', '/analysis', '/rebalancing', '/dividendi', '/portfolios', '/patrimonio']) expect(isRouteAllowed('guided', p)).toBe(false);
   });
   it('Avanzata e Pro consentono tutto', () => {

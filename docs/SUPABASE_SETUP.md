@@ -22,6 +22,14 @@ Crea la tabella `user_data` con Row Level Security: ogni utente legge/scrive sol
 - **Email templates** (Authentication → Emails → solo **Magic Link**): per permettere anche l'accesso con codice a 6 cifre, aggiungere nel testo `{{ .Token }}` accanto a `{{ .ConfirmationURL }}`. Non serve toccare il template Invite: l'invitato entra col link, poi riceve il Magic Link con il codice.
 - **SMTP**: il servizio email predefinito di Supabase ha limiti molto bassi (poche email/ora). Prima di invitare più persone configurare un SMTP proprio (es. Resend) in Project Settings → Authentication → SMTP.
 
+## 2b. Accesso con Google (consigliato: nessuna email, nessun limite)
+Il servizio email di default di Supabase consente pochissime email all'ora e non va bene per i clienti. Con Google il cliente non riceve email.
+1. **Google Cloud Console** → APIs & Services → Credentials → *Create credentials → OAuth client ID* → tipo *Web application*. In *Authorized redirect URIs* inserire `https://<project-ref>.supabase.co/auth/v1/callback`. Se richiesto, configurare prima la schermata di consenso OAuth (app esterna, nome "Investitore").
+2. Copiare **Client ID** e **Client secret** in Supabase → Authentication → Sign In / Providers → **Google** → attivare e salvare.
+3. In Vercel aggiungere `VITE_GOOGLE_LOGIN` = `true` (Production) e fare Redeploy: compare il pulsante "Continua con Google".
+4. **Creare gli utenti a mano, senza email**: Authentication → Users → **Add user → Create new user**, con l'email Google del cliente, password casuale e *Auto Confirm User* attivo. Al primo accesso con Google Supabase collega l'identità all'utente esistente.
+Con la registrazione libera disattivata, un account Google non creato prima viene rifiutato con un messaggio chiaro.
+
 ## 3. Vercel
 Settings → Environment Variables (Production e Preview):
 - `VITE_SUPABASE_URL` = `https://<project-ref>.supabase.co`

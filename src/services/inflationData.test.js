@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseJsonStat, summarizeInflation, getItalianInflation } from './inflationData';
+import { parseJsonStat, summarizeInflation, getItalianInflation, normalizePeriod, parseEcbCsv, annualFromMonthly } from './inflationData';
+import { fetchInflationSeries } from './inflationSources';
 
 const stat = (periods, values, { asArray = false } = {}) => ({
   version: '2.0', class: 'dataset',
@@ -39,47 +40,128 @@ describe('parseJsonStat', () => {
   });
 });
 
+describe('normalizePeriod', () => {
+  it("'2025M09' → '2025-09'; gli altri formati restano invariati", () => {
+    expect(normalizePeriod('2025M09')).toBe('2025-09');
+    expect(normalizePeriod('2025-09')).toBe('2025-09');
+    expect(normalizePeriod('2025')).toBe('2025');
+  });
+});
+
+describe('parseEcbCsv', () => {
+  const csv = [
+    'KEY,FREQ,REF_AREA,ADJUSTMENT,ICP_ITEM,STS_INSTITUTION,ICP_SUFFIX,TIME_PERIOD,OBS_VALUE,OBS_STATUS,UNIT,TITLE',
+    'ICP.M.IT.N.000000.4.ANR,M,IT,N,000000,4,ANR,2024-02,0.8,A,PCCH,"HICP - Overall index, Italy, Monthly"',
+    'ICP.M.IT.N.000000.4.ANR,M,IT,N,000000,4,ANR,2024-01,0.9,A,PCCH,"HICP - Overall index, Italy, Monthly"',
+    'ICP.M.IT.N.000000.4.ANR,M,IT,N,000000,4,ANR,2024-03,,A,PCCH,"mancante"',
+  ].join('\r\n');
+  it('legge periodo e valore anche con virgole tra virgolette, ordina e salta i valori vuoti', () => {
+    expect(parseEcbCsv(csv)).toEqual([{ period: '2024-01', value: 0.9 }, { period: '2024-02', value: 0.8 }]);
+  });
+  it('rifiuta CSV vuoti o senza le colonne attese', () => {
+    expect(() => parseEcbCsv('')).toThrow();
+    expect(() => parseEcbCsv('A,B\n1,2')).toThrow(/Colonne/);
+  });
+  it('ignora righe con periodo non mensile', () => {
+    const c = 'TIME_PERIOD,OBS_VALUE\n2024,3.1\n2024-05,1.2';
+    expect(parseEcbCsv(c)).toEqual([{ period: '2024-05', value: 1.2 }]);
+  });
+});
+
+describe('annualFromMonthly', () => {
+  const months = (year, vals) => vals.map((v, i) => ({ period: `${year}-${String(i + 1).padStart(2, '0')}`, value: v }));
+  it('media dei 12 mesi, solo anni completi', () => {
+    const m = [...months(2023, Array(12).fill(6)), ...months(2024, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]), ...months(2025, [1, 2, 3])];
+    expect(annualFromMonthly(m)).toEqual([{ period: '2023', value: 6 }, { period: '2024', value: 6.5 }]);
+  });
+  it('lista vuota → vuota', () => expect(annualFromMonthly([])).toEqual([]));
+});
+
 describe('summarizeInflation', () => {
-  const years = Array.from({ length: 10 }, (_, i) => String(2015 + i));
-  const annual = stat(years, Object.fromEntries([2, 2, 2, 2, 2, 2, 2, 2, 2, 2].map((v, i) => [i, v])));
-  const monthly = stat(['2025M08', '2025M09'], { 0: 1.6, 1: 1.8 });
+  const annual = (vals, from = 2000) => vals.map((value, i) => ({ period: String(from + i), value }));
+  const monthly = [{ period: '2025-08', value: 1.6 }, { period: '2025-09', value: 1.8 }];
 
   it('ultimo dato mensile e statistiche storiche', () => {
-    const s = summarizeInflation({ annualRaw: annual, monthlyRaw: monthly });
-    expect(s.latest).toEqual({ period: '2025M09', value: 1.8 });
+    const s = summarizeInflation({ annual: annual(Array(10).fill(2)), monthly });
+    expect(s.latest).toEqual({ period: '2025-09', value: 1.8 });
     expect(s.history.mean).toBeCloseTo(2, 8);
     expect(s.history.vol).toBeCloseTo(0, 8);
     expect(s.history.years).toBe(10);
   });
   it('deviazione standard campionaria su valori noti', () => {
-    const a = stat(['1', '2', '3', '4', '5'], { 0: 1, 1: 2, 2: 3, 3: 4, 4: 5 });
-    const s = summarizeInflation({ annualRaw: a, monthlyRaw: monthly });
+    const s = summarizeInflation({ annual: annual([1, 2, 3, 4, 5]), monthly });
     expect(s.history.mean).toBe(3);
     expect(s.history.vol).toBeCloseTo(Math.sqrt(2.5), 8);
   });
   it('usa solo la finestra richiesta', () => {
-    const s = summarizeInflation({ annualRaw: annual, monthlyRaw: monthly }, 6);
+    const s = summarizeInflation({ annual: annual(Array(10).fill(2), 2015), monthly }, 6);
     expect(s.history.years).toBe(6);
     expect(s.history.from).toBe('2019');
   });
-  it('storico troppo corto → nessuna statistica, ma l\'ultimo dato resta', () => {
-    const a = stat(['2023', '2024'], { 0: 5.9, 1: 1.1 });
-    const s = summarizeInflation({ annualRaw: a, monthlyRaw: monthly });
+  it("storico troppo corto → nessuna statistica, ma l'ultimo dato resta", () => {
+    const s = summarizeInflation({ annual: annual([5.9, 1.1]), monthly });
     expect(s.history).toBeNull();
     expect(s.latest.value).toBe(1.8);
   });
-  it('un dataset rotto non rovina l\'altro', () => {
-    const s = summarizeInflation({ annualRaw: {}, monthlyRaw: monthly });
-    expect(s.history).toBeNull();
-    expect(s.latest.value).toBe(1.8);
+  it('input vuoto o mancante non lancia', () => {
+    expect(summarizeInflation({})).toEqual({ latest: null, history: null });
+    expect(summarizeInflation()).toEqual({ latest: null, history: null });
+  });
+});
+
+describe('fetchInflationSeries — fonti e diagnostica', () => {
+  const ecbCsv = (n) => ['TIME_PERIOD,OBS_VALUE', ...Array.from({ length: n }, (_, i) => `${2020 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')},2`)].join('\n');
+  const stat36 = () => {
+    const periods = Array.from({ length: 24 }, (_, i) => `${2023 + Math.floor(i / 12)}M${String((i % 12) + 1).padStart(2, '0')}`);
+    return JSON.stringify(stat(periods, Object.fromEntries(periods.map((_, i) => [i, 3]))));
+  };
+  const reply = (status, body) => ({ ok: status < 400, status, text: async () => body });
+
+  it('usa la BCE se risponde, senza tentativi falliti', async () => {
+    const calls = [];
+    const r = await fetchInflationSeries(async (url) => { calls.push(url); return reply(200, ecbCsv(60)); });
+    expect(r.source).toMatch(/BCE/);
+    expect(r.monthly).toHaveLength(60);
+    expect(r.annual).toHaveLength(5);
+    expect(r.attempts).toEqual([]);
+    expect(calls).toHaveLength(1);
+  });
+  it('BCE giù → Eurostat; registra i tentativi falliti con stato e testo', async () => {
+    const r = await fetchInflationSeries(async (url) => {
+      if (url.includes('data-api.ecb')) return reply(503, 'servizio non disponibile');
+      if (url.includes('coicop=CP00')) return reply(400, '{"error":"unknown dimension coicop"}');
+      if (url.includes('coicop18=TOTAL')) return reply(200, stat36());
+      return reply(404, '');
+    });
+    expect(r.source).toMatch(/Eurostat/);
+    expect(r.monthly[0]).toEqual({ period: '2023-01', value: 3 });
+    expect(r.annual).toEqual([{ period: '2023', value: 3 }, { period: '2024', value: 3 }]);
+    expect(r.attempts.map(a => a.source)).toEqual(['bce', 'eurostat coicop=CP00']);
+    expect(r.attempts[1].status).toBe(400);
+    expect(r.attempts[1].body).toMatch(/unknown dimension/);
+  });
+  it('BCE restituisce un CSV inutilizzabile → passa a Eurostat', async () => {
+    const r = await fetchInflationSeries(async (url) => (url.includes('ecb') ? reply(200, 'non è un csv') : reply(200, stat36())));
+    expect(r.source).toMatch(/Eurostat/);
+    expect(r.attempts[0].source).toBe('bce');
+  });
+  it('tutte le fonti falliscono → errore con il dettaglio di ogni tentativo', async () => {
+    let err;
+    try { await fetchInflationSeries(async () => reply(400, 'no')); } catch (e) { err = e; }
+    expect(err.message).toMatch(/Nessuna fonte/);
+    expect(err.attempts.map(a => a.source)).toEqual(['bce', 'eurostat coicop=CP00', 'eurostat coicop18=TOTAL', 'eurostat coicop18=CP00']);
+  });
+  it('errore di rete (fetch che lancia) viene catturato, non propagato crudo', async () => {
+    let err;
+    try { await fetchInflationSeries(async () => { throw new Error('ECONNRESET'); }); } catch (e) { err = e; }
+    expect(err.attempts[0].error).toBe('ECONNRESET');
   });
 });
 
 describe('getItalianInflation', () => {
-  const years = Array.from({ length: 8 }, (_, i) => String(2017 + i));
   const payload = {
-    annualRaw: stat(years, Object.fromEntries(years.map((_, i) => [i, 2]))),
-    monthlyRaw: stat(['2025M09'], { 0: 1.8 }),
+    annual: Array.from({ length: 8 }, (_, i) => ({ period: String(2017 + i), value: 2 })),
+    monthly: [{ period: '2025-09', value: 1.8 }],
   };
   const mem = () => { const m = {}; return { getItem: k => m[k] ?? null, setItem: (k, v) => { m[k] = v; } }; };
   const okFetch = () => async () => ({ ok: true, json: async () => payload });
@@ -91,6 +173,7 @@ describe('getItalianInflation', () => {
     const a = await getItalianInflation({ fetchImpl, storage, now: 1000 });
     expect(a.status).toBe('live');
     expect(a.latest.value).toBe(1.8);
+    expect(a.history.mean).toBe(2);
     const b = await getItalianInflation({ fetchImpl, storage, now: 2000 });
     expect(b.status).toBe('cached');
     expect(calls).toBe(1);

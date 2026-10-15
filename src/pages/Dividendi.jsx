@@ -45,9 +45,9 @@ const SECTOR_COLORS = {
   'ETF':'#64D2FF','Altro':'#8E8E93',
 };
 const MOAT_STYLE = {
-  'Wide':   { bg:'#30D15820', color:'#30D158', label:'Wide ●●●' },
-  'Narrow': { bg:'#FF9F0A20', color:'#FF9F0A', label:'Narrow ●●○' },
-  'None':   { bg:'#FF453A20', color:'#FF453A', label:'None ●○○' },
+  'Wide':   { bg:'#30D15820', color:'var(--pos)', label:'Wide ●●●' },
+  'Narrow': { bg:'#FF9F0A20', color:'var(--warn)', label:'Narrow ●●○' },
+  'None':   { bg:'#FF453A20', color:'var(--neg)', label:'None ●○○' },
 };
 const FREQ_COLOR  = { Monthly:'#30D158', Quarterly:'#0A84FF', SemiAnnual:'#FF9F0A', Annual:'#BF5AF2' };
 const ASSET_COLOR = { Stock:'#0A84FF', REIT:'#30D158', BDC:'#FF9F0A', ETF:'#64D2FF' };
@@ -154,7 +154,7 @@ function MoatBadge({ rating }) {
 }
 
 // ── KpiCard ────────────────────────────────────────────────────────────────────
-function KpiCard({ label, value, sub, color = '#0A84FF', icon: Icon, trend, accent }) {
+function KpiCard({ label, value, sub, color = 'var(--info)', icon: Icon, trend, accent }) {
   return (
     <div style={{
       background: 'var(--card-bg)', borderRadius: 16, border: '1px solid var(--border)',
@@ -177,7 +177,7 @@ function KpiCard({ label, value, sub, color = '#0A84FF', icon: Icon, trend, acce
       </div>
       {sub && (
         <div style={{ fontSize:'0.75rem', marginTop:'0.3rem',
-          color: trend==='up' ? '#30D158' : trend==='down' ? '#FF453A' : 'var(--text-3)' }}>
+          color: trend==='up' ? 'var(--pos)' : trend==='down' ? 'var(--neg)' : 'var(--text-3)' }}>
           {sub}
         </div>
       )}
@@ -228,7 +228,7 @@ function NextDividendBanner({ positions, taxRate = 0.26 }) {
     }}>
       <div style={{ width:32, height:32, borderRadius:10, background:'#0A84FF22',
         display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-        <Calendar size={15} color="#0A84FF" />
+        <Calendar size={15} color="var(--info)" />
       </div>
       <div style={{ flex:1 }}>
         <div style={{ fontSize:'0.72rem', color:'var(--text-3)', fontWeight:600,
@@ -240,7 +240,7 @@ function NextDividendBanner({ positions, taxRate = 0.26 }) {
         </div>
       </div>
       <div style={{ textAlign:'right' }}>
-        <div style={{ fontSize:'1.1rem', fontWeight:700, color:'#30D158' }}>
+        <div style={{ fontSize:'1.1rem', fontWeight:700, color:'var(--pos)' }}>
           <Blur>{fmtEur(next.netAmount)} netti</Blur>
         </div>
         <div style={{ fontSize:'0.72rem', color:'var(--text-3)' }}>
@@ -253,7 +253,7 @@ function NextDividendBanner({ positions, taxRate = 0.26 }) {
 
 // ── RiskScore ──────────────────────────────────────────────────────────────────
 function RiskScore({ score }) {
-  const color = score >= 75 ? '#30D158' : score >= 50 ? '#FF9F0A' : '#FF453A';
+  const color = score >= 75 ? 'var(--pos)' : score >= 50 ? 'var(--warn)' : 'var(--neg)';
   return (
     <div style={{ display:'flex', alignItems:'center', gap:'0.75rem',
       background:'var(--card-bg)', borderRadius:14, border:'1px solid var(--border)',
@@ -322,7 +322,7 @@ function MonthlyBarChart({ data }) {
         <Bar dataKey="income" radius={[4,4,0,0]}>
           {data.map((d, i) => (
             <Cell key={i}
-              fill={d.isCurrent ? '#FF9F0A' : d.isNextYear ? 'rgba(10,132,255,0.7)' : '#30D158'}
+              fill={d.isCurrent ? 'var(--warn)' : d.isNextYear ? 'rgba(10,132,255,0.7)' : 'var(--pos)'}
               opacity={d.income === 0 ? 0.25 : 1}
             />
           ))}
@@ -371,7 +371,7 @@ function SimulatorSearch({ portfolioPositions, onSelect }) {
     return [...inPortfolio, ...fromDB].slice(0, 12);
   }, [query, portfolioPositions]);
 
-  const typeColor = (t) => ({ REIT:'#BF5AF2', BDC:'#FF9F0A', ETF:'#0A84FF', Stock:'#30D158' })[t] || '#8E8E93';
+  const typeColor = (t) => ({ REIT:'#BF5AF2', BDC:'var(--warn)', ETF:'var(--info)', Stock:'var(--pos)' })[t] || '#8E8E93';
 
   return (
     <div style={{ position:'relative' }}>
@@ -445,12 +445,12 @@ function SearchRow({ r, typeColor, onSelect, owned }) {
       <div style={{ flex:1, minWidth:0 }}>
         <div style={{ display:'flex', alignItems:'center', gap:6 }}>
           <span style={{ fontSize:'0.85rem', fontWeight:700 }}>{r.ticker}</span>
-          {owned && <span style={{ fontSize:'0.6rem', background:'#30D15822', color:'#30D158', padding:'1px 5px', borderRadius:4, fontWeight:600 }}>IN PORTAFOGLIO</span>}
+          {owned && <span style={{ fontSize:'0.6rem', background:'#30D15822', color:'var(--pos)', padding:'1px 5px', borderRadius:4, fontWeight:600 }}>IN PORTAFOGLIO</span>}
         </div>
         <span style={{ fontSize:'0.72rem', color:'var(--text-3)', display:'block', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.name}</span>
       </div>
       <div style={{ textAlign:'right', flexShrink:0 }}>
-        {r.yieldPct > 0 && <div style={{ fontSize:'0.78rem', fontWeight:600, color:'#30D158' }}>{r.yieldPct.toFixed(1)}%</div>}
+        {r.yieldPct > 0 && <div style={{ fontSize:'0.78rem', fontWeight:600, color:'var(--pos)' }}>{r.yieldPct.toFixed(1)}%</div>}
         {r.dps > 0 && <div style={{ fontSize:'0.68rem', color:'var(--text-3)' }}>DPS ${r.dps.toFixed(2)}</div>}
         <div style={{ fontSize:'0.65rem', color:'var(--text-3)' }}>{r.frequency}</div>
       </div>
@@ -466,18 +466,18 @@ function CalendarMonthCard({ monthData, monthIndex, isSelected, onClick }) {
       style={{
         background: isSelected ? 'var(--surface-2)' : 'var(--card-bg)',
         borderRadius: 14,
-        border: `1px solid ${isSelected ? '#0A84FF' : 'var(--border)'}`,
+        border: `1px solid ${isSelected ? 'var(--info)' : 'var(--border)'}`,
         padding: '0.9rem', minHeight: 100,
         opacity: hasEvents ? 1 : 0.4,
         cursor: hasEvents ? 'pointer' : 'default',
         transition: 'border-color 0.15s, background 0.15s',
       }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.6rem' }}>
-        <span style={{ fontSize:'0.75rem', fontWeight:600, color: isSelected ? '#0A84FF' : 'var(--text-2)' }}>
+        <span style={{ fontSize:'0.75rem', fontWeight:600, color: isSelected ? 'var(--info)' : 'var(--text-2)' }}>
           {MONTHS_IT_FULL[monthIndex]}
         </span>
         {hasEvents && (
-          <span style={{ fontSize:'0.72rem', fontWeight:700, color:'#30D158' }}>
+          <span style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--pos)' }}>
             <Blur>{fmtEur(monthData.totalGross)}</Blur>
           </span>
         )}
@@ -538,10 +538,10 @@ function MonthDetailPanel({ monthData, monthIndex, year, taxRate, totalPortfolio
         </div>
         <div style={{ display:'flex', gap:20, flexWrap:'wrap' }}>
           {[
-            { label:'Totale Lordo', value: fmtEur(totalGross), color:'#30D158' },
-            { label:'Netto Stimato', value: fmtEur(totalNet), color:'#FF9F0A',
+            { label:'Totale Lordo', value: fmtEur(totalGross), color:'var(--pos)' },
+            { label:'Netto Stimato', value: fmtEur(totalNet), color:'var(--warn)',
               sub: `Tassazione ${(taxRate*100).toFixed(0)}%` },
-            { label:'Posizioni', value: events.length, color:'#0A84FF' },
+            { label:'Posizioni', value: events.length, color:'var(--info)' },
           ].map(k => (
             <div key={k.label} style={{ textAlign:'right' }}>
               <p style={{ fontSize:'0.65rem', color:'var(--text-3)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.04em', margin:0 }}>{k.label}</p>
@@ -588,14 +588,14 @@ function MonthDetailPanel({ monthData, monthIndex, year, taxRate, totalPortfolio
               Tassazione applicata: {(taxRate * 100).toFixed(0)}%
             </strong>
             {taxRate === 0 ? (
-              <span style={{ display:'block' }}>Nessuna tassa impostata → <strong style={{ color:'#30D158' }}>netto = lordo</strong></span>
+              <span style={{ display:'block' }}>Nessuna tassa impostata → <strong style={{ color:'var(--pos)' }}>netto = lordo</strong></span>
             ) : (
               <span style={{ display:'block' }}>
                 Lordo {fmtEur(totalGross)} × {(100 - taxRate * 100).toFixed(0)}% = netto stimato
               </span>
             )}
             <span style={{ display:'block', marginTop:6, borderTop:'1px solid var(--border)', paddingTop:6 }}>
-              Totale netto: <strong style={{ color: taxRate === 0 ? '#30D158' : '#FF9F0A' }}><Blur>{fmtEur(totalNet)}</Blur></strong>
+              Totale netto: <strong style={{ color: taxRate === 0 ? 'var(--pos)' : 'var(--warn)' }}><Blur>{fmtEur(totalNet)}</Blur></strong>
             </span>
           </div>
         </div>
@@ -629,7 +629,7 @@ function MonthDetailPanel({ monthData, monthIndex, year, taxRate, totalPortfolio
               <span style={{ textAlign:'right', fontSize:'0.78rem', color:'var(--text-2)' }}>
                 ×{(ev.pos.shares || 0).toLocaleString('it-IT', { maximumFractionDigits:3 })}
               </span>
-              <span style={{ textAlign:'right', fontSize:'0.82rem', fontWeight:600, color: ev.isEstimate ? '#FF9F0A' : '#30D158' }}>
+              <span style={{ textAlign:'right', fontSize:'0.82rem', fontWeight:600, color: ev.isEstimate ? 'var(--warn)' : 'var(--pos)' }}>
                 <Blur>{fmtEur(ev.gross)}</Blur>
                 {ev.isEstimate && ev.growthFactor > 1 && (
                   <span style={{ display:'block', fontSize:'0.62rem', color:'#FF9F0A88' }}>
@@ -657,12 +657,12 @@ function MonthDetailPanel({ monthData, monthIndex, year, taxRate, totalPortfolio
                   <div style={{ flex:1 }}>
                     <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
                       <span style={{ fontSize:'0.78rem', fontWeight:600 }}>{ev.pos.name || ev.pos.ticker}</span>
-                      <span style={{ fontSize:'0.78rem', fontWeight:700, color:'#30D158' }}>
+                      <span style={{ fontSize:'0.78rem', fontWeight:700, color:'var(--pos)' }}>
                         <Blur>{fmtEur(ev.gross)}</Blur>
                       </span>
                     </div>
                     <div style={{ height:5, background:'var(--border)', borderRadius:3, overflow:'hidden' }}>
-                      <div style={{ height:'100%', borderRadius:3, background:'#30D158',
+                      <div style={{ height:'100%', borderRadius:3, background:'var(--pos)',
                         width: `${totalGross > 0 ? (ev.gross/totalGross)*100 : 0}%` }} />
                     </div>
                   </div>
@@ -694,7 +694,7 @@ function YocChart({ projection, targetYoc }) {
           </div>
         </div>
         <div style={{ display:'flex', gap:'0.75rem', fontSize:'0.72rem', flexWrap:'wrap' }}>
-          {[['Bear (−30%)', '#FF453A'], ['Base', '#0A84FF'], ['Bull (+30%)', '#30D158']].map(([l,c]) => (
+          {[['Bear (−30%)', 'var(--neg)'], ['Base', 'var(--info)'], ['Bull (+30%)', 'var(--pos)']].map(([l,c]) => (
             <span key={l} style={{ display:'flex', alignItems:'center', gap:'0.3rem' }}>
               <span style={{ width:20, height:2, background:c, display:'inline-block', borderRadius:2 }} />{l}
             </span>
@@ -708,15 +708,15 @@ function YocChart({ projection, targetYoc }) {
           <YAxis tick={{ fontSize:10, fill:'var(--text-3)' }} tickFormatter={v=>v+'%'} width={40} />
           <Tooltip formatter={(v,n) => [v.toFixed(2)+'%', n]}
             contentStyle={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:10 }} />
-          <ReferenceLine y={targetYoc} stroke="#FF9F0A" strokeDasharray="5 4"
-            label={{ value:`Target ${targetYoc}%`, fill:'#FF9F0A', fontSize:11 }} />
-          <Line type="monotone" dataKey="bear" stroke="#FF453A" strokeWidth={1.5} dot={false} name="Bear" />
-          <Line type="monotone" dataKey="base" stroke="#0A84FF" strokeWidth={2.5} dot={false} name="Base" />
-          <Line type="monotone" dataKey="bull" stroke="#30D158" strokeWidth={1.5} dot={false} name="Bull" />
+          <ReferenceLine y={targetYoc} stroke="var(--warn)" strokeDasharray="5 4"
+            label={{ value:`Target ${targetYoc}%`, fill:'var(--warn)', fontSize:11 }} />
+          <Line type="monotone" dataKey="bear" stroke="var(--neg)" strokeWidth={1.5} dot={false} name="Bear" />
+          <Line type="monotone" dataKey="base" stroke="var(--info)" strokeWidth={2.5} dot={false} name="Base" />
+          <Line type="monotone" dataKey="bull" stroke="var(--pos)" strokeWidth={1.5} dot={false} name="Bull" />
         </LineChart>
       </ResponsiveContainer>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'0.75rem', marginTop:'1rem' }}>
-        {[['Bear', crossBear, '#FF453A'], ['Base', crossBase, '#0A84FF'], ['Bull', crossBull, '#30D158']].map(([n,y,c]) => (
+        {[['Bear', crossBear, 'var(--neg)'], ['Base', crossBase, 'var(--info)'], ['Bull', crossBull, 'var(--pos)']].map(([n,y,c]) => (
           <div key={n} style={{ background:'var(--bg)', borderRadius:10, padding:'0.65rem 0.85rem', textAlign:'center' }}>
             <div style={{ fontSize:'0.65rem', color:c, fontWeight:700, textTransform:'uppercase', marginBottom:'0.2rem' }}>{n}</div>
             <div style={{ fontSize:'0.95rem', fontWeight:700 }}>{y || '—'}</div>
@@ -746,8 +746,8 @@ function IncomeProjectionChart({ projection }) {
           <Tooltip formatter={(v,n) => [fmtEur(v)+'/mese', n]}
             contentStyle={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:10 }} />
           <Legend />
-          <Line type="monotone" dataKey="monthlyGross" stroke="#0A84FF" strokeWidth={2} dot={false} name="Lordo/mese" />
-          <Line type="monotone" dataKey="monthlyNet"   stroke="#30D158" strokeWidth={2} dot={false} name="Netto/mese" />
+          <Line type="monotone" dataKey="monthlyGross" stroke="var(--info)" strokeWidth={2} dot={false} name="Lordo/mese" />
+          <Line type="monotone" dataKey="monthlyNet"   stroke="var(--pos)" strokeWidth={2} dot={false} name="Netto/mese" />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -778,9 +778,9 @@ const RULES_DEF = [
     check: (p, prices) => { const price=prices[p.ticker]?.price; if(!price) return{status:'na',label:'N/D'}; const yld=(p.dividendPerShare/price)*100; if(yld<=6) return{status:'pass',label:`${yld.toFixed(1)}%`}; if(yld<=8) return{status:'warn',label:`${yld.toFixed(1)}%`}; return{status:'fail',label:`${yld.toFixed(1)}%`}; } },
 ];
 const STATUS_STYLE = {
-  pass:{ bg:'rgba(48,209,88,0.12)',  color:'#30D158', icon:'✓' },
-  warn:{ bg:'rgba(255,159,10,0.12)', color:'#FF9F0A', icon:'⚠' },
-  fail:{ bg:'rgba(255,69,58,0.12)',  color:'#FF453A', icon:'✗' },
+  pass:{ bg:'rgba(48,209,88,0.12)',  color:'var(--pos)', icon:'✓' },
+  warn:{ bg:'rgba(255,159,10,0.12)', color:'var(--warn)', icon:'⚠' },
+  fail:{ bg:'rgba(255,69,58,0.12)',  color:'var(--neg)', icon:'✗' },
   na:  { bg:'rgba(142,142,147,0.1)', color:'#8E8E93', icon:'—' },
 };
 function scorePosRules(pos, prices, totalValue) {
@@ -821,17 +821,17 @@ function AnalysisTab({ positions, prices }) {
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px,1fr))', gap:'0.85rem' }}>
         <div style={{ background:'var(--card-bg)', borderRadius:14, border:'1px solid var(--border)', padding:'1.1rem 1.25rem', borderTop:'3px solid #0A84FF' }}>
           <div style={{ fontSize:'0.65rem', color:'var(--text-3)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'0.35rem' }}>Score medio</div>
-          <div style={{ fontSize:'2rem', fontWeight:800, color:'#0A84FF', lineHeight:1 }}>{avg}<span style={{ fontSize:'1rem', color:'var(--text-3)' }}>/10</span></div>
+          <div style={{ fontSize:'2rem', fontWeight:800, color:'var(--info)', lineHeight:1 }}>{avg}<span style={{ fontSize:'1rem', color:'var(--text-3)' }}>/10</span></div>
           <div style={{ fontSize:'0.73rem', color:'var(--text-3)', marginTop:'0.35rem' }}>{positions.length} azioni analizzate</div>
         </div>
         <div style={{ background:'var(--card-bg)', borderRadius:14, border:'1px solid var(--border)', padding:'1.1rem 1.25rem', borderTop:'3px solid #30D158' }}>
           <div style={{ fontSize:'0.65rem', color:'var(--text-3)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'0.35rem' }}>Posizioni "Forti" (≥ 7/10)</div>
-          <div style={{ fontSize:'2rem', fontWeight:800, color:'#30D158', lineHeight:1 }}>{strong}<span style={{ fontSize:'1rem', color:'var(--text-3)' }}>/{positions.length}</span></div>
+          <div style={{ fontSize:'2rem', fontWeight:800, color:'var(--pos)', lineHeight:1 }}>{strong}<span style={{ fontSize:'1rem', color:'var(--text-3)' }}>/{positions.length}</span></div>
           <div style={{ fontSize:'0.73rem', color:'var(--text-3)', marginTop:'0.35rem' }}>Passano ≥ 7 criteri su 10</div>
         </div>
         <div style={{ background:'var(--card-bg)', borderRadius:14, border:'1px solid var(--border)', padding:'1.1rem 1.25rem' }}>
           <div style={{ fontSize:'0.65rem', color:'var(--text-3)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:'0.65rem' }}>Distribuzione Moat</div>
-          {[['Wide','#30D158'],['Narrow','#FF9F0A'],['None','#FF453A']].map(([m,c]) => (
+          {[['Wide','var(--pos)'],['Narrow','var(--warn)'],['None','var(--neg)']].map(([m,c]) => (
             <div key={m} style={{ marginBottom:'0.45rem' }}>
               <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
                 <span style={{ fontSize:'0.72rem', color:c, fontWeight:600 }}>{m}</span>
@@ -862,7 +862,7 @@ function AnalysisTab({ positions, prices }) {
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(380px,1fr))', gap:'1rem' }}>
         {scored.map(({ pos, rules, passed, warned, failed }) => {
-          const scoreColor = passed>=7?'#30D158':passed>=5?'#FF9F0A':'#FF453A';
+          const scoreColor = passed>=7?'var(--pos)':passed>=5?'var(--warn)':'var(--neg)';
           return (
             <div key={pos.id} style={{ background:'var(--card-bg)', borderRadius:16, border:'1px solid var(--border)', borderLeft:`4px solid ${scoreColor}`, overflow:'hidden' }}>
               <div style={{ padding:'0.85rem 1rem', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
@@ -878,8 +878,8 @@ function AnalysisTab({ positions, prices }) {
                     {passed}<span style={{ fontSize:'0.78rem', color:'var(--text-3)' }}>/10</span>
                   </div>
                   <div style={{ display:'flex', gap:'0.5rem', justifyContent:'flex-end', marginTop:2 }}>
-                    {warned>0 && <span style={{ fontSize:'0.63rem', color:'#FF9F0A', fontWeight:600 }}>⚠ {warned}</span>}
-                    {failed>0 && <span style={{ fontSize:'0.63rem', color:'#FF453A', fontWeight:600 }}>✗ {failed}</span>}
+                    {warned>0 && <span style={{ fontSize:'0.63rem', color:'var(--warn)', fontWeight:600 }}>⚠ {warned}</span>}
+                    {failed>0 && <span style={{ fontSize:'0.63rem', color:'var(--neg)', fontWeight:600 }}>✗ {failed}</span>}
                   </div>
                 </div>
               </div>
@@ -961,7 +961,7 @@ function MetadataModal({ position, onSave, onClose }) {
             <button key={t.id} onClick={() => setFormTab(t.id)} style={{
               padding:'0.3rem 0.8rem', borderRadius:8, border:'none', cursor:'pointer',
               fontSize:'0.78rem', fontWeight: formTab===t.id ? 600 : 400,
-              background: formTab===t.id ? '#0A84FF' : 'var(--bg)',
+              background: formTab===t.id ? 'var(--info)' : 'var(--bg)',
               color: formTab===t.id ? '#fff' : 'var(--text-3)',
             }}>{t.label}</button>
           ))}
@@ -1002,7 +1002,7 @@ function MetadataModal({ position, onSave, onClose }) {
                         set('paymentMonths', active ? months.filter(x => x!==i+1) : [...months, i+1].sort((a,b)=>a-b));
                       }} style={{ padding:'0.3rem 0.55rem', borderRadius:7, border:'1px solid var(--border)',
                         cursor:'pointer', fontSize:'0.75rem', fontWeight:500,
-                        background: active ? '#0A84FF' : 'var(--bg)', color: active ? '#fff' : 'var(--text-3)',
+                        background: active ? 'var(--info)' : 'var(--bg)', color: active ? '#fff' : 'var(--text-3)',
                       }}>{m}</button>
                     );
                   })}
@@ -1062,7 +1062,7 @@ function MetadataModal({ position, onSave, onClose }) {
         </div>
         <div style={{ padding:'1rem 1.5rem', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:'0.75rem' }}>
           <button onClick={onClose} style={{ padding:'0.55rem 1.1rem', borderRadius:10, border:'1px solid var(--border)', background:'var(--bg)', cursor:'pointer', fontSize:'0.83rem', color:'var(--text-2)' }}>Annulla</button>
-          <button onClick={handleSave} style={{ padding:'0.55rem 1.25rem', borderRadius:10, border:'none', background: valid ? '#0A84FF' : '#444', color:'#fff', cursor: valid ? 'pointer' : 'not-allowed', fontSize:'0.83rem', fontWeight:600, display:'flex', alignItems:'center', gap:'0.4rem' }}>
+          <button onClick={handleSave} style={{ padding:'0.55rem 1.25rem', borderRadius:10, border:'none', background: valid ? 'var(--info)' : '#444', color:'#fff', cursor: valid ? 'pointer' : 'not-allowed', fontSize:'0.83rem', fontWeight:600, display:'flex', alignItems:'center', gap:'0.4rem' }}>
             <Check size={14} /> Salva metadati
           </button>
         </div>
@@ -1139,23 +1139,23 @@ function PositionsTable({ positions, prices, onEdit }) {
                 <td style={{ padding:'0.8rem 0.85rem', fontWeight:600 }}>
                   {price ? <Blur>{fmtEur(val)}</Blur> : <span style={{ color:'var(--text-3)', fontSize:'0.72rem' }}>n/d</span>}
                 </td>
-                <td style={{ padding:'0.8rem 0.85rem', color:'#30D158', fontWeight:600 }}>
+                <td style={{ padding:'0.8rem 0.85rem', color:'var(--pos)', fontWeight:600 }}>
                   {gross > 0 ? <Blur>{fmtEur(gross)}</Blur> : <span style={{ color:'var(--text-3)' }}>—</span>}
                 </td>
                 <td style={{ padding:'0.8rem 0.85rem' }}>
-                  {yld!=null ? <span style={{ color:yld>6?'#FF9F0A':'var(--text-1)' }}>{fmtPct(yld)}</span> : '—'}
+                  {yld!=null ? <span style={{ color:yld>6?'var(--warn)':'var(--text-1)' }}>{fmtPct(yld)}</span> : '—'}
                 </td>
                 <td style={{ padding:'0.8rem 0.85rem' }}>
-                  {yoc > 0 ? <span style={{ color:'#0A84FF', fontWeight:600 }}>{fmtPct(yoc)}</span> : '—'}
+                  {yoc > 0 ? <span style={{ color:'var(--info)', fontWeight:600 }}>{fmtPct(yoc)}</span> : '—'}
                 </td>
                 <td style={{ padding:'0.8rem 0.85rem' }}>
-                  <span style={{ color:(pos.dividendGrowthRate||0)>=5?'#30D158':'var(--text-2)' }}>
+                  <span style={{ color:(pos.dividendGrowthRate||0)>=5?'var(--pos)':'var(--text-2)' }}>
                     {pos.dividendGrowthRate ? '+'+pos.dividendGrowthRate+'%' : '—'}
                   </span>
                 </td>
                 <td style={{ padding:'0.8rem 0.85rem' }}>
                   {pos.payoutRatio ? (
-                    <span style={{ color:pos.payoutRatio>100?'#FF453A':pos.payoutRatio>80?'#FF9F0A':'var(--text-2)' }}>
+                    <span style={{ color:pos.payoutRatio>100?'var(--neg)':pos.payoutRatio>80?'var(--warn)':'var(--text-2)' }}>
                       {pos.payoutRatio}%
                     </span>
                   ) : '—'}
@@ -1338,7 +1338,7 @@ export default function Dividendi() {
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', flexWrap:'wrap', gap:'0.75rem' }}>
         <div>
           <div style={{ display:'flex', alignItems:'center', gap:'0.6rem', marginBottom:'0.15rem' }}>
-            <Coins size={20} color="#30D158" />
+            <Coins size={20} color="var(--pos)" />
             <h1 style={{ fontSize:'1.4rem', fontWeight:700, margin:0 }}>Dividendi &amp; Rendita</h1>
           </div>
           <p style={{ margin:0, color:'var(--text-3)', fontSize:'0.82rem' }}>
@@ -1384,7 +1384,7 @@ export default function Dividendi() {
           <Link to="/transactions" style={{
             display:'inline-flex', alignItems:'center', gap:'0.5rem',
             padding:'0.65rem 1.5rem', borderRadius:12, border:'none',
-            background:'#0A84FF', color:'#fff', textDecoration:'none', fontSize:'0.9rem', fontWeight:600,
+            background:'var(--info)', color:'#fff', textDecoration:'none', fontSize:'0.9rem', fontWeight:600,
           }}>
             <ExternalLink size={15} /> Vai a Transazioni
           </Link>
@@ -1405,15 +1405,15 @@ export default function Dividendi() {
               {[['0', '0% (es. Malta)'], ['12.5', '12.5%'], ['26', '26% (IT)']].map(([val, label]) => (
                 <button key={val} onClick={() => handleTaxChange(val)} style={{
                   padding:'0.3rem 0.7rem', borderRadius:8,
-                  border: `1px solid ${taxInput === val ? '#0A84FF' : 'var(--border)'}`,
+                  border: `1px solid ${taxInput === val ? 'var(--info)' : 'var(--border)'}`,
                   background: taxInput === val ? 'rgba(10,132,255,0.12)' : 'var(--bg)',
-                  color: taxInput === val ? '#0A84FF' : 'var(--text-3)',
+                  color: taxInput === val ? 'var(--info)' : 'var(--text-3)',
                   fontSize:'0.75rem', fontWeight: taxInput === val ? 700 : 400,
                   cursor:'pointer', whiteSpace:'nowrap', transition:'all 0.15s',
                 }}>{label}</button>
               ))}
               <div style={{ display:'flex', alignItems:'center', gap:'0.3rem',
-                background:'var(--bg)', border:`1px solid ${!['0','12.5','26'].includes(taxInput) ? '#0A84FF' : 'var(--border)'}`,
+                background:'var(--bg)', border:`1px solid ${!['0','12.5','26'].includes(taxInput) ? 'var(--info)' : 'var(--border)'}`,
                 borderRadius:8, padding:'0.3rem 0.6rem',
               }}>
                 <input
@@ -1423,7 +1423,7 @@ export default function Dividendi() {
                   onBlur={e => handleTaxChange(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleTaxChange(e.target.value)}
                   style={{ width:40, background:'transparent', border:'none', outline:'none',
-                    fontSize:'0.75rem', color: !['0','12.5','26'].includes(taxInput) ? '#0A84FF' : 'var(--text-1)',
+                    fontSize:'0.75rem', color: !['0','12.5','26'].includes(taxInput) ? 'var(--info)' : 'var(--text-1)',
                     fontWeight: !['0','12.5','26'].includes(taxInput) ? 700 : 400,
                     textAlign:'right' }}
                 />
@@ -1439,19 +1439,19 @@ export default function Dividendi() {
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))', gap:'0.85rem' }}>
                 <KpiCard label="Valore Portafoglio"
                   value={fmtEur(kpis.totalValue)} sub={`${positions.length} posizioni`}
-                  icon={Coins} color="#0A84FF" accent="#0A84FF" />
+                  icon={Coins} color="var(--info)" accent="var(--info)" />
                 <KpiCard label="Dividendi Lordi/Anno"
                   value={fmtEur(kpis.annualGross)} sub="Prima delle tasse"
-                  icon={TrendingUp} color="#30D158" accent="#30D158" />
+                  icon={TrendingUp} color="var(--pos)" accent="var(--pos)" />
                 <KpiCard label="Dividendi Netti/Anno"
                   value={fmtEur(kpis.annualNet)} sub={`Tassazione ${(taxRate*100).toFixed(0)}%`}
-                  icon={TrendingUp} color="#30D158" />
+                  icon={TrendingUp} color="var(--pos)" />
                 <KpiCard label="Rendita Mensile Netta"
                   value={fmtEur(kpis.monthlyNet)} sub="Media mensile"
                   icon={Calendar} color="#64D2FF" />
                 <KpiCard label="Yield Medio"
                   value={fmtPct(kpis.yieldPct)} sub="Sul valore attuale"
-                  icon={Target} color={kpis.yieldPct > 7 ? '#FF9F0A' : '#0A84FF'} />
+                  icon={Target} color={kpis.yieldPct > 7 ? 'var(--warn)' : 'var(--info)'} />
                 <KpiCard label="Yield on Cost"
                   value={fmtPct(kpis.yocPct)} sub="Sul prezzo di carico"
                   icon={Shield} color="#BF5AF2" />
@@ -1467,7 +1467,7 @@ export default function Dividendi() {
               {alerts.length > 0 && (
                 <div style={{ background:'var(--card-bg)', borderRadius:14, border:'1px solid var(--border)', overflow:'hidden' }}>
                   <div style={{ padding:'0.85rem 1.25rem', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:'0.5rem' }}>
-                    <AlertCircle size={14} color="#FF9F0A" />
+                    <AlertCircle size={14} color="var(--warn)" />
                     <span style={{ fontSize:'0.85rem', fontWeight:600 }}>Alert ({alerts.length})</span>
                   </div>
                   <div style={{ padding:'0.5rem 0' }}>
@@ -1490,7 +1490,7 @@ export default function Dividendi() {
                     <div style={{ fontSize:'0.72rem', color:'var(--text-3)', marginTop:2 }}>Importi stimati in base al portafoglio attuale</div>
                   </div>
                   <div style={{ display:'flex', gap:12, fontSize:'0.68rem', color:'var(--text-3)' }}>
-                    {[['#FF9F0A','Mese corrente'],['#30D158',currentYear],['rgba(10,132,255,0.7)',currentYear+1]].map(([c,l]) => (
+                    {[['var(--warn)','Mese corrente'],['var(--pos)',currentYear],['rgba(10,132,255,0.7)',currentYear+1]].map(([c,l]) => (
                       <span key={l} style={{ display:'flex', alignItems:'center', gap:4 }}>
                         <span style={{ width:10, height:10, background:c, borderRadius:2, display:'inline-block' }} />{l}
                       </span>
@@ -1516,7 +1516,7 @@ export default function Dividendi() {
                       <div style={{ fontSize:'0.7rem', fontWeight:700, color:'var(--text-3)', marginBottom:4 }}>
                         {q} · {MONTHS_IT[months[0]-1]}–{MONTHS_IT[months[2]-1]}
                       </div>
-                      <div style={{ fontSize:'1.15rem', fontWeight:800, color: qIncome > 0 ? '#30D158' : 'var(--text-3)' }}>
+                      <div style={{ fontSize:'1.15rem', fontWeight:800, color: qIncome > 0 ? 'var(--pos)' : 'var(--text-3)' }}>
                         <Blur>{fmtEur(qIncome)}</Blur>
                       </div>
                     </div>
@@ -1536,7 +1536,7 @@ export default function Dividendi() {
                     </div>
                     <div style={{ display:'flex', gap:12, fontSize:'0.7rem' }}>
                       <span style={{ display:'flex', alignItems:'center', gap:4 }}>
-                        <span style={{ width:14, height:3, background:'#30D158', borderRadius:2 }} />
+                        <span style={{ width:14, height:3, background:'var(--pos)', borderRadius:2 }} />
                         <span style={{ color:'var(--text-2)' }}>Yield on Cost</span>
                       </span>
                       <span style={{ display:'flex', alignItems:'center', gap:4 }}>
@@ -1549,8 +1549,8 @@ export default function Dividendi() {
                     <LineChart data={yocVsCurrent} margin={{ top:5, right:10, left:0, bottom:0 }}>
                       <defs>
                         <linearGradient id="yocGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#30D158" stopOpacity={0.25} />
-                          <stop offset="95%" stopColor="#30D158" stopOpacity={0} />
+                          <stop offset="5%" stopColor="var(--pos)" stopOpacity={0.25} />
+                          <stop offset="95%" stopColor="var(--pos)" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
@@ -1560,7 +1560,7 @@ export default function Dividendi() {
                         formatter={(v, n) => [v.toFixed(2) + '%', n === 'yoc' ? 'Yield on Cost' : 'Yield attuale']}
                         contentStyle={{ background:'var(--surface-1)', border:'1px solid var(--border)', borderRadius:10, fontSize:'0.78rem' }} />
                       <Line type="monotone" dataKey="current" stroke="#8E8E93" strokeWidth={1.5} strokeDasharray="5 4" dot={false} name="current" />
-                      <Line type="monotone" dataKey="yoc" stroke="#30D158" strokeWidth={2.5} dot={false} name="yoc" />
+                      <Line type="monotone" dataKey="yoc" stroke="var(--pos)" strokeWidth={2.5} dot={false} name="yoc" />
                     </LineChart>
                   </ResponsiveContainer>
                   <p style={{ fontSize:'0.7rem', color:'var(--text-3)', marginTop:8, lineHeight:1.5 }}>
@@ -1607,7 +1607,7 @@ export default function Dividendi() {
                 <span style={{ fontWeight:700, fontSize:'1rem' }}>{calYear}</span>
                 {calYear > new Date().getFullYear() && (
                   <span style={{ fontSize:'0.68rem', fontWeight:600, padding:'2px 8px', borderRadius:6,
-                    background:'#FF9F0A22', color:'#FF9F0A', border:'1px solid #FF9F0A44' }}>
+                    background:'#FF9F0A22', color:'var(--warn)', border:'1px solid #FF9F0A44' }}>
                     📈 Stima con crescita dividendi
                   </span>
                 )}
@@ -1652,9 +1652,9 @@ export default function Dividendi() {
                   onClick={() => setSelectedMonthIdx(selectedMonthIdx === 'all' ? null : 'all')}
                   style={{
                     alignSelf: 'flex-start', padding:'8px 18px', borderRadius:20,
-                    border: `1px solid ${selectedMonthIdx === 'all' ? '#0A84FF' : 'var(--border)'}`,
+                    border: `1px solid ${selectedMonthIdx === 'all' ? 'var(--info)' : 'var(--border)'}`,
                     background: selectedMonthIdx === 'all' ? '#0A84FF22' : 'var(--surface-2)',
-                    color: selectedMonthIdx === 'all' ? '#0A84FF' : 'var(--text-2)',
+                    color: selectedMonthIdx === 'all' ? 'var(--info)' : 'var(--text-2)',
                     fontSize:'0.78rem', fontWeight:600, cursor:'pointer',
                   }}>
                   📊 Totale Anno {calYear}
@@ -1750,16 +1750,16 @@ export default function Dividendi() {
                         <div style={{ textAlign:'right' }}>
                           <span style={{ fontSize:'0.78rem', fontWeight:600 }}>{weight.toFixed(1)}%</span>
                           <div style={{ height:3, background:'var(--border)', borderRadius:2, marginTop:3 }}>
-                            <div style={{ height:'100%', background:'#0A84FF', borderRadius:2, width:`${Math.min(weight,100)}%` }} />
+                            <div style={{ height:'100%', background:'var(--info)', borderRadius:2, width:`${Math.min(weight,100)}%` }} />
                           </div>
                         </div>
-                        <span style={{ textAlign:'right', fontSize:'0.78rem', color: yld>7?'#FF9F0A':yld>4?'#30D158':'var(--text-2)', fontWeight:600 }}>{yld.toFixed(1)}%</span>
-                        <span style={{ textAlign:'right', fontSize:'0.78rem', color:'#30D158', fontWeight:600 }}><Blur>{fmtEur(gross)}</Blur></span>
-                        <span style={{ textAlign:'right', fontSize:'0.78rem', color:'#FF9F0A' }}><Blur>{fmtEur(net)}</Blur></span>
+                        <span style={{ textAlign:'right', fontSize:'0.78rem', color: yld>7?'var(--warn)':yld>4?'var(--pos)':'var(--text-2)', fontWeight:600 }}>{yld.toFixed(1)}%</span>
+                        <span style={{ textAlign:'right', fontSize:'0.78rem', color:'var(--pos)', fontWeight:600 }}><Blur>{fmtEur(gross)}</Blur></span>
+                        <span style={{ textAlign:'right', fontSize:'0.78rem', color:'var(--warn)' }}><Blur>{fmtEur(net)}</Blur></span>
                         <div style={{ textAlign:'right' }}>
                           <span style={{ fontSize:'0.78rem', fontWeight:700, color:'var(--text-1)' }}>{divPct.toFixed(1)}%</span>
                           <div style={{ height:3, background:'var(--border)', borderRadius:2, marginTop:3 }}>
-                            <div style={{ height:'100%', background:'#30D158', borderRadius:2, width:`${Math.min(divPct,100)}%` }} />
+                            <div style={{ height:'100%', background:'var(--pos)', borderRadius:2, width:`${Math.min(divPct,100)}%` }} />
                           </div>
                         </div>
                       </div>
@@ -1770,9 +1770,9 @@ export default function Dividendi() {
                     <span>TOTALE</span>
                     <span style={{ textAlign:'right' }}><Blur>{fmtEur(totalVal)}</Blur></span>
                     <span style={{ textAlign:'right' }}>100%</span>
-                    <span style={{ textAlign:'right', color: kpis.yieldPct>4?'#30D158':'var(--text-2)' }}>{fmtPct(kpis.yieldPct)}</span>
-                    <span style={{ textAlign:'right', color:'#30D158' }}><Blur>{fmtEur(totalGross)}</Blur></span>
-                    <span style={{ textAlign:'right', color:'#FF9F0A' }}><Blur>{fmtEur(kpis.annualNet)}</Blur></span>
+                    <span style={{ textAlign:'right', color: kpis.yieldPct>4?'var(--pos)':'var(--text-2)' }}>{fmtPct(kpis.yieldPct)}</span>
+                    <span style={{ textAlign:'right', color:'var(--pos)' }}><Blur>{fmtEur(totalGross)}</Blur></span>
+                    <span style={{ textAlign:'right', color:'var(--warn)' }}><Blur>{fmtEur(kpis.annualNet)}</Blur></span>
                     <span style={{ textAlign:'right' }}>100%</span>
                   </div>
                 </div>
@@ -1842,9 +1842,9 @@ export default function Dividendi() {
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:12 }}>
                       {[
                         { l:'Yield lordo', v: fmtPct(kpis.yieldPct), c:'var(--text-1)', sub:'Pre-tasse' },
-                        { l:`Yield netto (${(taxRate*100).toFixed(0)}%)`, v: fmtPct(kpis.yieldPct * (1 - taxRate)), c:'#FF9F0A', sub:'Post-tasse' },
-                        { l:'Rendita/mese netta', v: fmtEur(kpis.monthlyNet), c:'#30D158', sub:'Media mensile' },
-                        { l:'Dividendi/anno lordi', v: fmtEur(totalGross), c:'#0A84FF', sub:'Totale annuo' },
+                        { l:`Yield netto (${(taxRate*100).toFixed(0)}%)`, v: fmtPct(kpis.yieldPct * (1 - taxRate)), c:'var(--warn)', sub:'Post-tasse' },
+                        { l:'Rendita/mese netta', v: fmtEur(kpis.monthlyNet), c:'var(--pos)', sub:'Media mensile' },
+                        { l:'Dividendi/anno lordi', v: fmtEur(totalGross), c:'var(--info)', sub:'Totale annuo' },
                       ].map(k => (
                         <div key={k.l}>
                           <p style={{ fontSize:'0.65rem', color:'var(--text-3)', margin:'0 0 2px' }}>{k.l}</p>
@@ -1856,9 +1856,9 @@ export default function Dividendi() {
                   </div>
 
                   <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
-                    <ArrowRight size={20} color="#0A84FF" />
+                    <ArrowRight size={20} color="var(--info)" />
                     {simPositions.length > 0 && (
-                      <span style={{ fontSize:'0.65rem', color:'#FF9F0A', fontWeight:600 }}>+{fmtEur(simTotalInvested)}</span>
+                      <span style={{ fontSize:'0.65rem', color:'var(--warn)', fontWeight:600 }}>+{fmtEur(simTotalInvested)}</span>
                     )}
                   </div>
 
@@ -1868,21 +1868,21 @@ export default function Dividendi() {
                     border: `1px solid ${simPositions.length > 0 ? '#0A84FF44' : 'var(--border)'}`,
                     borderRadius:16, padding:'16px 20px',
                   }}>
-                    <p style={{ fontSize:'0.7rem', fontWeight:600, color: simPositions.length>0?'#0A84FF':'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:12 }}>
+                    <p style={{ fontSize:'0.7rem', fontWeight:600, color: simPositions.length>0?'var(--info)':'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:12 }}>
                       Con gli acquisti simulati
                     </p>
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:12 }}>
                       {[
                         { l:'Yield lordo', v: simPositions.length>0 ? fmtPct(newYield) : '—',
-                          c: simPositions.length>0 ? (newYield > kpis.yieldPct ? '#30D158' : '#FF453A') : 'var(--text-3)',
+                          c: simPositions.length>0 ? (newYield > kpis.yieldPct ? 'var(--pos)' : 'var(--neg)') : 'var(--text-3)',
                           sub: simPositions.length>0 ? `${newYield > kpis.yieldPct ? '+' : ''}${(newYield - kpis.yieldPct).toFixed(2)}% vs ora` : 'Pre-tasse' },
                         { l:`Yield netto (${(taxRate*100).toFixed(0)}%)`,
                           v: simPositions.length>0 ? fmtPct(newYield * (1 - taxRate)) : '—',
-                          c: simPositions.length>0 ? '#FF9F0A' : 'var(--text-3)',
+                          c: simPositions.length>0 ? 'var(--warn)' : 'var(--text-3)',
                           sub: simPositions.length>0 ? `era ${fmtPct(kpis.yieldPct * (1 - taxRate))}` : 'Post-tasse' },
-                        { l:'Rendita/mese netta', v: simPositions.length>0 ? fmtEur(newMonthly) : '—', c:'#30D158',
+                        { l:'Rendita/mese netta', v: simPositions.length>0 ? fmtEur(newMonthly) : '—', c:'var(--pos)',
                           sub: simPositions.length>0 ? `+${fmtEur(newMonthly - kpis.monthlyNet)}/mese` : 'Media mensile' },
-                        { l:'Dividendi/anno lordi', v: simPositions.length>0 ? fmtEur(newTotalGross) : '—', c:'#0A84FF',
+                        { l:'Dividendi/anno lordi', v: simPositions.length>0 ? fmtEur(newTotalGross) : '—', c:'var(--info)',
                           sub: simPositions.length>0 ? `+${fmtEur(simAnnualGross)}/anno` : 'Totale annuo' },
                       ].map(k => (
                         <div key={k.l}>
@@ -1948,7 +1948,7 @@ export default function Dividendi() {
                       Database: {Object.keys(STOCK_DB).length} azioni (REIT, BDC, Stocks) + ETF a distribuzione. Seleziona per auto-compilare.
                     </p>
                     {simFetchingPrice && (
-                      <span style={{ fontSize:'0.68rem', color:'#0A84FF', display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
+                      <span style={{ fontSize:'0.68rem', color:'var(--info)', display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
                         <RefreshCw size={11} style={{ animation:'spin 1s linear infinite' }} /> Caricamento prezzo live…
                       </span>
                     )}
@@ -1999,7 +1999,7 @@ export default function Dividendi() {
                         {MONTHS_IT.map((m,i) => (
                           <button key={i} onClick={() => toggleMonth(i+1)}
                             style={{ padding:'4px 8px', borderRadius:6, fontSize:'0.72rem', fontWeight:600, cursor:'pointer', border:'none',
-                              background: simForm.months.includes(i+1) ? '#0A84FF' : 'var(--surface-2)',
+                              background: simForm.months.includes(i+1) ? 'var(--info)' : 'var(--surface-2)',
                               color: simForm.months.includes(i+1) ? '#fff' : 'var(--text-3)' }}>
                             {m}
                           </button>
@@ -2012,14 +2012,14 @@ export default function Dividendi() {
                   {simForm.ticker && simForm.amount && simForm.yieldPct && (
                     <div style={{ marginBottom:12, padding:'8px 12px', background:'#30D15810', borderRadius:8, border:'1px solid #30D15830', fontSize:'0.78rem', color:'var(--text-2)' }}>
                       📊 Preview: <strong>{simForm.ticker}</strong> — {fmtEur(parseFloat(simForm.amount)||0)} × {simForm.yieldPct}% =&nbsp;
-                      <strong style={{ color:'#30D158' }}>{fmtEur((parseFloat(simForm.amount)||0)*(parseFloat(simForm.yieldPct)||0)/100)}/anno</strong>
+                      <strong style={{ color:'var(--pos)' }}>{fmtEur((parseFloat(simForm.amount)||0)*(parseFloat(simForm.yieldPct)||0)/100)}/anno</strong>
                       &nbsp;·&nbsp;
-                      <strong style={{ color:'#FF9F0A' }}>{fmtEur((parseFloat(simForm.amount)||0)*(parseFloat(simForm.yieldPct)||0)/100/12)}/mese</strong>
+                      <strong style={{ color:'var(--warn)' }}>{fmtEur((parseFloat(simForm.amount)||0)*(parseFloat(simForm.yieldPct)||0)/100/12)}/mese</strong>
                     </div>
                   )}
 
                   <button onClick={addSim} disabled={!simForm.ticker||!simForm.amount||!simForm.yieldPct}
-                    style={{ padding:'8px 20px', background: simForm.ticker&&simForm.amount&&simForm.yieldPct?'#0A84FF':'var(--surface-2)',
+                    style={{ padding:'8px 20px', background: simForm.ticker&&simForm.amount&&simForm.yieldPct?'var(--info)':'var(--surface-2)',
                       border:'none', borderRadius:10, color: simForm.ticker&&simForm.amount&&simForm.yieldPct?'#fff':'var(--text-3)',
                       fontSize:'0.82rem', fontWeight:600, cursor: simForm.ticker&&simForm.amount&&simForm.yieldPct?'pointer':'default' }}>
                     + Aggiungi alla simulazione
@@ -2031,7 +2031,7 @@ export default function Dividendi() {
                   <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:16, overflow:'hidden' }}>
                     <div style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                       <span style={{ fontWeight:600, fontSize:'0.85rem' }}>Posizioni simulate ({simPositions.length})</span>
-                      <button onClick={() => setSimPositions([])} style={{ fontSize:'0.72rem', color:'#FF453A', background:'none', border:'none', cursor:'pointer' }}>Rimuovi tutte</button>
+                      <button onClick={() => setSimPositions([])} style={{ fontSize:'0.72rem', color:'var(--neg)', background:'none', border:'none', cursor:'pointer' }}>Rimuovi tutte</button>
                     </div>
                     {simPositions.map(p => (
                       <div key={p.id} style={{ display:'grid', gridTemplateColumns:'1fr 80px 70px 70px 70px 36px', gap:8, padding:'10px 16px', borderBottom:'1px solid var(--border)', alignItems:'center', fontSize:'0.82rem' }}>
@@ -2040,11 +2040,11 @@ export default function Dividendi() {
                           <span style={{ color:'var(--text-3)', marginLeft:8, fontSize:'0.72rem' }}>{p.name}</span>
                         </div>
                         <span style={{ textAlign:'right', color:'var(--text-1)' }}>{fmtEur(p.amount)}</span>
-                        <span style={{ textAlign:'right', color:'#30D158', fontWeight:600 }}>{p.yieldPct}%</span>
-                        <span style={{ textAlign:'right', color:'#30D158' }}>{fmtEur(p.amount*(p.yieldPct/100))}/a</span>
-                        <span style={{ textAlign:'right', color:'#FF9F0A', fontSize:'0.72rem' }}>{p.frequency}</span>
+                        <span style={{ textAlign:'right', color:'var(--pos)', fontWeight:600 }}>{p.yieldPct}%</span>
+                        <span style={{ textAlign:'right', color:'var(--pos)' }}>{fmtEur(p.amount*(p.yieldPct/100))}/a</span>
+                        <span style={{ textAlign:'right', color:'var(--warn)', fontSize:'0.72rem' }}>{p.frequency}</span>
                         <button onClick={() => setSimPositions(prev => prev.filter(x=>x.id!==p.id))}
-                          style={{ background:'none', border:'none', cursor:'pointer', color:'#FF453A', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                          style={{ background:'none', border:'none', cursor:'pointer', color:'var(--neg)', display:'flex', alignItems:'center', justifyContent:'center' }}>
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -2131,7 +2131,7 @@ export default function Dividendi() {
                         </div>
                         <div style={{ display:'flex', gap:16, fontSize:'0.72rem' }}>
                           <span style={{ color:'var(--text-3)' }}>Valore attuale: <strong style={{ color:'var(--text-1)' }}>{fmtEur(currentTotal)}</strong></span>
-                          <span style={{ color:'var(--text-3)' }}>→ Dopo: <strong style={{ color:'#0A84FF' }}>{fmtEur(newTotal)}</strong></span>
+                          <span style={{ color:'var(--text-3)' }}>→ Dopo: <strong style={{ color:'var(--info)' }}>{fmtEur(newTotal)}</strong></span>
                         </div>
                       </div>
 
@@ -2158,8 +2158,8 @@ export default function Dividendi() {
                           }}>
                             {/* Nome */}
                             <div style={{ display:'flex', alignItems:'center', gap:7 }}>
-                              {r.isSim  && <span style={{ fontSize:'0.58rem', background:'#FF9F0A22', color:'#FF9F0A', padding:'1px 5px', borderRadius:4, fontWeight:700, flexShrink:0 }}>NUOVO</span>}
-                              {r.hasAdd && !r.isSim && <span style={{ fontSize:'0.58rem', background:'#30D15822', color:'#30D158', padding:'1px 5px', borderRadius:4, fontWeight:700, flexShrink:0 }}>+AGGIUNTA</span>}
+                              {r.isSim  && <span style={{ fontSize:'0.58rem', background:'#FF9F0A22', color:'var(--warn)', padding:'1px 5px', borderRadius:4, fontWeight:700, flexShrink:0 }}>NUOVO</span>}
+                              {r.hasAdd && !r.isSim && <span style={{ fontSize:'0.58rem', background:'#30D15822', color:'var(--pos)', padding:'1px 5px', borderRadius:4, fontWeight:700, flexShrink:0 }}>+AGGIUNTA</span>}
                               <div>
                                 <span style={{ fontSize:'0.82rem', fontWeight:700, color:'var(--text-1)' }}>{r.ticker}</span>
                                 <span style={{ fontSize:'0.68rem', color:'var(--text-3)', marginLeft:6 }}>{r.name !== r.ticker ? r.name.slice(0,20) : ''}</span>
@@ -2171,7 +2171,7 @@ export default function Dividendi() {
                               {r.hasAdd && r.valReal > 0 ? (
                                 <>
                                   <span style={{ fontSize:'0.68rem', color:'var(--text-3)', display:'block' }}>{fmtEur(r.valReal)}</span>
-                                  <span style={{ fontSize:'0.78rem', fontWeight:600, color:'#30D158' }}>{fmtEur(r.valNew)} <span style={{ fontSize:'0.65rem', color:'#30D158' }}>(+{fmtEur(r.valSim)})</span></span>
+                                  <span style={{ fontSize:'0.78rem', fontWeight:600, color:'var(--pos)' }}>{fmtEur(r.valNew)} <span style={{ fontSize:'0.65rem', color:'var(--pos)' }}>(+{fmtEur(r.valSim)})</span></span>
                                 </>
                               ) : (
                                 <span style={{ fontSize:'0.78rem', color:'var(--text-2)' }}>{fmtEur(r.valNew)}</span>
@@ -2190,17 +2190,17 @@ export default function Dividendi() {
 
                             {/* Peso dopo */}
                             <div style={{ textAlign:'right' }}>
-                              <span style={{ fontSize:'0.78rem', fontWeight:600, color: r.hasAdd ? '#30D158' : '#0A84FF' }}>
+                              <span style={{ fontSize:'0.78rem', fontWeight:600, color: r.hasAdd ? 'var(--pos)' : 'var(--info)' }}>
                                 {r.newW.toFixed(1)}%
                               </span>
                               <div style={{ height:3, background:'var(--border)', borderRadius:2, marginTop:2 }}>
-                                <div style={{ height:'100%', background: r.hasAdd?'#30D158':'#0A84FF55', borderRadius:2, width:`${Math.min(r.newW,100)}%` }} />
+                                <div style={{ height:'100%', background: r.hasAdd?'var(--pos)':'#0A84FF55', borderRadius:2, width:`${Math.min(r.newW,100)}%` }} />
                               </div>
                             </div>
 
                             {/* Delta */}
                             <span style={{ textAlign:'right', fontSize:'0.78rem', fontWeight:600,
-                              color: r.isSim ? '#FF9F0A' : delta > 0.01 ? '#30D158' : delta < -0.01 ? '#FF453A' : 'var(--text-3)' }}>
+                              color: r.isSim ? 'var(--warn)' : delta > 0.01 ? 'var(--pos)' : delta < -0.01 ? 'var(--neg)' : 'var(--text-3)' }}>
                               {r.isSim ? `+${r.newW.toFixed(1)}%` : (delta >= 0 ? '+' : '')+delta.toFixed(1)+'%'}
                             </span>
 
@@ -2216,7 +2216,7 @@ export default function Dividendi() {
                                   <span style={{ fontSize:'0.75rem', color:'var(--text-3)', display:'block' }}>
                                     {r.yieldNew.toFixed(1)}%
                                   </span>
-                                  <span style={{ fontSize:'0.72rem', fontWeight:600, color:'#FF9F0A' }}>
+                                  <span style={{ fontSize:'0.72rem', fontWeight:600, color:'var(--warn)' }}>
                                     {(r.yieldNew * (1 - taxRate)).toFixed(1)}% n
                                   </span>
                                 </>
@@ -2224,7 +2224,7 @@ export default function Dividendi() {
                             </div>
 
                             {/* % dividendi */}
-                            <span style={{ textAlign:'right', fontSize:'0.78rem', color: r.newDiv > 10 ? '#30D158' : 'var(--text-2)', fontWeight: r.newDiv > 10 ? 600 : 400 }}>
+                            <span style={{ textAlign:'right', fontSize:'0.78rem', color: r.newDiv > 10 ? 'var(--pos)' : 'var(--text-2)', fontWeight: r.newDiv > 10 ? 600 : 400 }}>
                               {r.newDiv.toFixed(1)}%
                             </span>
                           </div>
@@ -2242,13 +2242,13 @@ export default function Dividendi() {
                             <span>TOTALE</span>
                             <span style={{ textAlign:'right' }}>{fmtEur(newTotal)}</span>
                             <span style={{ textAlign:'right', color:'var(--text-3)' }}>100%</span>
-                            <span style={{ textAlign:'right', color:'#0A84FF' }}>100%</span>
+                            <span style={{ textAlign:'right', color:'var(--info)' }}>100%</span>
                             <span />
                             <div style={{ textAlign:'right' }}>
                               <span style={{ fontSize:'0.72rem', color:'var(--text-3)', display:'block' }}>{wtdYield.toFixed(2)}%</span>
-                              <span style={{ fontSize:'0.72rem', fontWeight:700, color:'#FF9F0A' }}>{(wtdYield*(1-taxRate)).toFixed(2)}% n</span>
+                              <span style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--warn)' }}>{(wtdYield*(1-taxRate)).toFixed(2)}% n</span>
                             </div>
-                            <span style={{ textAlign:'right', color:'#30D158' }}>100%</span>
+                            <span style={{ textAlign:'right', color:'var(--pos)' }}>100%</span>
                           </div>
                         );
                       })()}
@@ -2262,7 +2262,7 @@ export default function Dividendi() {
                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:4, flexWrap:'wrap', gap:8 }}>
                       <p style={{ fontWeight:600, fontSize:'0.88rem', color:'var(--text-1)', margin:0 }}>Calendario con acquisti simulati</p>
                       <span style={{ fontSize:'0.7rem', color:'var(--text-3)' }}>
-                        Totale simulato: <strong style={{ color:'#30D158' }}><Blur>{fmtEur(simCalData.reduce((s,m)=>s+m.totalGross,0))}</Blur></strong>/anno
+                        Totale simulato: <strong style={{ color:'var(--pos)' }}><Blur>{fmtEur(simCalData.reduce((s,m)=>s+m.totalGross,0))}</Blur></strong>/anno
                       </span>
                     </div>
                     <p style={{ fontSize:'0.72rem', color:'var(--text-3)', marginBottom:14 }}>
@@ -2281,25 +2281,25 @@ export default function Dividendi() {
                             style={{
                               background: isSelected ? 'var(--surface-2)' : 'var(--surface-2)',
                               borderRadius:12,
-                              border: `1px solid ${isSelected ? '#FF9F0A' : simGross > 0.01 ? '#FF9F0A44' : 'var(--border)'}`,
+                              border: `1px solid ${isSelected ? 'var(--warn)' : simGross > 0.01 ? '#FF9F0A44' : 'var(--border)'}`,
                               padding:'10px 12px', opacity: hasEvents ? 1 : 0.4,
                               cursor: hasEvents ? 'pointer' : 'default',
                               transition: 'border-color 0.15s',
                             }}>
                             <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
-                              <span style={{ fontSize:'0.72rem', fontWeight:600, color: isSelected ? '#FF9F0A' : 'var(--text-2)' }}>{MONTHS_IT_FULL[i]}</span>
-                              {hasEvents && <span style={{ fontSize:'0.72rem', fontWeight:700, color:'#30D158' }}><Blur>{fmtEur(m.totalGross)}</Blur></span>}
+                              <span style={{ fontSize:'0.72rem', fontWeight:600, color: isSelected ? 'var(--warn)' : 'var(--text-2)' }}>{MONTHS_IT_FULL[i]}</span>
+                              {hasEvents && <span style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--pos)' }}><Blur>{fmtEur(m.totalGross)}</Blur></span>}
                             </div>
                             {simGross > 0.01 && (
                               <div style={{ display:'flex', justifyContent:'space-between', fontSize:'0.68rem', background:'#FF9F0A18', borderRadius:6, padding:'3px 6px', marginBottom:4 }}>
-                                <span style={{ color:'#FF9F0A' }}>+ sim</span>
-                                <span style={{ color:'#FF9F0A', fontWeight:600 }}><Blur>+{fmtEur(simGross)}</Blur></span>
+                                <span style={{ color:'var(--warn)' }}>+ sim</span>
+                                <span style={{ color:'var(--warn)', fontWeight:600 }}><Blur>+{fmtEur(simGross)}</Blur></span>
                               </div>
                             )}
                             {m.events.slice(0,3).map((ev,j) => (
                               <div key={j} style={{ display:'flex', justifyContent:'space-between', fontSize:'0.68rem', color:'var(--text-3)', marginBottom:2 }}>
                                 <span style={{ display:'flex', alignItems:'center', gap:4 }}>
-                                  <span style={{ width:5, height:5, borderRadius:'50%', background: ev.pos.sector==='Simulato'?'#FF9F0A':'#0A84FF', flexShrink:0 }} />
+                                  <span style={{ width:5, height:5, borderRadius:'50%', background: ev.pos.sector==='Simulato'?'var(--warn)':'var(--info)', flexShrink:0 }} />
                                   {ev.pos.ticker}
                                 </span>
                                 <span><Blur>{fmtEur(ev.gross)}</Blur></span>
@@ -2331,7 +2331,7 @@ export default function Dividendi() {
           {tab === 'positions' && (
             <div style={{ background:'var(--card-bg)', borderRadius:16, border:'1px solid var(--border)', overflow:'hidden' }}>
               <div style={{ padding:'1.1rem 1.25rem', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:'0.5rem' }}>
-                <Table2 size={15} color="#0A84FF" />
+                <Table2 size={15} color="var(--info)" />
                 <span style={{ fontSize:'0.88rem', fontWeight:600 }}>
                   {positions.length} posizioni · clicca intestazione per ordinare
                 </span>
@@ -2365,7 +2365,7 @@ export default function Dividendi() {
                         <button key={y} onClick={() => setProjYears(y)} style={{
                           padding:'0.3rem 0.65rem', borderRadius:8, border:'1px solid var(--border)',
                           cursor:'pointer', fontSize:'0.75rem', fontWeight:500,
-                          background: projYears===y ? '#0A84FF' : 'var(--bg)',
+                          background: projYears===y ? 'var(--info)' : 'var(--bg)',
                           color: projYears===y ? '#fff' : 'var(--text-2)',
                         }}>{y}a</button>
                       ))}
@@ -2400,7 +2400,7 @@ export default function Dividendi() {
                             <div style={{ fontSize:'0.68rem', color:'var(--text-3)', fontWeight:600, textTransform:'uppercase', marginBottom:'0.3rem' }}>
                               {fmtEur(target)}/mese netti
                             </div>
-                            <div style={{ fontSize:'1.1rem', fontWeight:700, color: found ? '#30D158' : 'var(--text-3)' }}>
+                            <div style={{ fontSize:'1.1rem', fontWeight:700, color: found ? 'var(--pos)' : 'var(--text-3)' }}>
                               {found ? found.year : '> '+(currentYear+projYears)}
                             </div>
                             <div style={{ fontSize:'0.68rem', color:'var(--text-3)', marginTop:'0.2rem' }}>
@@ -2421,7 +2421,7 @@ export default function Dividendi() {
             <>
               {stockPositions.length > 0 && (
                 <div style={{ display:'flex', alignItems:'center', gap:8, padding:'0.75rem 1rem', borderRadius:10, background:'rgba(10,132,255,0.06)', border:'1px solid rgba(10,132,255,0.2)', fontSize:'0.78rem', color:'var(--text-3)' }}>
-                  <Info size={13} color="#0A84FF" />
+                  <Info size={13} color="var(--info)" />
                   Analisi Buffett-Lynch su {stockPositions.length} {stockPositions.length===1?'azione':'azioni'} — gli ETF non sono inclusi.
                   {positions.filter(p=>p.isETF).length > 0 && ` (${positions.filter(p=>p.isETF).length} ETF esclusi)`}
                 </div>

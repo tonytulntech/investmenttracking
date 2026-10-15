@@ -16,8 +16,8 @@ import { getPortfolioConfig, getHiddenPortfolioIds, toggleHiddenPortfolio, clear
 import { format } from 'date-fns';
 
 // ── Palette ─────────────────────────────────────────────────────────────────
-const GREEN  = '#30D158';
-const RED    = '#FF453A';
+const GREEN  = 'var(--pos)';
+const RED    = 'var(--neg)';
 const BLUE   = '#7C82FF';   // accento periwinkle (era iOS-blue)
 const ORANGE = '#FF9F0A';
 const PURPLE = '#BF5AF2';

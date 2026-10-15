@@ -74,7 +74,7 @@ function AllocRow({ cat, current, target, threshold }) {
       </span>
       <span style={{
         width: 42, textAlign: 'right', fontVariantNumeric: 'tabular-nums',
-        color: ok ? 'var(--text-3)' : diff > 0 ? '#ff9f0a' : '#30d158',
+        color: ok ? 'var(--text-3)' : diff > 0 ? '#ff9f0a' : 'var(--pos)',
         fontWeight: ok ? 400 : 600,
       }}>
         {diff > 0 ? '+' : ''}{fmt(diff)}%
@@ -82,7 +82,7 @@ function AllocRow({ cat, current, target, threshold }) {
       <span style={{ width: 16, textAlign: 'center' }}>
         {target > 0 && (ok
           ? <CheckCircle2 size={12} color="#30d158" />
-          : <AlertCircle size={12} color={diff > 0 ? '#ff9f0a' : '#30d158'} />
+          : <AlertCircle size={12} color={diff > 0 ? '#ff9f0a' : 'var(--pos)'} />
         )}
       </span>
     </div>
@@ -105,12 +105,12 @@ function GoalProgressBar({ current, goal, year }) {
       <div style={{ height: 5, background: 'var(--surface-2)', borderRadius: 99, overflow: 'hidden' }}>
         <div style={{
           height: '100%', width: `${pct}%`,
-          background: pct >= 100 ? '#30D158' : 'linear-gradient(90deg, #0A84FF, #30D158)',
+          background: pct >= 100 ? 'var(--pos)' : 'linear-gradient(90deg, #0A84FF, #30D158)',
           borderRadius: 99, transition: 'width 0.4s',
         }} />
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: 'var(--text-3)', marginTop: 4 }}>
-        <span style={{ color: pct >= 100 ? '#30D158' : 'var(--text-3)', fontWeight: pct >= 100 ? 700 : 400 }}>
+        <span style={{ color: pct >= 100 ? 'var(--pos)' : 'var(--text-3)', fontWeight: pct >= 100 ? 700 : 400 }}>
           {pct >= 100 ? '✓ Obiettivo raggiunto!' : `${pct.toFixed(1)}% raggiunto`}
         </span>
         {yearsLeft != null && (
@@ -246,7 +246,7 @@ function PortfolioCard({ portfolio, holdings, prices, config, patrimonioTotal = 
                   {hasT && (
                     <span style={{
                       fontSize: '0.72rem', fontWeight: 600, marginLeft: 2,
-                      color: off ? (diff > 0 ? '#FF9F0A' : 'var(--accent)') : 'var(--text-3)',
+                      color: off ? (diff > 0 ? 'var(--warn)' : 'var(--accent)') : 'var(--text-3)',
                       fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums',
                     }}>
                       ({diff > 0 ? '+' : ''}{diff}%)
@@ -343,13 +343,13 @@ function PortfolioCard({ portfolio, holdings, prices, config, patrimonioTotal = 
                     <span style={{ color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>/ {pct}%</span>
                     <span style={{
                       fontVariantNumeric: 'tabular-nums', fontWeight: ok ? 400 : 600, minWidth: 36, textAlign: 'right',
-                      color: ok ? 'var(--text-3)' : diff > 0 ? '#ff9f0a' : '#30d158',
+                      color: ok ? 'var(--text-3)' : diff > 0 ? '#ff9f0a' : 'var(--pos)',
                     }}>
                       {diff > 0 ? '+' : ''}{diff.toFixed(1)}%
                     </span>
                     {ok
                       ? <CheckCircle2 size={11} color="#30d158" />
-                      : <AlertCircle size={11} color={diff > 0 ? '#ff9f0a' : '#30d158'} />}
+                      : <AlertCircle size={11} color={diff > 0 ? '#ff9f0a' : 'var(--pos)'} />}
                   </div>
                 );
               })}
@@ -476,7 +476,7 @@ function GlobalCard({ config, allHoldings, onEdit }) {
                   <div key={a.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', marginBottom: 3 }}>
                     <span style={{ width: 8, height: 8, borderRadius: 2, background: a.color, flexShrink: 0 }} />
                     <span style={{ flex: 1, color: 'var(--text-2)' }}>{a.label}</span>
-                    <span style={{ fontWeight: 600, color: '#30d158' }}>+{fmtEur(a.amount)}</span>
+                    <span style={{ fontWeight: 600, color: 'var(--pos)' }}>+{fmtEur(a.amount)}</span>
                   </div>
                 ))}
               </div>
@@ -527,9 +527,9 @@ function AllocationSliders({ target, onChange }) {
         <div style={{
           flex: 1, height: 4, borderRadius: 99, background: 'var(--surface-2)', overflow: 'hidden',
         }}>
-          <div style={{ height: '100%', width: `${Math.min(total, 100)}%`, background: total === 100 ? '#30d158' : total > 100 ? '#ff453a' : '#ff9f0a', transition: 'width 0.2s' }} />
+          <div style={{ height: '100%', width: `${Math.min(total, 100)}%`, background: total === 100 ? 'var(--pos)' : total > 100 ? '#ff453a' : '#ff9f0a', transition: 'width 0.2s' }} />
         </div>
-        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: total === 100 ? '#30d158' : total > 100 ? '#ff453a' : '#ff9f0a', minWidth: 40, textAlign: 'right' }}>
+        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: total === 100 ? 'var(--pos)' : total > 100 ? '#ff453a' : '#ff9f0a', minWidth: 40, textAlign: 'right' }}>
           {total}%
         </span>
       </div>
@@ -1017,7 +1017,7 @@ function GlobalModal({ config, onSave, onClose }) {
             <input
               type="range" min={1} max={20} step={1} value={threshold}
               onChange={e => setThreshold(parseInt(e.target.value))}
-              style={{ width: '100%', accentColor: '#0A84FF' }}
+              style={{ width: '100%', accentColor: 'var(--info)' }}
             />
           </div>
         </div>
@@ -1041,7 +1041,7 @@ function GlobalModal({ config, onSave, onClose }) {
             disabled={!canSave}
             style={{
               padding: '8px 20px', borderRadius: 10, border: 'none',
-              background: canSave ? '#0A84FF' : 'var(--surface-2)',
+              background: canSave ? 'var(--info)' : 'var(--surface-2)',
               color: canSave ? '#fff' : 'var(--text-3)',
               cursor: canSave ? 'pointer' : 'default',
               fontSize: '0.875rem', fontWeight: 600,
@@ -1269,7 +1269,7 @@ function SmartAssignModal({ unassigned, portfolios, onSave, onClose }) {
             disabled={!anyAssigned}
             style={{
               padding: '8px 20px', borderRadius: 10, border: 'none',
-              background: anyAssigned ? '#0A84FF' : 'var(--surface-2)',
+              background: anyAssigned ? 'var(--info)' : 'var(--surface-2)',
               color: anyAssigned ? '#fff' : 'var(--text-3)',
               cursor: anyAssigned ? 'pointer' : 'default',
               fontSize: '0.875rem', fontWeight: 600,
@@ -1439,7 +1439,7 @@ export default function PortfolioManager() {
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '8px 16px', borderRadius: 10, border: 'none',
-            background: '#0A84FF', color: '#fff',
+            background: 'var(--info)', color: '#fff',
             fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
           }}
         >
@@ -1469,7 +1469,7 @@ export default function PortfolioManager() {
             onClick={() => setSmartModalOpen(true)}
             style={{
               padding: '7px 14px', borderRadius: 8, border: 'none',
-              background: '#0A84FF', color: '#fff',
+              background: 'var(--info)', color: '#fff',
               fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', flexShrink: 0,
             }}
           >
@@ -1491,7 +1491,7 @@ export default function PortfolioManager() {
               padding: '8px 14px', borderRadius: '10px 10px 0 0', border: 'none',
               background: tab === t.key ? 'var(--card-bg)' : 'none',
               borderBottom: tab === t.key ? '2px solid #0A84FF' : '2px solid transparent',
-              color: tab === t.key ? '#0A84FF' : 'var(--text-3)',
+              color: tab === t.key ? 'var(--info)' : 'var(--text-3)',
               fontWeight: tab === t.key ? 700 : 400,
               fontSize: '0.8375rem', cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: 6,
@@ -1589,7 +1589,7 @@ export default function PortfolioManager() {
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   padding: '10px 20px', borderRadius: 10, border: 'none',
-                  background: '#0A84FF', color: '#fff',
+                  background: 'var(--info)', color: '#fff',
                   fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
                 }}
               >

@@ -32,7 +32,7 @@ function eur(n, dec = 0) {
   return '€' + Math.abs(n).toLocaleString('it-IT', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 function sign(n) { return n >= 0 ? '+' : '−'; }
-function clr(n)  { return n >= 0 ? '#30D158' : '#FF453A'; }
+function clr(n)  { return n >= 0 ? 'var(--pos)' : 'var(--neg)'; }
 function fmtMonth(key) {
   const [y, m] = key.split('-');
   return format(parseISO(`${key}-01`), 'MMM yy', { locale: it });
@@ -59,7 +59,7 @@ function TickerSparkLine({ data, width = 200, height = 55 }) {
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   });
   const isUp = prices[prices.length - 1] >= prices[0];
-  const color = isUp ? '#30D158' : '#FF453A';
+  const color = isUp ? 'var(--pos)' : 'var(--neg)';
   const [lx, ly] = pts[pts.length - 1].split(',');
   return (
     <svg width={width} height={height} style={{ display: 'block', overflow: 'visible' }}>
@@ -94,7 +94,7 @@ function DistribTooltip({ active, payload, label }) {
       ))}
       <div style={{ borderTop: '1px solid var(--border)', marginTop: 8, paddingTop: 6, display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
         <span style={{ color: 'var(--text-3)' }}>Totale</span>
-        <span style={{ fontWeight: 700, color: '#0A84FF' }}>{eur(total)}</span>
+        <span style={{ fontWeight: 700, color: 'var(--info)' }}>{eur(total)}</span>
       </div>
     </div>
   );
@@ -452,7 +452,7 @@ export default function Patrimonio() {
             <button key={y} onClick={() => { setSelectedYear(y); setActiveMonthKey(null); }}
               style={{
                 padding: '6px 14px', borderRadius: 20, fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', border: 'none',
-                background: selectedYear === y ? '#0A84FF' : 'var(--surface-2)',
+                background: selectedYear === y ? 'var(--info)' : 'var(--surface-2)',
                 color: selectedYear === y ? '#fff' : 'var(--text-2)',
                 transition: 'background 0.15s',
               }}>{y === 'all' ? 'Tutto' : y}</button>
@@ -463,11 +463,11 @@ export default function Patrimonio() {
       {/* ── KPI Strip ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
         {[
-          { label: 'Patrimonio Attuale', value: eur(kpis.patrimonio), color: '#0A84FF', sub: 'Valore di mercato' },
+          { label: 'Patrimonio Attuale', value: eur(kpis.patrimonio), color: 'var(--info)', sub: 'Valore di mercato' },
           { label: 'Capitale Versato', value: eur(kpis.totalDeposits), color: 'var(--text-1)', sub: 'Depositi totali' },
-          { label: 'Media Mensile Versata', value: eur(kpis.avgMonthlyInvested), color: '#30D158', sub: `Su ${kpis.monthsSpan} ${kpis.monthsSpan === 1 ? 'mese' : 'mesi'} · versato in ${kpis.monthsWithDeposits}` },
+          { label: 'Media Mensile Versata', value: eur(kpis.avgMonthlyInvested), color: 'var(--pos)', sub: `Su ${kpis.monthsSpan} ${kpis.monthsSpan === 1 ? 'mese' : 'mesi'} · versato in ${kpis.monthsWithDeposits}` },
           { label: 'Rendimento', value: `${sign(kpis.rendimento)}${eur(kpis.rendimento)}`, color: clr(kpis.rendimento), sub: `${sign(kpis.rendimentoPct)}${kpis.rendimentoPct.toFixed(2)}% sul capitale` },
-          { label: 'Cash Disponibile', value: eur(kpis.cash), color: kpis.cash >= 0 ? 'var(--text-1)' : '#FF453A', sub: 'Depositi non investiti' },
+          { label: 'Cash Disponibile', value: eur(kpis.cash), color: kpis.cash >= 0 ? 'var(--text-1)' : 'var(--neg)', sub: 'Depositi non investiti' },
         ].map(k => (
           <div key={k.label} style={cardStyle}>
             <p style={labelStyle}>{k.label}</p>
@@ -487,21 +487,21 @@ export default function Patrimonio() {
         <div style={cardStyle}>
           <p style={{ fontWeight: 600, color: 'var(--text-1)', marginBottom: 4 }}>Evoluzione Patrimonio</p>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginBottom: 20 }}>
-            Patrimonio a valore di mercato <span style={{ color: '#0A84FF' }}>●</span> vs Capitale versato <span style={{ color: '#FF9F0A' }}>●</span>
+            Patrimonio a valore di mercato <span style={{ color: 'var(--info)' }}>●</span> vs Capitale versato <span style={{ color: 'var(--warn)' }}>●</span>
             {peakPoint && (
-              <> · Massimo <span style={{ color: '#30D158', fontWeight: 700 }}>{eur(peakPoint.patrimonio)}</span> a {peakPoint.month}</>
+              <> · Massimo <span style={{ color: 'var(--pos)', fontWeight: 700 }}>{eur(peakPoint.patrimonio)}</span> a {peakPoint.month}</>
             )}
           </p>
           <ResponsiveContainer width="100%" height={280}>
             <AreaChart data={evolData} margin={{ top: 30, right: 24, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="gradPat" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#0A84FF" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#0A84FF" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--info)" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="var(--info)" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gradVers" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#FF9F0A" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#FF9F0A" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--warn)" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="var(--warn)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -509,12 +509,12 @@ export default function Patrimonio() {
               <YAxis stroke="var(--text-3)" style={{ fontSize: 11 }} tick={{ fill: 'var(--text-3)' }}
                 tickFormatter={v => `€${(v / 1000).toFixed(0)}k`} width={54} />
               <Tooltip content={<EvolTooltip />} />
-              <Area type="monotone" dataKey="versato" name="Capitale versato" stroke="#FF9F0A" strokeWidth={2} fill="url(#gradVers)" dot={false} />
+              <Area type="monotone" dataKey="versato" name="Capitale versato" stroke="var(--warn)" strokeWidth={2} fill="url(#gradVers)" dot={false} />
               <Area
                 type="monotone"
                 dataKey="patrimonio"
                 name="Patrimonio"
-                stroke="#0A84FF"
+                stroke="var(--info)"
                 strokeWidth={2.5}
                 fill="url(#gradPat)"
                 connectNulls
@@ -525,9 +525,9 @@ export default function Patrimonio() {
                   }
                   return (
                     <g key={`peak-${index}`}>
-                      <circle cx={cx} cy={cy} r={9} fill="#30D158" fillOpacity={0.2} />
-                      <circle cx={cx} cy={cy} r={5} fill="#30D158" stroke="var(--card-bg)" strokeWidth={2} />
-                      <text x={cx} y={cy - 14} textAnchor="middle" fontSize={10} fontWeight={800} fill="#30D158" style={{ letterSpacing: '0.05em' }}>
+                      <circle cx={cx} cy={cy} r={9} fill="var(--pos)" fillOpacity={0.2} />
+                      <circle cx={cx} cy={cy} r={5} fill="var(--pos)" stroke="var(--card-bg)" strokeWidth={2} />
+                      <text x={cx} y={cy - 14} textAnchor="middle" fontSize={10} fontWeight={800} fill="var(--pos)" style={{ letterSpacing: '0.05em' }}>
                         MAX {eur(peakPoint.patrimonio)}
                       </text>
                     </g>
@@ -597,7 +597,7 @@ export default function Patrimonio() {
                 <p style={{ fontWeight: 600, color: 'var(--text-1)', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   🏔 Come hai raggiunto il picco
                   {isCurrentMonth && (
-                    <span style={{ fontSize: '0.58rem', fontWeight: 800, color: '#0B2E14', background: '#30D158', padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <span style={{ fontSize: '0.58rem', fontWeight: 800, color: '#0B2E14', background: 'var(--pos)', padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       Sei qui
                     </span>
                   )}
@@ -638,11 +638,11 @@ export default function Patrimonio() {
               </div>
               <div>
                 <p style={labelStyle}>Patrimonio</p>
-                <p style={{ fontSize: '1rem', fontWeight: 700, color: peakMode === 'value' ? '#30D158' : 'var(--text-1)', margin: '2px 0 0' }}>{eur(peakVal)}</p>
+                <p style={{ fontSize: '1rem', fontWeight: 700, color: peakMode === 'value' ? 'var(--pos)' : 'var(--text-1)', margin: '2px 0 0' }}>{eur(peakVal)}</p>
               </div>
               <div>
                 <p style={labelStyle}>Performance netta</p>
-                <p style={{ fontSize: '1rem', fontWeight: 700, color: peakMode === 'performance' ? '#30D158' : (perfAtPeak >= 0 ? 'var(--text-1)' : '#FF453A'), margin: '2px 0 0' }}>
+                <p style={{ fontSize: '1rem', fontWeight: 700, color: peakMode === 'performance' ? 'var(--pos)' : (perfAtPeak >= 0 ? 'var(--text-1)' : 'var(--neg)'), margin: '2px 0 0' }}>
                   {perfAtPeak >= 0 ? '+' : ''}{perfAtPeak.toFixed(2)}%
                 </p>
                 <p style={{ fontSize: '0.62rem', color: 'var(--text-3)', margin: '2px 0 0' }}>su {eur(investedAtPeak)} versati</p>
@@ -672,7 +672,7 @@ export default function Patrimonio() {
                 <div style={{ textAlign: 'right' }}>
                   {peakMode === 'value' ? (
                     <>
-                      <p style={{ fontSize: '1.1rem', fontWeight: 700, color: '#FF453A', margin: 0 }}>
+                      <p style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--neg)', margin: 0 }}>
                         {valueGapPct.toFixed(2)}%
                       </p>
                       <p style={{ fontSize: '0.7rem', color: 'var(--text-3)', margin: '2px 0 0' }}>
@@ -681,7 +681,7 @@ export default function Patrimonio() {
                     </>
                   ) : (
                     <>
-                      <p style={{ fontSize: '1.1rem', fontWeight: 700, color: '#FF453A', margin: 0 }}>
+                      <p style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--neg)', margin: 0 }}>
                         {perfGapPP.toFixed(2)} pp
                       </p>
                       <p style={{ fontSize: '0.7rem', color: 'var(--text-3)', margin: '2px 0 0' }}>
@@ -740,7 +740,7 @@ export default function Patrimonio() {
                   <span style={{ textAlign: 'right', fontSize: '0.78rem', color: 'var(--text-2)' }}>{t.qty.toLocaleString('it-IT', { maximumFractionDigits: 4 })}</span>
                   <span style={{ textAlign: 'right', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)' }}>{eur(t.value)}</span>
                   <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#30D158' }}>{pct.toFixed(1)}%</span>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--pos)' }}>{pct.toFixed(1)}%</span>
                     <div style={{ height: 3, background: 'var(--border)', borderRadius: 2, marginTop: 2 }}>
                       <div style={{ height: '100%', borderRadius: 2, background: cls.color, width: `${Math.min(pct, 100)}%` }} />
                     </div>
@@ -862,19 +862,19 @@ export default function Patrimonio() {
                 {flows.deposits > 0 && (
                   <div style={{ textAlign: 'right' }}>
                     <p style={labelStyle}>Versato</p>
-                    <p style={{ fontSize: '1.1rem', fontWeight: 700, color: '#30D158', margin: 0 }}>{eur(flows.deposits)}</p>
+                    <p style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--pos)', margin: 0 }}>{eur(flows.deposits)}</p>
                   </div>
                 )}
                 {totalMonth > 0 && (
                   <div style={{ textAlign: 'right' }}>
                     <p style={labelStyle}>Investito (netto)</p>
-                    <p style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0A84FF', margin: 0 }}>{eur(totalMonth)}</p>
+                    <p style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--info)', margin: 0 }}>{eur(totalMonth)}</p>
                   </div>
                 )}
                 {flows.sales?.length > 0 && (
                   <div style={{ textAlign: 'right' }}>
                     <p style={labelStyle}>Venduto</p>
-                    <p style={{ fontSize: '1.1rem', fontWeight: 700, color: '#FF453A', margin: 0 }}>
+                    <p style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--neg)', margin: 0 }}>
                       {eur(Object.values(flows.grossSell || {}).reduce((a, b) => a + b, 0))}
                     </p>
                   </div>
@@ -882,8 +882,8 @@ export default function Patrimonio() {
                 {newTickersSet.size > 0 && (
                   <div style={{ textAlign: 'right' }}>
                     <p style={labelStyle}>Nuovi ingressi</p>
-                    <p style={{ fontSize: '1.1rem', fontWeight: 700, color: '#30D158', margin: 0, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-                      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#30D158', boxShadow: '0 0 8px #30D158' }} />
+                    <p style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--pos)', margin: 0, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: 'var(--pos)', boxShadow: '0 0 8px #30D158' }} />
                       {newTickersSet.size} {newTickersSet.size === 1 ? 'titolo' : 'titoli'}
                     </p>
                     <p style={{ fontSize: '0.65rem', color: 'var(--text-3)', margin: '2px 0 0' }}>{eur(newInvestedTotal)} investiti</p>
@@ -902,7 +902,7 @@ export default function Patrimonio() {
                     .map(([cat, { count, total, color }]) => {
                       const pct = totalMonth > 0 ? (total / totalMonth) * 100 : 0;
                       const isNeg = total < 0;
-                      const c = isNeg ? '#FF453A' : (color || '#0A84FF');
+                      const c = isNeg ? 'var(--neg)' : (color || 'var(--info)');
                       return (
                         <div key={cat} style={{
                           background: c + '14', border: `1px solid ${c}44`,
@@ -975,7 +975,7 @@ export default function Patrimonio() {
                             {isNew && (
                               <span style={{
                                 fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.06em',
-                                color: '#0B2E14', background: '#30D158', padding: '2px 6px',
+                                color: '#0B2E14', background: 'var(--pos)', padding: '2px 6px',
                                 borderRadius: 4, textTransform: 'uppercase',
                                 boxShadow: '0 0 8px rgba(48,209,88,0.5)',
                               }}>NUOVO</span>
@@ -985,7 +985,7 @@ export default function Patrimonio() {
                         </div>
                         <span style={{ textAlign: 'right', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)' }}>{eur(p.amount)}</span>
                         <div style={{ textAlign: 'right' }}>
-                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0A84FF' }}>{pct.toFixed(1)}%</span>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--info)' }}>{pct.toFixed(1)}%</span>
                           <div style={{ height: 3, background: 'var(--border)', borderRadius: 2, marginTop: 2 }}>
                             <div style={{ height: '100%', borderRadius: 2, background: cls.color, width: `${Math.min(pct, 100)}%` }} />
                           </div>
@@ -999,7 +999,7 @@ export default function Patrimonio() {
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 6 }}>
                       💵 Liquidità caricata questo mese
                     </span>
-                    <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#30D158' }}>{eur(flows.deposits)}</span>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--pos)' }}>{eur(flows.deposits)}</span>
                   </div>
                 )}
                 {/* Quota liquidità non investita */}
@@ -1022,7 +1022,7 @@ export default function Patrimonio() {
                   style={{
                     padding: '3px 9px', borderRadius: 6, fontSize: '0.68rem', fontWeight: 600,
                     cursor: 'pointer', border: 'none',
-                    background: m.monthKey === flows.monthKey ? '#0A84FF' : 'var(--surface-2)',
+                    background: m.monthKey === flows.monthKey ? 'var(--info)' : 'var(--surface-2)',
                     color: m.monthKey === flows.monthKey ? '#fff' : 'var(--text-3)',
                   }}>
                   {format(parseISO(`${m.monthKey}-01`), 'MMM yy', { locale: it })}
@@ -1058,11 +1058,11 @@ export default function Patrimonio() {
                     <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
                       <div>
                         <p style={labelStyle}>Versato</p>
-                        <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#30D158' }}>{eur(d.deposits)}</p>
+                        <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--pos)' }}>{eur(d.deposits)}</p>
                       </div>
                       <div>
                         <p style={labelStyle}>Investito</p>
-                        <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0A84FF' }}>{eur(totalInv)}</p>
+                        <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--info)' }}>{eur(totalInv)}</p>
                       </div>
                     </div>
                     {/* Mini bar per categoria */}
@@ -1099,7 +1099,7 @@ export default function Patrimonio() {
               <div>
                 <p style={{ fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>Analisi Flussi Mensili</p>
                 <p style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginTop: 2 }}>
-                Flussi netti per asset class (acquisti − vendite). <span style={{ color: '#FF453A' }}>Rosso</span> = disinvestimento netto nel mese.
+                Flussi netti per asset class (acquisti − vendite). <span style={{ color: 'var(--neg)' }}>Rosso</span> = disinvestimento netto nel mese.
               </p>
               </div>
             </div>
@@ -1108,7 +1108,7 @@ export default function Patrimonio() {
                 <thead>
                   <tr style={{ background: 'var(--surface-2)', borderBottom: '2px solid var(--border)' }}>
                     <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-3)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', position: 'sticky', left: 0, background: 'var(--surface-2)', zIndex: 1 }}>Mese</th>
-                    <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#30D158', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>Versato</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: 'var(--pos)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>Versato</th>
                     {allCats.map(cat => (
                       <th key={cat} style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: assetColor(cat), fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -1117,7 +1117,7 @@ export default function Patrimonio() {
                         </span>
                       </th>
                     ))}
-                    <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#0A84FF', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>Tot. Investito</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: 'var(--info)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>Tot. Investito</th>
                     <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: 'var(--text-3)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>Patrimonio</th>
                   </tr>
                 </thead>
@@ -1130,9 +1130,9 @@ export default function Patrimonio() {
                       <tr key={m.monthKey} style={{ borderBottom: '1px solid var(--border)', background: idx % 2 === 0 ? 'transparent' : 'var(--surface-2)04' }}>
                         <td style={{ padding: '9px 16px', fontWeight: 600, color: 'var(--text-1)', whiteSpace: 'nowrap', position: 'sticky', left: 0, background: idx % 2 === 0 ? 'var(--card-bg)' : 'var(--surface-2)', zIndex: 1 }}>
                           {format(parseISO(`${m.monthKey}-01`), 'MMM yyyy', { locale: it })}
-                          {isCurrentMonth && <span style={{ marginLeft: 6, fontSize: '0.6rem', color: '#FF9F0A', fontWeight: 700 }}>●</span>}
+                          {isCurrentMonth && <span style={{ marginLeft: 6, fontSize: '0.6rem', color: 'var(--warn)', fontWeight: 700 }}>●</span>}
                         </td>
-                        <td style={{ padding: '9px 12px', textAlign: 'right', color: m.deposits > 0 ? '#30D158' : 'var(--text-3)', fontWeight: m.deposits > 0 ? 600 : 400 }}>
+                        <td style={{ padding: '9px 12px', textAlign: 'right', color: m.deposits > 0 ? 'var(--pos)' : 'var(--text-3)', fontWeight: m.deposits > 0 ? 600 : 400 }}>
                           {m.deposits > 0 ? eur(m.deposits) : '—'}
                         </td>
                         {allCats.map(cat => {
@@ -1143,12 +1143,12 @@ export default function Patrimonio() {
                                 <span style={{ color: assetColor(cat), fontWeight: 500 }}>{eur(net)}</span>
                               ) : net < -0.01 ? (
                                 // vendita netta: mostra in rosso con segno −
-                                <span style={{ color: '#FF453A', fontWeight: 500, fontSize: '0.72rem' }}>−{eur(-net)}</span>
+                                <span style={{ color: 'var(--neg)', fontWeight: 500, fontSize: '0.72rem' }}>−{eur(-net)}</span>
                               ) : <span style={{ color: 'var(--text-3)', opacity: 0.4 }}>—</span>}
                             </td>
                           );
                         })}
-                        <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600, color: totInv > 0 ? '#0A84FF' : 'var(--text-3)' }}>
+                        <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600, color: totInv > 0 ? 'var(--info)' : 'var(--text-3)' }}>
                           {totInv > 0 ? eur(totInv) : '—'}
                         </td>
                         <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 600, color: 'var(--text-1)' }}>
@@ -1161,7 +1161,7 @@ export default function Patrimonio() {
                 <tfoot>
                   <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--surface-2)', fontWeight: 700 }}>
                     <td style={{ padding: '10px 16px', color: 'var(--text-1)', fontSize: '0.75rem', position: 'sticky', left: 0, background: 'var(--surface-2)' }}>TOTALE</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right', color: '#30D158' }}>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--pos)' }}>
                       {eur(monthlyFlows.reduce((s, m) => s + m.deposits, 0))}
                     </td>
                     {allCats.map(cat => {
@@ -1172,7 +1172,7 @@ export default function Patrimonio() {
                         </td>
                       );
                     })}
-                    <td style={{ padding: '10px 12px', textAlign: 'right', color: '#0A84FF' }}>{eur(totalInvestedAll)}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--info)' }}>{eur(totalInvestedAll)}</td>
                     <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-1)' }}>
                       {eur(kpis.patrimonio)}
                     </td>
@@ -1294,7 +1294,7 @@ export default function Patrimonio() {
                 <span style={{
                   fontSize: '0.62rem', fontWeight: 600, padding: '2px 7px', borderRadius: 4,
                   background: origCcy && origCcy !== 'EUR' ? 'rgba(255,159,10,0.12)' : 'rgba(48,209,88,0.1)',
-                  color: origCcy && origCcy !== 'EUR' ? '#FF9F0A' : '#30D158',
+                  color: origCcy && origCcy !== 'EUR' ? 'var(--warn)' : 'var(--pos)',
                   border: `1px solid ${origCcy && origCcy !== 'EUR' ? 'rgba(255,159,10,0.3)' : 'rgba(48,209,88,0.25)'}`,
                 }}>
                   {ccyLabel}
@@ -1305,9 +1305,9 @@ export default function Patrimonio() {
                     title={tooltipShowNative ? 'Mostra in EUR' : `Mostra in ${origCcy}`}
                     style={{
                       fontSize: '0.62rem', fontWeight: 700, padding: '2px 8px', borderRadius: 4,
-                      background: tooltipShowNative ? '#0A84FF' : 'var(--surface-2)',
+                      background: tooltipShowNative ? 'var(--info)' : 'var(--surface-2)',
                       color: tooltipShowNative ? '#fff' : 'var(--text-3)',
-                      border: `1px solid ${tooltipShowNative ? '#0A84FF' : 'var(--border)'}`,
+                      border: `1px solid ${tooltipShowNative ? 'var(--info)' : 'var(--border)'}`,
                       cursor: 'pointer',
                     }}
                   >
@@ -1331,7 +1331,7 @@ export default function Patrimonio() {
                   onClick={(e) => { e.stopPropagation(); setTooltipPeriod(p.key); }}
                   style={{
                     flex: 1, padding: '4px 0', borderRadius: 6, fontSize: '0.68rem', fontWeight: 600,
-                    background: tooltipPeriod === p.key ? '#0A84FF' : 'var(--surface-2)',
+                    background: tooltipPeriod === p.key ? 'var(--info)' : 'var(--surface-2)',
                     color: tooltipPeriod === p.key ? '#fff' : 'var(--text-3)',
                     border: tooltipPeriod === p.key ? 'none' : '1px solid var(--border)',
                     cursor: 'pointer',
@@ -1356,14 +1356,14 @@ export default function Patrimonio() {
                 <TickerSparkLine data={displayChartData} width={TT_W - 32} height={62} />
                 {insuffData && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5, padding: '4px 8px', borderRadius: 6, background: 'rgba(255,159,10,0.1)', border: '1px solid rgba(255,159,10,0.3)' }}>
-                    <span style={{ fontSize: '0.65rem', color: '#FF9F0A' }}>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--warn)' }}>
                       Dati dal {oldestKey} · solo {tooltipChartData.length} mesi disponibili
                     </span>
                   </div>
                 )}
                 {perfPct != null && (
                   <p style={{ fontSize: '0.67rem', color: 'var(--text-3)', margin: '6px 0 0', textAlign: 'right' }}>
-                    <span style={{ fontWeight: 700, color: perfPct >= 0 ? '#30D158' : '#FF453A' }}>
+                    <span style={{ fontWeight: 700, color: perfPct >= 0 ? 'var(--pos)' : 'var(--neg)' }}>
                       {perfPct >= 0 ? '+' : ''}{perfPct.toFixed(1)}%
                     </span>
                     {' '}periodo selezionato ({tooltipChartData.length} mesi)
@@ -1378,7 +1378,7 @@ export default function Patrimonio() {
                     <p style={{ fontSize: '0.6rem', color: 'var(--text-3)', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Min periodo</p>
                     <p style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{fmtPraw(histMin)}</p>
                     {fromMin != null && (
-                      <p style={{ fontSize: '0.62rem', fontWeight: 600, color: '#30D158', margin: '2px 0 0' }}>
+                      <p style={{ fontSize: '0.62rem', fontWeight: 600, color: 'var(--pos)', margin: '2px 0 0' }}>
                         +{fromMin.toFixed(1)}% sopra
                       </p>
                     )}
@@ -1389,7 +1389,7 @@ export default function Patrimonio() {
                     <p style={{ fontSize: '0.6rem', color: 'var(--text-3)', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Max periodo</p>
                     <p style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{fmtPraw(histMax)}</p>
                     {fromMax != null && (
-                      <p style={{ fontSize: '0.62rem', fontWeight: 600, color: fromMax >= -0.1 ? '#30D158' : '#FF453A', margin: '2px 0 0' }}>
+                      <p style={{ fontSize: '0.62rem', fontWeight: 600, color: fromMax >= -0.1 ? 'var(--pos)' : 'var(--neg)', margin: '2px 0 0' }}>
                         {fromMax >= -0.1 ? 'ATH ✓' : `${fromMax.toFixed(1)}% dal max`}
                       </p>
                     )}

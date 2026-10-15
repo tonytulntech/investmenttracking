@@ -443,7 +443,7 @@ function Portfolio() {
                       <td className="pf-hide-lg" style={{ padding: '10px 12px' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.7rem', color: 'var(--text-2)', background: cls.color + '18', borderRadius: 6, padding: '2px 8px', whiteSpace: 'nowrap' }}>
                           {cls.microLabel}
-                          {!cls.derived && <span title="Classificazione da confermare" style={{ color: '#FF9F0A' }}>⚠</span>}
+                          {!cls.derived && <span title="Classificazione da confermare" style={{ color: 'var(--warn)' }}>⚠</span>}
                         </span>
                       </td>
                       <td className="pf-hide-sm" style={{ padding: '10px 12px', textAlign: 'right', ...MONO }}>
@@ -468,7 +468,7 @@ function Portfolio() {
                         {yield_ != null ? (
                           <span style={{
                             fontWeight: 600,
-                            color: yield_ >= 7 ? '#FF9F0A'
+                            color: yield_ >= 7 ? 'var(--warn)'
                                  : yield_ >= 4 ? 'var(--pos)'
                                  : yield_ >= 1 ? 'var(--accent)'
                                  : 'var(--text-3)'
@@ -487,7 +487,7 @@ function Portfolio() {
                           <span className={`badge ${getTERBadgeColor(holding.ter)}`}>{holding.ter.toFixed(2)}%</span>
                         ) : <span style={{ color: 'var(--text-3)', fontStyle: 'italic' }}>N/A</span>}
                       </td>
-                      <td className="pf-hide-lg" style={{ padding: '10px 12px', textAlign: 'right', ...MONO, color: '#FF9F0A' }}>
+                      <td className="pf-hide-lg" style={{ padding: '10px 12px', textAlign: 'right', ...MONO, color: 'var(--warn)' }}>
                         {holding.annualTERCost > 0
                           ? `€${holding.annualTERCost.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                           : <span style={{ color: 'var(--text-3)' }}>—</span>}
@@ -552,7 +552,7 @@ function Portfolio() {
               <SummaryKpi
                 label="TER annuale"
                 value={`€${summary.totalAnnualTERCost.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                color="#FF9F0A"
+                color="var(--warn)"
                 sub="Costo gestione ETF"
               />
             </div>

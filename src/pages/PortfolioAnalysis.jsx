@@ -159,7 +159,7 @@ function DrillDownPanel({ data, label, totalPct, totalValue, onClose }) {
           </div>
           <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-1)' }}>
             {label}
-            <span style={{ marginLeft: 10, fontSize: '0.85rem', fontWeight: 600, color: '#0A84FF' }}>
+            <span style={{ marginLeft: 10, fontSize: '0.85rem', fontWeight: 600, color: 'var(--info)' }}>
               {totalPct.toFixed(1)}% del portafoglio
             </span>
             <span style={{ marginLeft: 8, fontSize: '0.78rem', color: 'var(--analysis-dim)' }}>
@@ -176,7 +176,7 @@ function DrillDownPanel({ data, label, totalPct, totalValue, onClose }) {
       </div>
 
       {(label === 'Altri' || label === 'Altri minori') && (
-        <div style={{ marginBottom: 14, padding: '9px 12px', borderRadius: 8, background: 'rgba(255,159,10,0.08)', border: '1px solid rgba(255,159,10,0.22)', fontSize: '0.75rem', color: '#FF9F0A', lineHeight: 1.5 }}>
+        <div style={{ marginBottom: 14, padding: '9px 12px', borderRadius: 8, background: 'rgba(255,159,10,0.08)', border: '1px solid rgba(255,159,10,0.22)', fontSize: '0.75rem', color: 'var(--warn)', lineHeight: 1.5 }}>
           <strong>Cos'è "Altri"?</strong> Ogni ETF pubblica solo i top 10–15 paesi e aggrega il resto in un unico bucket.
           Di seguito vedi <em>quali tuoi ETF</em> contribuiscono a questa quota residuale, ma non i singoli paesi sottostanti.
           Per avere più dettaglio, aggiorna il profilo ETF con la lista completa dei paesi.
@@ -237,7 +237,7 @@ function DrillDownPanel({ data, label, totalPct, totalValue, onClose }) {
 }
 
 function CoverageBar({ pct, label }) {
-  const color = pct >= 80 ? '#30D158' : pct >= 50 ? '#FF9F0A' : '#FF453A';
+  const color = pct >= 80 ? 'var(--pos)' : pct >= 50 ? 'var(--warn)' : 'var(--neg)';
   return (
     <div style={{ flex: 1 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginBottom: 5 }}>
@@ -262,7 +262,7 @@ function TabBtn({ active, onClick, icon: Icon, label }) {
       color: active ? 'var(--analysis-tab-active)' : 'var(--analysis-tab-color)',
       transition: 'all 0.15s ease',
     }}>
-      <Icon size={14} style={{ color: active ? '#0A84FF' : 'inherit' }} />
+      <Icon size={14} style={{ color: active ? 'var(--info)' : 'inherit' }} />
       {label}
     </button>
   );
@@ -271,16 +271,16 @@ function TabBtn({ active, onClick, icon: Icon, label }) {
 // ── ETF Detail Modal ─────────────────────────────────────────────────────────
 
 const ASSET_TYPE_LABELS = {
-  equity: { label: 'Azionario', color: '#0A84FF' },
-  bond: { label: 'Obbligazionario', color: '#30D158' },
-  commodity: { label: 'Commodity', color: '#FF9F0A' },
+  equity: { label: 'Azionario', color: 'var(--info)' },
+  bond: { label: 'Obbligazionario', color: 'var(--pos)' },
+  commodity: { label: 'Commodity', color: 'var(--warn)' },
   crypto: { label: 'Crypto', color: '#BF5AF2' },
   'money-market': { label: 'Monetario', color: '#64D2FF' },
   'real-estate': { label: 'Real Estate', color: '#32ADE6' },
   'multi-asset': { label: 'Multi-Asset', color: '#FFD60A' },
 };
 
-function HBar({ label, pct, color = '#0A84FF', maxPct = 100 }) {
+function HBar({ label, pct, color = 'var(--info)', maxPct = 100 }) {
   return (
     <div style={{ marginBottom: 6 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
@@ -297,7 +297,7 @@ function HBar({ label, pct, color = '#0A84FF', maxPct = 100 }) {
 function FactorMiniBar({ label, value }) {
   // value in [-2, +2], center = 0
   const pct = ((value + 2) / 4) * 100; // map to 0–100%
-  const color = value > 0.15 ? '#30D158' : value < -0.15 ? '#FF453A' : 'var(--analysis-dim)';
+  const color = value > 0.15 ? 'var(--pos)' : value < -0.15 ? 'var(--neg)' : 'var(--analysis-dim)';
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 36px', alignItems: 'center', gap: 8, marginBottom: 5 }}>
       <span style={{ fontSize: '0.71rem', color: 'var(--analysis-dim)', textAlign: 'right' }}>{label}</span>
@@ -381,7 +381,7 @@ function ETFDetailModal({ ticker, name, onClose }) {
               <span style={{
                 fontSize: '0.68rem', fontWeight: 700, padding: '3px 9px', borderRadius: 20,
                 background: ter === 0 ? 'rgba(48,209,88,0.15)' : ter <= 0.20 ? 'rgba(48,209,88,0.12)' : ter <= 0.40 ? 'rgba(255,159,10,0.12)' : 'rgba(255,69,58,0.12)',
-                color: ter === 0 ? '#30D158' : ter <= 0.20 ? '#30D158' : ter <= 0.40 ? '#FF9F0A' : '#FF453A',
+                color: ter === 0 ? 'var(--pos)' : ter <= 0.20 ? 'var(--pos)' : ter <= 0.40 ? 'var(--warn)' : 'var(--neg)',
                 border: `1px solid ${ter === 0 ? '#30D15844' : ter <= 0.20 ? '#30D15844' : ter <= 0.40 ? '#FF9F0A44' : '#FF453A44'}`,
               }}>
                 {ter === 0 ? 'Stock · TER 0%' : `TER ${ter.toFixed(2)}%`}
@@ -603,7 +603,7 @@ function TickerResolutionWizard({ missingTickers, holdingsWithValues, onClose, o
           <div style={{
             height: '100%',
             width: `${((step + 1) / resolutions.length) * 100}%`,
-            background: '#0A84FF', borderRadius: 2, transition: 'width 0.3s ease',
+            background: 'var(--info)', borderRadius: 2, transition: 'width 0.3s ease',
           }} />
         </div>
 
@@ -629,7 +629,7 @@ function TickerResolutionWizard({ missingTickers, holdingsWithValues, onClose, o
                   onClick={() => setSelectedIdx(idx)}
                   style={{
                     padding: '11px 14px', borderRadius: 10, cursor: 'pointer',
-                    border: `1.5px solid ${sel ? '#0A84FF' : 'var(--analysis-subtle-brd)'}`,
+                    border: `1.5px solid ${sel ? 'var(--info)' : 'var(--analysis-subtle-brd)'}`,
                     background: sel ? 'rgba(10,132,255,0.06)' : 'var(--analysis-subtle-bg)',
                     transition: 'border-color 0.15s, background 0.15s',
                   }}
@@ -638,8 +638,8 @@ function TickerResolutionWizard({ missingTickers, holdingsWithValues, onClose, o
                     {/* Radio */}
                     <div style={{
                       width: 16, height: 16, borderRadius: '50%', flexShrink: 0, marginTop: 2,
-                      border: `2px solid ${sel ? '#0A84FF' : 'var(--analysis-subtle-brd)'}`,
-                      background: sel ? '#0A84FF' : 'transparent',
+                      border: `2px solid ${sel ? 'var(--info)' : 'var(--analysis-subtle-brd)'}`,
+                      background: sel ? 'var(--info)' : 'transparent',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
                       {sel && <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'white' }} />}
@@ -656,7 +656,7 @@ function TickerResolutionWizard({ missingTickers, holdingsWithValues, onClose, o
                           <span style={{
                             fontSize: '0.67rem', fontWeight: 600, padding: '1px 6px', borderRadius: 4,
                             background: isEUR ? 'rgba(48,209,88,0.12)' : 'rgba(255,159,10,0.12)',
-                            color: isEUR ? '#30D158' : '#FF9F0A',
+                            color: isEUR ? 'var(--pos)' : 'var(--warn)',
                           }}>
                             {s.exchangeInfo.currency}
                           </span>
@@ -664,13 +664,13 @@ function TickerResolutionWizard({ missingTickers, holdingsWithValues, onClose, o
                         <span style={{
                           fontSize: '0.65rem', fontWeight: 600, padding: '1px 6px', borderRadius: 4,
                           background: s.matchType === 'exchange_variant' ? 'rgba(10,132,255,0.10)' : 'rgba(191,90,242,0.10)',
-                          color: s.matchType === 'exchange_variant' ? '#0A84FF' : '#BF5AF2',
+                          color: s.matchType === 'exchange_variant' ? 'var(--info)' : '#BF5AF2',
                         }}>
                           {s.matchType === 'exchange_variant' ? 'stesso ETF' : 'strategia simile'}
                         </span>
                       </div>
                       {isDiffCurrency && (
-                        <div style={{ fontSize: '0.72rem', color: '#FF9F0A', marginTop: 3 }}>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--warn)', marginTop: 3 }}>
                           ⚠ Valuta {s.exchangeInfo.currency} (originale: {origCurrency}). La strategia è identica, ma il prezzo di riferimento è in {s.exchangeInfo.currency}.
                         </div>
                       )}
@@ -731,7 +731,7 @@ function TickerResolutionWizard({ missingTickers, holdingsWithValues, onClose, o
               disabled={selectedIdx === null}
               style={{
                 padding: '7px 18px', borderRadius: 8, border: 'none',
-                background: selectedIdx !== null ? '#0A84FF' : 'var(--analysis-subtle-brd)',
+                background: selectedIdx !== null ? 'var(--info)' : 'var(--analysis-subtle-brd)',
                 color: selectedIdx !== null ? 'white' : 'var(--analysis-dim)',
                 fontSize: '0.8rem', fontWeight: 600, cursor: selectedIdx !== null ? 'pointer' : 'default',
                 transition: 'background 0.15s',
@@ -759,9 +759,9 @@ function CostDragSection({ startValue, weightedTerPct }) {
   const [horizon, setHorizon] = useState(20);
 
   const scenarios = [
-    { key: 'no_cost', label: 'Senza costi (potenziale)',                  color: '#30D158', ter: 0         },
-    { key: 'yours',   label: `Il tuo portafoglio (TER ${weightedTerPct.toFixed(2)}%)`, color: '#0A84FF', ter: weightedTerPct },
-    { key: 'active',  label: 'Fondo attivo medio (TER 1.80%)',             color: '#FF9F0A', ter: 1.80      },
+    { key: 'no_cost', label: 'Senza costi (potenziale)',                  color: 'var(--pos)', ter: 0         },
+    { key: 'yours',   label: `Il tuo portafoglio (TER ${weightedTerPct.toFixed(2)}%)`, color: 'var(--info)', ter: weightedTerPct },
+    { key: 'active',  label: 'Fondo attivo medio (TER 1.80%)',             color: 'var(--warn)', ter: 1.80      },
   ];
 
   const chartData = React.useMemo(() =>
@@ -800,7 +800,7 @@ function CostDragSection({ startValue, weightedTerPct }) {
               padding: '3px 10px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 600,
               border: horizon === h ? '1px solid #0A84FF' : '1px solid var(--analysis-subtle-brd)',
               background: horizon === h ? 'rgba(10,132,255,0.15)' : 'transparent',
-              color: horizon === h ? '#0A84FF' : 'var(--analysis-dim)',
+              color: horizon === h ? 'var(--info)' : 'var(--analysis-dim)',
               cursor: 'pointer', transition: 'all 0.15s',
             }}>
               {h}a
@@ -878,7 +878,7 @@ function CostDragSection({ startValue, weightedTerPct }) {
                 {fmtVal(val)}
               </div>
               {s.key !== 'no_cost' && (
-                <div style={{ fontSize: '0.68rem', color: '#FF453A', marginTop: 2 }}>
+                <div style={{ fontSize: '0.68rem', color: 'var(--neg)', marginTop: 2 }}>
                   −{fmtVal(Math.abs(gap))} ({gapPct.toFixed(1)}%)
                 </div>
               )}
@@ -899,10 +899,10 @@ function CostDragSection({ startValue, weightedTerPct }) {
         border: `1px solid ${opportunityCostPct > 12 ? '#FF453A33' : '#FF9F0A33'}`,
         display: 'flex', alignItems: 'center', gap: 10,
       }}>
-        <TrendingDown size={13} color={opportunityCostPct > 12 ? '#FF453A' : '#FF9F0A'} style={{ flexShrink: 0 }} />
+        <TrendingDown size={13} color={opportunityCostPct > 12 ? 'var(--neg)' : 'var(--warn)'} style={{ flexShrink: 0 }} />
         <span style={{ fontSize: '0.77rem', color: 'var(--text-1)' }}>
           In <strong>{horizon} anni</strong>, il TER {weightedTerPct.toFixed(2)}% erode
-          <strong style={{ color: opportunityCostPct > 12 ? '#FF453A' : '#FF9F0A' }}> {fmtVal(opportunityCost)} </strong>
+          <strong style={{ color: opportunityCostPct > 12 ? 'var(--neg)' : 'var(--warn)' }}> {fmtVal(opportunityCost)} </strong>
           ({opportunityCostPct.toFixed(1)}% del patrimonio potenziale — il costo "invisibile" dell'attesa).
         </span>
       </div>
@@ -947,7 +947,7 @@ function HoldingRow({ h, rank, onSelect }) {
           <Blur>{h.ticker}</Blur>
           {' · '}{h.macroCategory}
           {!h.hasProfile && (
-            <span style={{ marginLeft: 8, color: '#FF9F0A', fontSize: '0.68rem', fontWeight: 600 }}>⚠ dati N/D</span>
+            <span style={{ marginLeft: 8, color: 'var(--warn)', fontSize: '0.68rem', fontWeight: 600 }}>⚠ dati N/D</span>
           )}
         </div>
       </div>
@@ -987,7 +987,7 @@ function FactorBar({ factorDef, stats }) {
   // dominant direction for label
   const net = positive - negative;
   const dominated = Math.abs(net) < 5 ? 'neutro' : net > 0 ? 'tilt positivo' : 'tilt negativo';
-  const domColor = Math.abs(net) < 5 ? 'var(--analysis-dim)' : net > 0 ? '#0A84FF' : '#FF9F0A';
+  const domColor = Math.abs(net) < 5 ? 'var(--analysis-dim)' : net > 0 ? 'var(--info)' : 'var(--warn)';
 
   return (
     <div style={{ marginBottom: 18 }}>
@@ -1004,12 +1004,12 @@ function FactorBar({ factorDef, stats }) {
       {/* Stacked bar: positive | negative | neutral/no data */}
       <div style={{ display: 'flex', height: 22, borderRadius: 6, overflow: 'hidden', gap: 1 }}>
         {positive > 0.5 && (
-          <div style={{ width: `${positive}%`, background: '#0A84FF', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'width 0.5s' }}>
+          <div style={{ width: `${positive}%`, background: 'var(--info)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'width 0.5s' }}>
             {positive >= 12 && <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#fff' }}>{positive.toFixed(0)}%</span>}
           </div>
         )}
         {negative > 0.5 && (
-          <div style={{ width: `${negative}%`, background: '#FF9F0A', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'width 0.5s' }}>
+          <div style={{ width: `${negative}%`, background: 'var(--warn)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'width 0.5s' }}>
             {negative >= 12 && <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#fff' }}>{negative.toFixed(0)}%</span>}
           </div>
         )}
@@ -1023,14 +1023,14 @@ function FactorBar({ factorDef, stats }) {
       {/* Legend row */}
       <div style={{ display: 'flex', gap: 14, marginTop: 4, flexWrap: 'wrap' }}>
         {positive > 0.5 && (
-          <span style={{ fontSize: '0.68rem', color: '#0A84FF', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: '#0A84FF', flexShrink: 0 }} />
+          <span style={{ fontSize: '0.68rem', color: 'var(--info)', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--info)', flexShrink: 0 }} />
             {positive.toFixed(1)}% tilt +
           </span>
         )}
         {negative > 0.5 && (
-          <span style={{ fontSize: '0.68rem', color: '#FF9F0A', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: '#FF9F0A', flexShrink: 0 }} />
+          <span style={{ fontSize: '0.68rem', color: 'var(--warn)', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--warn)', flexShrink: 0 }} />
             {negative.toFixed(1)}% tilt –
           </span>
         )}
@@ -1074,7 +1074,7 @@ function MicroBreakdown({ holdingsWithValues }) {
   });
 
   const MACRO_LABELS = { equity: 'Azionario', bond: 'Obbligazionario', commodity: 'Materie prime', realEstate: 'Immobiliare', crypto: 'Crypto', cash: 'Liquidità', multi_asset: 'Multi-asset', altro: 'Altro' };
-  const MACRO_COLORS = { equity: '#0A84FF', bond: '#30D158', commodity: '#FF9F0A', realEstate: '#BF5AF2', crypto: '#FF453A', cash: '#32ADE6', multi_asset: '#AC8E68', altro: '#636366' };
+  const MACRO_COLORS = { equity: 'var(--info)', bond: 'var(--pos)', commodity: 'var(--warn)', realEstate: '#BF5AF2', crypto: 'var(--neg)', cash: '#32ADE6', multi_asset: '#AC8E68', altro: '#636366' };
 
   return (
     <div>
@@ -1127,14 +1127,14 @@ function MarketTypeBar({ marketType }) {
     <div>
       <div style={{ display: 'flex', height: 28, borderRadius: 6, overflow: 'hidden', marginBottom: 10 }}>
         <div style={{
-          width: `${developed}%`, background: '#0A84FF',
+          width: `${developed}%`, background: 'var(--info)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '0.72rem', fontWeight: 700, color: '#fff', transition: 'width 0.5s ease',
         }}>
           {developed > 10 ? `${developed.toFixed(0)}%` : ''}
         </div>
         <div style={{
-          width: `${emerging}%`, background: '#FF9F0A',
+          width: `${emerging}%`, background: 'var(--warn)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '0.72rem', fontWeight: 700, color: '#fff', transition: 'width 0.5s ease',
         }}>
@@ -1142,7 +1142,7 @@ function MarketTypeBar({ marketType }) {
         </div>
       </div>
       <div style={{ display: 'flex', gap: 20 }}>
-        {[['Mercati sviluppati', developed, '#0A84FF'], ['Mercati emergenti', emerging, '#FF9F0A']].map(([l, v, c]) => (
+        {[['Mercati sviluppati', developed, 'var(--info)'], ['Mercati emergenti', emerging, 'var(--warn)']].map(([l, v, c]) => (
           <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 10, height: 10, borderRadius: 2, background: c }} />
             <span style={{ fontSize: '0.78rem' }}>{l}</span>
@@ -1157,14 +1157,14 @@ function MarketTypeBar({ marketType }) {
 // ── Gap analysis row (area vs benchmark) ─────────────────────────────────────
 function GapRow({ name, portfolio, reference }) {
   const diff = portfolio - reference;
-  const color = diff > 1 ? '#30D158' : diff < -1 ? '#FF453A' : 'var(--analysis-dim)';
+  const color = diff > 1 ? 'var(--pos)' : diff < -1 ? 'var(--neg)' : 'var(--analysis-dim)';
   const maxBar = Math.max(portfolio, reference, 1);
   return (
     <div style={{ marginBottom: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
         <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>{name}</span>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <span style={{ fontSize: '0.78rem', color: '#0A84FF', fontWeight: 600 }}>Port. {portfolio.toFixed(1)}%</span>
+          <span style={{ fontSize: '0.78rem', color: 'var(--info)', fontWeight: 600 }}>Port. {portfolio.toFixed(1)}%</span>
           <span style={{ fontSize: '0.78rem', color: 'var(--analysis-dim)' }}>vs {reference.toFixed(0)}%</span>
           <span style={{ fontSize: '0.78rem', fontWeight: 700, color, minWidth: 52, textAlign: 'right' }}>
             {Math.abs(diff) > 1 ? `${diff > 0 ? '+' : ''}${diff.toFixed(1)}pp` : '≈ ok'}
@@ -1172,7 +1172,7 @@ function GapRow({ name, portfolio, reference }) {
         </div>
       </div>
       <div style={{ height: 6, background: 'var(--analysis-subtle-brd)', borderRadius: 3, overflow: 'hidden', marginBottom: 2 }}>
-        <div style={{ height: '100%', width: `${(portfolio / maxBar) * 100}%`, background: '#0A84FF', borderRadius: 3 }} />
+        <div style={{ height: '100%', width: `${(portfolio / maxBar) * 100}%`, background: 'var(--info)', borderRadius: 3 }} />
       </div>
       <div style={{ height: 3, background: 'var(--analysis-subtle-brd)', borderRadius: 3, overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${(reference / maxBar) * 100}%`, background: 'var(--analysis-dim)', opacity: 0.4, borderRadius: 3 }} />
@@ -1186,7 +1186,7 @@ function SectorDeltaRow({ name, portfolio, reference, index }) {
   const diff = portfolio - (reference ?? 0);
   const isOver  = diff >  1.5;
   const isUnder = diff < -1.5;
-  const diffColor = isOver ? '#30D158' : isUnder ? '#FF453A' : 'var(--analysis-dim)';
+  const diffColor = isOver ? 'var(--pos)' : isUnder ? 'var(--neg)' : 'var(--analysis-dim)';
   const maxBar = Math.max(portfolio, reference ?? 0, 1);
   return (
     <div style={{ marginBottom: 12 }}>
@@ -1239,7 +1239,7 @@ function BondInfoCard({ ticker, name, weight, bondInfo }) {
         </div>
         <div style={{
           fontSize: '0.72rem', padding: '3px 8px', borderRadius: 6,
-          background: 'rgba(10,132,255,0.12)', color: '#0A84FF',
+          background: 'rgba(10,132,255,0.12)', color: 'var(--info)',
           fontWeight: 700, alignSelf: 'flex-start',
         }}>
           {bondInfo.creditRating}
@@ -1253,7 +1253,7 @@ function BondInfoCard({ ticker, name, weight, bondInfo }) {
         {bondInfo.ytm != null && (
           <div>
             <div style={{ fontSize: '0.65rem', color: 'var(--analysis-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>YTM</div>
-            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#30D158' }}>{bondInfo.ytm.toFixed(1)}%</div>
+            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--pos)' }}>{bondInfo.ytm.toFixed(1)}%</div>
           </div>
         )}
       </div>
@@ -1296,10 +1296,10 @@ function BondSummaryPanel({ bondHoldings, totalPortfolioValue }) {
 
   // Duration buckets (basati su peso del portafoglio, non % bond)
   const buckets = [
-    { label: '0–2 anni', min: 0,   max: 2,   color: '#30D158' },
-    { label: '2–5 anni', min: 2,   max: 5,   color: '#0A84FF' },
-    { label: '5–10 anni', min: 5,  max: 10,  color: '#FF9F0A' },
-    { label: '10+ anni',  min: 10, max: Infinity, color: '#FF453A' },
+    { label: '0–2 anni', min: 0,   max: 2,   color: 'var(--pos)' },
+    { label: '2–5 anni', min: 2,   max: 5,   color: 'var(--info)' },
+    { label: '5–10 anni', min: 5,  max: 10,  color: 'var(--warn)' },
+    { label: '10+ anni',  min: 10, max: Infinity, color: 'var(--neg)' },
   ];
   const bucketData = buckets.map(bk => {
     const pct = bondHoldings
@@ -1311,10 +1311,10 @@ function BondSummaryPanel({ bondHoldings, totalPortfolioValue }) {
 
   // Credit quality
   const creditColors = {
-    'AAA': '#30D158', 'AA+': '#30D158', 'AA': '#30D158', 'AA-': '#4CD964',
-    'A+': '#0A84FF', 'A': '#0A84FF', 'A-': '#32ADE6',
-    'BBB+': '#FF9F0A', 'BBB': '#FF9F0A', 'BBB-': '#FFD60A',
-    'BB': '#FF6961', 'HY': '#FF453A',
+    'AAA': 'var(--pos)', 'AA+': 'var(--pos)', 'AA': 'var(--pos)', 'AA-': '#4CD964',
+    'A+': 'var(--info)', 'A': 'var(--info)', 'A-': '#32ADE6',
+    'BBB+': 'var(--warn)', 'BBB': 'var(--warn)', 'BBB-': '#FFD60A',
+    'BB': '#FF6961', 'HY': 'var(--neg)',
   };
   const creditBuckets = {};
   bondHoldings.forEach(b => {
@@ -1338,7 +1338,7 @@ function BondSummaryPanel({ bondHoldings, totalPortfolioValue }) {
       background: 'rgba(10,132,255,0.06)',
       border: '1px solid rgba(10,132,255,0.2)',
     }}>
-      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#0A84FF', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 14 }}>
+      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--info)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 14 }}>
         📊 Analisi Bond — Riepilogo portafoglio
       </div>
 
@@ -1346,7 +1346,7 @@ function BondSummaryPanel({ bondHoldings, totalPortfolioValue }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
         <div style={kpiStyle}>
           <div style={{ fontSize: '0.62rem', color: 'var(--analysis-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>% portafoglio bond</div>
-          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#0A84FF' }}>{bondPct.toFixed(1)}%</div>
+          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--info)' }}>{bondPct.toFixed(1)}%</div>
         </div>
         <div style={kpiStyle}>
           <div style={{ fontSize: '0.62rem', color: 'var(--analysis-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Duration media pond.</div>
@@ -1356,7 +1356,7 @@ function BondSummaryPanel({ bondHoldings, totalPortfolioValue }) {
         </div>
         <div style={kpiStyle}>
           <div style={{ fontSize: '0.62rem', color: 'var(--analysis-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>YTM medio pond.</div>
-          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#30D158' }}>
+          <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--pos)' }}>
             {wAvgYtm != null ? `${wAvgYtm.toFixed(1)}%` : '—'}
           </div>
         </div>
@@ -1371,7 +1371,7 @@ function BondSummaryPanel({ bondHoldings, totalPortfolioValue }) {
               (% bond × duration media = {bondPct.toFixed(1)}% × {wAvgDuration?.toFixed(1)} anni)
             </div>
           </div>
-          <div style={{ fontSize: '1.3rem', fontWeight: 700, color: '#FF9F0A', flexShrink: 0, marginLeft: 12 }}>
+          <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--warn)', flexShrink: 0, marginLeft: 12 }}>
             {portDurContrib.toFixed(2)} anni
           </div>
         </div>
@@ -1513,10 +1513,10 @@ function overlapColor(pct) {
 }
 function overlapTextColor(pct) {
   if (pct == null) return 'var(--analysis-dim)';
-  if (pct < 30)  return '#30D158';
+  if (pct < 30)  return 'var(--pos)';
   if (pct < 50)  return '#FFD60A';
-  if (pct < 70)  return '#FF9F0A';
-  return '#FF453A';
+  if (pct < 70)  return 'var(--warn)';
+  return 'var(--neg)';
 }
 
 function OverlapTab({ holdingsWithValues }) {
@@ -1560,12 +1560,12 @@ function OverlapTab({ holdingsWithValues }) {
         </div>
         <div style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--analysis-subtle-bg)', border: '1px solid var(--analysis-subtle-brd)' }}>
           <div style={{ fontSize: '0.65rem', color: 'var(--analysis-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Titoli duplicati</div>
-          <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#FF9F0A' }}>{duplicated.length}</div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--warn)' }}>{duplicated.length}</div>
           <div style={{ fontSize: '0.68rem', color: 'var(--analysis-faint)', marginTop: 2 }}>in 2+ ETF del portafoglio</div>
         </div>
         <div style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--analysis-subtle-bg)', border: '1px solid var(--analysis-subtle-brd)' }}>
           <div style={{ fontSize: '0.65rem', color: 'var(--analysis-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Esposizione doppia stim.</div>
-          <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#FF453A' }}>{totalDuplicatedPct.toFixed(1)}%</div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--neg)' }}>{totalDuplicatedPct.toFixed(1)}%</div>
           <div style={{ fontSize: '0.68rem', color: 'var(--analysis-faint)', marginTop: 2 }}>del portafoglio (top holdings)</div>
         </div>
       </div>
@@ -1580,7 +1580,7 @@ function OverlapTab({ holdingsWithValues }) {
               border: `1px solid ${overlap.symmetric > 60 ? 'rgba(255,69,58,0.3)' : 'rgba(255,159,10,0.3)'}`,
               display: 'flex', alignItems: 'center', gap: 10,
             }}>
-              <AlertCircle size={14} color={overlap.symmetric > 60 ? '#FF453A' : '#FF9F0A'} style={{ flexShrink: 0 }} />
+              <AlertCircle size={14} color={overlap.symmetric > 60 ? 'var(--neg)' : 'var(--warn)'} style={{ flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
                 <span style={{ fontWeight: 600, fontSize: '0.8rem' }}>{a.ticker}</span>
                 <span style={{ color: 'var(--analysis-dim)', fontSize: '0.8rem' }}> e </span>
@@ -1665,7 +1665,7 @@ function OverlapTab({ holdingsWithValues }) {
             }}>
               <div style={{
                 width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'rgba(10,132,255,0.12)', fontSize: '0.6rem', fontWeight: 700, color: '#0A84FF', flexShrink: 0,
+                background: 'rgba(10,132,255,0.12)', fontSize: '0.6rem', fontWeight: 700, color: 'var(--info)', flexShrink: 0,
               }}>{i + 1}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '0.8rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1676,7 +1676,7 @@ function OverlapTab({ holdingsWithValues }) {
                 </div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#FF9F0A' }}>{d.portfolioPct.toFixed(2)}%</div>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--warn)' }}>{d.portfolioPct.toFixed(2)}%</div>
                 <div style={{ fontSize: '0.65rem', color: 'var(--analysis-dim)' }}>{d.etfCount} ETF</div>
               </div>
             </div>
@@ -1861,13 +1861,13 @@ function corrBg(r) {
   return 'rgba(10,132,255,0.28)';
 }
 function corrText(r) {
-  if (r >= 0.90) return '#FF453A';
-  if (r >= 0.75) return '#FF9F0A';
+  if (r >= 0.90) return 'var(--neg)';
+  if (r >= 0.75) return 'var(--warn)';
   if (r >= 0.50) return '#FFD60A';
-  if (r >= 0.20) return '#30D158';
+  if (r >= 0.20) return 'var(--pos)';
   if (r >= 0.00) return '#4CD964';
   if (r >= -0.20) return '#5AC8FA';
-  return '#0A84FF';
+  return 'var(--info)';
 }
 function corrLabel(r) {
   if (r >= 0.92) return 'Quasi identici';
@@ -1929,7 +1929,7 @@ function CorrelationTab({ holdingsWithValues }) {
   }
 
   const highCorrPairs = pairs.filter(p => p.r >= 0.85);
-  const divColor = divScore >= 65 ? '#30D158' : divScore >= 40 ? '#FF9F0A' : '#FF453A';
+  const divColor = divScore >= 65 ? 'var(--pos)' : divScore >= 40 ? 'var(--warn)' : 'var(--neg)';
   const divDesc  = divScore >= 65 ? 'Buona diversificazione' : divScore >= 40 ? 'Discreta diversificazione' : 'Bassa diversificazione';
 
   return (
@@ -1943,7 +1943,7 @@ function CorrelationTab({ holdingsWithValues }) {
         </div>
         <div style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--analysis-subtle-bg)', border: '1px solid var(--analysis-subtle-brd)' }}>
           <div style={{ fontSize: '0.65rem', color: 'var(--analysis-dim)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Corr. elevate (≥ 0.85)</div>
-          <div style={{ fontSize: '1.4rem', fontWeight: 700, color: highCorrPairs.length > 0 ? '#FF9F0A' : '#30D158' }}>{highCorrPairs.length}</div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 700, color: highCorrPairs.length > 0 ? 'var(--warn)' : 'var(--pos)' }}>{highCorrPairs.length}</div>
           <div style={{ fontSize: '0.68rem', color: 'var(--analysis-faint)', marginTop: 2 }}>
             {highCorrPairs.length === 0 ? 'nessuna ridondanza evidente' : `${highCorrPairs.length === 1 ? 'coppia ridondante' : 'coppie ridondanti'}`}
           </div>
@@ -1968,7 +1968,7 @@ function CorrelationTab({ holdingsWithValues }) {
               border: `1px solid ${r >= 0.92 ? 'rgba(255,69,58,0.3)' : 'rgba(255,159,10,0.3)'}`,
               display: 'flex', alignItems: 'center', gap: 10,
             }}>
-              <AlertCircle size={14} color={r >= 0.92 ? '#FF453A' : '#FF9F0A'} style={{ flexShrink: 0 }} />
+              <AlertCircle size={14} color={r >= 0.92 ? 'var(--neg)' : 'var(--warn)'} style={{ flexShrink: 0 }} />
               <div style={{ flex: 1, fontSize: '0.8rem' }}>
                 <strong>{a.ticker.split('.')[0]}</strong>
                 <span style={{ color: 'var(--analysis-dim)' }}> e </span>
@@ -2039,11 +2039,11 @@ function CorrelationTab({ holdingsWithValues }) {
         {/* Legend */}
         <div style={{ marginTop: 8, display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: '0.65rem', color: 'var(--analysis-faint)', alignItems: 'center' }}>
           {[
-            ['#FF453A', '≥0.90 quasi identici'],
-            ['#FF9F0A', '0.75–0.90 alta'],
+            ['var(--neg)', '≥0.90 quasi identici'],
+            ['var(--warn)', '0.75–0.90 alta'],
             ['#FFD60A', '0.50–0.75 moderata'],
-            ['#30D158', '<0.50 bassa'],
-            ['#0A84FF', 'negativa (diversificante)'],
+            ['var(--pos)', '<0.50 bassa'],
+            ['var(--info)', 'negativa (diversificante)'],
           ].map(([c, l]) => (
             <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 8, height: 8, borderRadius: 2, background: c, flexShrink: 0 }} />
@@ -2058,7 +2058,7 @@ function CorrelationTab({ holdingsWithValues }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
         {/* Most redundant */}
         <div style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--analysis-subtle-bg)', border: '1px solid var(--analysis-subtle-brd)' }}>
-          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#FF9F0A', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--warn)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
             ▲ Più ridondanti
           </div>
           {pairs.slice(0, Math.min(5, pairs.length)).map((p, i) => (
@@ -2078,7 +2078,7 @@ function CorrelationTab({ holdingsWithValues }) {
 
         {/* Best diversifiers */}
         <div style={{ padding: '14px 16px', borderRadius: 12, background: 'var(--analysis-subtle-bg)', border: '1px solid var(--analysis-subtle-brd)' }}>
-          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#30D158', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--pos)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
             ▼ Migliori diversificatori
           </div>
           {[...pairs].reverse().slice(0, Math.min(5, pairs.length)).map((p, i) => (
@@ -2104,7 +2104,7 @@ function CorrelationTab({ holdingsWithValues }) {
         fontSize: '0.72rem', color: 'var(--analysis-dim)',
         display: 'flex', gap: 10, alignItems: 'flex-start',
       }}>
-        <Info size={13} style={{ flexShrink: 0, color: '#0A84FF', marginTop: 1 }} />
+        <Info size={13} style={{ flexShrink: 0, color: 'var(--info)', marginTop: 1 }} />
         <div>
           <strong style={{ color: 'var(--text-1)' }}>Nota metodologica:</strong>
           {' '}Correlazioni stimate da profili ETF (tipo asset, composizione geografica ponderata, fattori) — non da rendimenti storici.
@@ -2219,7 +2219,7 @@ function RebalRow({ cat, current, target, threshold, totalValue }) {
         <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--analysis-dim)' }}>{(target ?? 0).toFixed(0)}%</span>
         <span style={{
           fontSize: '0.78rem', fontWeight: 700, minWidth: 52, textAlign: 'right',
-          color: ok ? 'var(--analysis-dim)' : diff > 0 ? '#ff9f0a' : '#30d158',
+          color: ok ? 'var(--analysis-dim)' : diff > 0 ? 'var(--warn)' : 'var(--pos)',
         }}>
           {ok ? '✓ ok' : `${diff > 0 ? '+' : ''}${diff.toFixed(1)}pp`}
         </span>
@@ -2231,7 +2231,7 @@ function RebalRow({ cat, current, target, threshold, totalValue }) {
         <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${Math.min(target ?? 0, 100)}%`, width: 2, background: 'var(--analysis-dim)', opacity: 0.6, transform: 'translateX(-1px)' }} />
       </div>
       {!ok && (
-        <div style={{ fontSize: '0.72rem', color: diff > 0 ? '#ff9f0a' : '#30d158', marginTop: 4 }}>
+        <div style={{ fontSize: '0.72rem', color: diff > 0 ? 'var(--warn)' : 'var(--pos)', marginTop: 4 }}>
           {diff > 0
             ? `Sovrappesato di ${diff.toFixed(1)}pp (≈${Math.abs(diffVal).toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })})`
             : `Sottopesato di ${Math.abs(diff).toFixed(1)}pp (≈${Math.abs(diffVal).toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })})`}
@@ -2912,19 +2912,19 @@ export default function PortfolioAnalysis() {
             label="Copertura dati"
             value={`${composition?.coveragePct?.toFixed(0) ?? 0}%`}
             sub="del portafoglio mappato"
-            color={(composition?.coveragePct ?? 0) >= 80 ? '#30D158' : (composition?.coveragePct ?? 0) >= 50 ? '#FF9F0A' : '#FF453A'}
+            color={(composition?.coveragePct ?? 0) >= 80 ? 'var(--pos)' : (composition?.coveragePct ?? 0) >= 50 ? 'var(--warn)' : 'var(--neg)'}
           />
           <StatCard
             label="Paese principale"
             value={topCountry?.country ?? '—'}
             sub={topCountry ? `${topCountry.pct.toFixed(1)}% · top 3 = ${top3Pct.toFixed(0)}%` : undefined}
-            color={top3Pct > 85 ? '#FF9F0A' : undefined}
+            color={top3Pct > 85 ? 'var(--warn)' : undefined}
           />
           <StatCard
             label="Esposizione non-EUR"
             value={`${nonEurPct.toFixed(0)}%`}
             sub={`${(100 - nonEurPct).toFixed(0)}% in Euro`}
-            color={nonEurPct > 70 ? '#FF9F0A' : undefined}
+            color={nonEurPct > 70 ? 'var(--warn)' : undefined}
           />
         </div>
       )}
@@ -2934,19 +2934,19 @@ export default function PortfolioAnalysis() {
         <div className="card" style={{ marginBottom: '1.25rem', padding: '1.1rem 1.25rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
             <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-1)' }}>Copertura classificazione</div>
-            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: classCoverage.derivedPct >= 95 ? '#30D158' : classCoverage.derivedPct >= 80 ? '#FF9F0A' : '#FF453A' }}>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: classCoverage.derivedPct >= 95 ? 'var(--pos)' : classCoverage.derivedPct >= 80 ? 'var(--warn)' : 'var(--neg)' }}>
               {classCoverage.derivedPct.toFixed(0)}% classificato automaticamente
             </div>
           </div>
           {/* Barra */}
           <div style={{ height: 8, borderRadius: 4, background: 'var(--analysis-subtle-brd, var(--surface-2))', overflow: 'hidden', display: 'flex' }}>
-            <div style={{ height: '100%', width: `${classCoverage.derivedPct}%`, background: '#30D158' }} />
-            <div style={{ height: '100%', width: `${100 - classCoverage.derivedPct}%`, background: '#FF9F0A' }} />
+            <div style={{ height: '100%', width: `${classCoverage.derivedPct}%`, background: 'var(--pos)' }} />
+            <div style={{ height: '100%', width: `${100 - classCoverage.derivedPct}%`, background: 'var(--warn)' }} />
           </div>
           <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: '0.72rem', color: 'var(--analysis-dim, var(--text-3))' }}>
-            <span><span style={{ color: '#30D158', fontWeight: 700 }}>●</span> Derivata dal database</span>
+            <span><span style={{ color: 'var(--pos)', fontWeight: 700 }}>●</span> Derivata dal database</span>
             {classCoverage.toConfirm.length > 0 && (
-              <span><span style={{ color: '#FF9F0A', fontWeight: 700 }}>●</span> Da confermare ({classCoverage.toConfirm.length})</span>
+              <span><span style={{ color: 'var(--warn)', fontWeight: 700 }}>●</span> Da confermare ({classCoverage.toConfirm.length})</span>
             )}
           </div>
 
@@ -2967,7 +2967,7 @@ export default function PortfolioAnalysis() {
               <button
                 onClick={() => { reportTickers(classCoverage.toConfirm, { openMail: true }); setClassReported(true); }}
                 disabled={classReported}
-                style={{ padding: '6px 14px', borderRadius: 8, border: 'none', background: classReported ? 'var(--surface-2)' : '#FF9F0A', color: classReported ? 'var(--text-3)' : '#1a1a1a', fontSize: '0.75rem', fontWeight: 700, cursor: classReported ? 'default' : 'pointer' }}>
+                style={{ padding: '6px 14px', borderRadius: 8, border: 'none', background: classReported ? 'var(--surface-2)' : 'var(--warn)', color: classReported ? 'var(--text-3)' : '#1a1a1a', fontSize: '0.75rem', fontWeight: 700, cursor: classReported ? 'default' : 'pointer' }}>
                 {classReported ? '✓ Segnalati al team' : '✉ Segnala per aggiungerli al database'}
               </button>
             </div>
@@ -2979,9 +2979,9 @@ export default function PortfolioAnalysis() {
       {!loading && composition?.uncovered?.length > 0 && (
         <div className="card" style={{ marginBottom: '1.25rem', padding: '1rem 1.25rem', background: 'rgba(255,159,10,0.08)', border: '1px solid rgba(255,159,10,0.22)' }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            <Info size={16} style={{ color: '#FF9F0A', flexShrink: 0, marginTop: 2 }} />
+            <Info size={16} style={{ color: 'var(--warn)', flexShrink: 0, marginTop: 2 }} />
             <div>
-              <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#FF9F0A', marginBottom: 4 }}>
+              <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--warn)', marginBottom: 4 }}>
                 {composition.uncovered.length} asset senza dati di composizione
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--analysis-dim)', lineHeight: 1.5 }}>
@@ -3048,7 +3048,7 @@ export default function PortfolioAnalysis() {
                   />
                 )}
                 {top3Pct > 85 && (
-                  <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 10, background: 'rgba(255,159,10,0.08)', border: '1px solid rgba(255,159,10,0.22)', fontSize: '0.75rem', color: '#FF9F0A' }}>
+                  <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 10, background: 'rgba(255,159,10,0.08)', border: '1px solid rgba(255,159,10,0.22)', fontSize: '0.75rem', color: 'var(--warn)' }}>
                     <AlertCircle size={12} style={{ display: 'inline', marginRight: 6, verticalAlign: 'middle' }} />
                     <strong>Concentrazione geografica elevata</strong> — i primi 3 paesi pesano il {top3Pct.toFixed(0)}% del portafoglio.
                     Considera di diversificare verso Europa, Giappone o Mercati Emergenti.
@@ -3090,8 +3090,8 @@ export default function PortfolioAnalysis() {
                 {/* EUR vs non-EUR summary */}
                 <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   {[
-                    { label: 'In Euro (EUR)', pct: 100 - nonEurPct, color: '#0A84FF', note: 'Nessun rischio cambio' },
-                    { label: 'Non in Euro', pct: nonEurPct, color: '#FF9F0A', note: 'Esposto a variazioni valutarie' },
+                    { label: 'In Euro (EUR)', pct: 100 - nonEurPct, color: 'var(--info)', note: 'Nessun rischio cambio' },
+                    { label: 'Non in Euro', pct: nonEurPct, color: 'var(--warn)', note: 'Esposto a variazioni valutarie' },
                   ].map(item => (
                     <div key={item.label} style={{ padding: '10px 14px', borderRadius: 10, background: 'var(--analysis-subtle-bg)', border: '1px solid var(--analysis-subtle-brd)' }}>
                       <div style={{ fontSize: '0.72rem', color: 'var(--analysis-dim)', marginBottom: 4 }}>{item.label}</div>
@@ -3101,7 +3101,7 @@ export default function PortfolioAnalysis() {
                   ))}
                 </div>
                 {nonEurPct > 60 && (
-                  <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 10, background: 'rgba(255,159,10,0.08)', border: '1px solid rgba(255,159,10,0.22)', fontSize: '0.75rem', color: '#FF9F0A' }}>
+                  <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 10, background: 'rgba(255,159,10,0.08)', border: '1px solid rgba(255,159,10,0.22)', fontSize: '0.75rem', color: 'var(--warn)' }}>
                     <AlertCircle size={12} style={{ display: 'inline', marginRight: 6, verticalAlign: 'middle' }} />
                     Il {nonEurPct.toFixed(0)}% del portafoglio è denominato in valute non-EUR.
                     Considera ETF con copertura valutaria (hedged) se vuoi ridurre il rischio di cambio.
@@ -3159,8 +3159,8 @@ export default function PortfolioAnalysis() {
                 {/* Legend + note */}
                 <div style={{ marginTop: 14, display: 'flex', gap: 16, flexWrap: 'wrap', padding: '10px 14px', borderRadius: 10, background: 'var(--analysis-subtle-bg)', border: '1px solid var(--analysis-subtle-brd)', fontSize: '0.72rem', color: 'var(--analysis-dim)' }}>
                   <span>Benchmark: MSCI World settori (aprile 2026)</span>
-                  <span style={{ color: '#30D158' }}>● Verde = sovrappeso vs benchmark</span>
-                  <span style={{ color: '#FF453A' }}>● Rosso = sottopeso vs benchmark</span>
+                  <span style={{ color: 'var(--pos)' }}>● Verde = sovrappeso vs benchmark</span>
+                  <span style={{ color: 'var(--neg)' }}>● Rosso = sottopeso vs benchmark</span>
                   {composition.sectorCoveragePct < 95 && (
                     <span style={{ marginLeft: 'auto' }}>
                       <AlertCircle size={11} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
@@ -3217,7 +3217,7 @@ export default function PortfolioAnalysis() {
                         if (!missing.length) return null;
                         return (
                           <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 10, background: 'rgba(255,69,58,0.08)', border: '1px solid rgba(255,69,58,0.20)' }}>
-                            <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#FF453A', marginBottom: 6 }}>Aree geografiche sottopesate</div>
+                            <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--neg)', marginBottom: 6 }}>Aree geografiche sottopesate</div>
                             {missing.map(r => (
                               <div key={r.name} style={{ fontSize: '0.75rem', color: 'var(--analysis-dim)', marginBottom: 3 }}>
                                 <strong>{r.name}</strong>: ACWI {r.pct.toFixed(0)}% · portafoglio {(portMap[r.name] ?? 0).toFixed(1)}% · gap –{(r.pct - (portMap[r.name] ?? 0)).toFixed(1)}pp
@@ -3303,12 +3303,12 @@ export default function PortfolioAnalysis() {
                   {(added.length > 0 || removed.length > 0) && (
                     <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
                       {added.length > 0 && (
-                        <div style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(48,209,88,0.10)', border: '1px solid rgba(48,209,88,0.25)', fontSize: '0.78rem', color: '#30D158' }}>
+                        <div style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(48,209,88,0.10)', border: '1px solid rgba(48,209,88,0.25)', fontSize: '0.78rem', color: 'var(--pos)' }}>
                           <strong>✦ Nuove posizioni:</strong> {added.join(', ')}
                         </div>
                       )}
                       {removed.length > 0 && (
-                        <div style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(255,69,58,0.10)', border: '1px solid rgba(255,69,58,0.25)', fontSize: '0.78rem', color: '#FF453A' }}>
+                        <div style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(255,69,58,0.10)', border: '1px solid rgba(255,69,58,0.25)', fontSize: '0.78rem', color: 'var(--neg)' }}>
                           <strong>✕ Uscite:</strong> {removed.join(', ')}
                         </div>
                       )}
@@ -3322,7 +3322,7 @@ export default function PortfolioAnalysis() {
                         padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontSize: '0.78rem', fontWeight: evoSubTab === st.key ? 600 : 400,
                         background: evoSubTab === st.key ? 'rgba(10,132,255,0.18)' : 'transparent',
                         border: evoSubTab === st.key ? '1px solid rgba(10,132,255,0.30)' : '1px solid var(--analysis-subtle-brd)',
-                        color: evoSubTab === st.key ? '#0A84FF' : 'var(--analysis-dim)',
+                        color: evoSubTab === st.key ? 'var(--info)' : 'var(--analysis-dim)',
                       }}>{st.label}</button>
                     ))}
                   </div>
@@ -3356,7 +3356,7 @@ export default function PortfolioAnalysis() {
                         const isNew = row.pctA === null;
                         const isGone = row.pctB === null;
                         const absDelta = Math.abs(row.delta);
-                        const deltaColor = isNew ? '#30D158' : isGone ? '#FF453A' : absDelta < 0.3 ? 'var(--analysis-dim)' : row.delta > 0 ? '#30D158' : '#FF453A';
+                        const deltaColor = isNew ? 'var(--pos)' : isGone ? 'var(--neg)' : absDelta < 0.3 ? 'var(--analysis-dim)' : row.delta > 0 ? 'var(--pos)' : 'var(--neg)';
                         const deltaLabel = isNew ? '✦ nuovo' : isGone ? '✕ uscito' : row.delta > 0 ? `+${row.delta.toFixed(1)}pp` : `${row.delta.toFixed(1)}pp`;
                         const isActive = evoDrillDown?.key === row.key;
                         return (
@@ -3407,7 +3407,7 @@ export default function PortfolioAnalysis() {
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                             <div>
                               <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Chi pesa in: </span>
-                              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0A84FF' }}>{evoDrillDown.label}</span>
+                              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--info)' }}>{evoDrillDown.label}</span>
                             </div>
                             <button onClick={() => setEvoDrillDown(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--analysis-dim)', padding: 4 }}>
                               <X size={14} />
@@ -3421,7 +3421,7 @@ export default function PortfolioAnalysis() {
                             <span style={{ textAlign: 'right' }}>Δ</span>
                           </div>
                           {evoDrillDownData.map((row, i) => {
-                            const dColor = row.contribA === null ? '#30D158' : row.contribB === null ? '#FF453A' : Math.abs(row.delta) < 0.05 ? 'var(--analysis-dim)' : row.delta > 0 ? '#30D158' : '#FF453A';
+                            const dColor = row.contribA === null ? 'var(--pos)' : row.contribB === null ? 'var(--neg)' : Math.abs(row.delta) < 0.05 ? 'var(--analysis-dim)' : row.delta > 0 ? 'var(--pos)' : 'var(--neg)';
                             const dLabel = row.contribA === null ? '✦ nuovo' : row.contribB === null ? '✕ uscito' : row.delta > 0 ? `+${row.delta.toFixed(2)}pp` : `${row.delta.toFixed(2)}pp`;
                             return (
                               <div key={row.ticker} style={{ paddingTop: 10 }}>
@@ -3460,11 +3460,11 @@ export default function PortfolioAnalysis() {
                 {/* Intro note */}
                 <div style={{ fontSize: '0.78rem', color: 'var(--analysis-dim)', marginBottom: 18, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ width: 10, height: 10, borderRadius: 2, background: '#0A84FF', flexShrink: 0 }} />
+                    <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--info)', flexShrink: 0 }} />
                     % portafoglio con tilt positivo
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ width: 10, height: 10, borderRadius: 2, background: '#FF9F0A', flexShrink: 0 }} />
+                    <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--warn)', flexShrink: 0 }} />
                     % portafoglio con tilt negativo
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -3518,8 +3518,8 @@ export default function PortfolioAnalysis() {
                                   fontSize: '0.68rem', fontWeight: 700,
                                   padding: '2px 8px', borderRadius: 20,
                                   background: isPos ? 'rgba(10,132,255,0.12)' : 'rgba(255,159,10,0.12)',
-                                  color: isPos ? '#0A84FF' : '#FF9F0A',
-                                  border: `1px solid ${isPos ? '#0A84FF' : '#FF9F0A'}33`,
+                                  color: isPos ? 'var(--info)' : 'var(--warn)',
+                                  border: `1px solid ${isPos ? 'var(--info)' : 'var(--warn)'}33`,
                                 }}>
                                   {intensity} {f.label} {isPos ? '+' : ''}{f.v.toFixed(1)}
                                 </span>
@@ -3538,7 +3538,7 @@ export default function PortfolioAnalysis() {
 
                     {/* Legenda soglia */}
                     <div style={{ marginTop: 10, padding: '8px 12px', borderRadius: 8, background: 'var(--analysis-subtle-bg)', border: '1px solid var(--analysis-subtle-brd)', fontSize: '0.68rem', color: 'var(--analysis-dim)' }}>
-                      Soglia tilt: ◐ 0.3–0.5 · ● 0.5–1.0 · ●● ≥ 1.0 · Positivo = <span style={{ color: '#0A84FF' }}>blu</span> · Negativo = <span style={{ color: '#FF9F0A' }}>arancio</span>
+                      Soglia tilt: ◐ 0.3–0.5 · ● 0.5–1.0 · ●● ≥ 1.0 · Positivo = <span style={{ color: 'var(--info)' }}>blu</span> · Negativo = <span style={{ color: 'var(--warn)' }}>arancio</span>
                     </div>
                   </div>
                 </div>
@@ -3560,7 +3560,7 @@ export default function PortfolioAnalysis() {
                         <strong style={{ color: 'var(--text-1)' }}>{holdingItems.length}</strong> titoli sottostanti
                         {' '}· ponderati per valore di portafoglio
                         {uncoveredPct > 0 && (
-                          <span style={{ color: '#FF9F0A', marginLeft: 6 }}>
+                          <span style={{ color: 'var(--warn)', marginLeft: 6 }}>
                             · {uncoveredPct.toFixed(0)}% del portafoglio senza dati
                           </span>
                         )}
@@ -3579,7 +3579,7 @@ export default function PortfolioAnalysis() {
                     fontSize: '0.72rem', color: 'var(--analysis-dim)',
                     display: 'flex', alignItems: 'flex-start', gap: 8,
                   }}>
-                    <Info size={13} style={{ flexShrink: 0, color: '#FF9F0A', marginTop: 1 }} />
+                    <Info size={13} style={{ flexShrink: 0, color: 'var(--warn)', marginTop: 1 }} />
                     <div>
                       <strong style={{ color: 'var(--text-1)' }}>{uncoveredPct.toFixed(0)}% del portafoglio</strong>
                       {' '}(<Blur tag="span">{uncoveredNames.slice(0, 3).join(', ')}{uncoveredNames.length > 3 ? ` +${uncoveredNames.length - 3}` : ''}</Blur>)
@@ -3682,7 +3682,7 @@ export default function PortfolioAnalysis() {
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                         <AlertCircle size={16} color="#FF9F0A" style={{ flexShrink: 0, marginTop: 2 }} />
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#FF9F0A', marginBottom: 3 }}>
+                          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--warn)', marginBottom: 3 }}>
                             {toNotify.length} {toNotify.length === 1 ? 'strumento non riconosciuto' : 'strumenti non riconosciuti'}
                           </div>
                           <div style={{ fontSize: '0.72rem', color: 'var(--analysis-dim)', marginBottom: 10 }}>
@@ -3697,7 +3697,7 @@ export default function PortfolioAnalysis() {
                                   display: 'inline-flex', alignItems: 'center', gap: 5,
                                   padding: '5px 13px', borderRadius: 8,
                                   background: 'rgba(255,159,10,0.18)', border: '1px solid rgba(255,159,10,0.45)',
-                                  color: '#FF9F0A', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer',
+                                  color: 'var(--warn)', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer',
                                 }}
                               >
                                 <Zap size={11} /> Trova equivalenti →
@@ -3829,11 +3829,11 @@ export default function PortfolioAnalysis() {
                         <TrendingDown size={13} color="#BF5AF2" />
                         <span style={{ fontSize: '0.68rem', fontWeight: 600, color: 'var(--analysis-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Totale stimato/anno</span>
                       </div>
-                      <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0A84FF', lineHeight: 1 }}>
+                      <div style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--info)', lineHeight: 1 }}>
                         €{fmt(ca.grandTotal)}
                       </div>
                       <div style={{ fontSize: '0.72rem', color: 'var(--analysis-dim)', marginTop: 4 }}>
-                        Sul patrimonio: <strong style={{ color: '#0A84FF' }}>{fmtPct(ca.grandTotalPct)}%</strong>/anno
+                        Sul patrimonio: <strong style={{ color: 'var(--info)' }}>{fmtPct(ca.grandTotalPct)}%</strong>/anno
                       </div>
                     </div>
                   </div>
@@ -3879,7 +3879,7 @@ export default function PortfolioAnalysis() {
                           </div>
                           <div style={{ fontSize: '0.68rem', color: 'var(--analysis-dim)', marginTop: 1 }}>
                             <Blur>{r.ticker}</Blur>
-                            {r.ter === 0 && <span style={{ marginLeft: 6, color: '#30D158', fontSize: '0.62rem' }}>azione singola</span>}
+                            {r.ter === 0 && <span style={{ marginLeft: 6, color: 'var(--pos)', fontSize: '0.62rem' }}>azione singola</span>}
                           </div>
                         </div>
 
@@ -3893,11 +3893,11 @@ export default function PortfolioAnalysis() {
                           {r.ter == null ? (
                             <span style={{ fontSize: '0.7rem', color: 'var(--analysis-faint)' }}>—</span>
                           ) : r.ter === 0 ? (
-                            <span style={{ fontSize: '0.78rem', color: '#30D158', fontWeight: 600 }}>0.00%</span>
+                            <span style={{ fontSize: '0.78rem', color: 'var(--pos)', fontWeight: 600 }}>0.00%</span>
                           ) : (
                             <span style={{
                               fontSize: '0.78rem', fontWeight: 600,
-                              color: r.ter > 0.40 ? '#FF453A' : r.ter > 0.25 ? '#FF9F0A' : '#30D158',
+                              color: r.ter > 0.40 ? 'var(--neg)' : r.ter > 0.25 ? 'var(--warn)' : 'var(--pos)',
                             }}>
                               {fmtPct(r.ter)}%
                             </span>
@@ -3909,7 +3909,7 @@ export default function PortfolioAnalysis() {
                           {r.annualCost == null
                             ? <span style={{ color: 'var(--analysis-faint)', fontWeight: 400 }}>—</span>
                             : r.annualCost === 0
-                            ? <span style={{ color: '#30D158' }}>€0.00</span>
+                            ? <span style={{ color: 'var(--pos)' }}>€0.00</span>
                             : `€${fmt(r.annualCost)}`
                           }
                         </div>
@@ -3926,7 +3926,7 @@ export default function PortfolioAnalysis() {
                       <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-1)' }}>
                         Totale TER
                         {ca.uncoveredPct > 0 && (
-                          <span style={{ fontSize: '0.65rem', color: '#FF9F0A', marginLeft: 6, fontWeight: 400 }}>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--warn)', marginLeft: 6, fontWeight: 400 }}>
                             ({ca.uncoveredPct.toFixed(0)}% portafoglio senza TER mappato)
                           </span>
                         )}
@@ -3935,7 +3935,7 @@ export default function PortfolioAnalysis() {
                       <div style={{ textAlign: 'right', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-1)' }}>
                         {fmtPct(ca.weightedTer)}%
                       </div>
-                      <div style={{ textAlign: 'right', fontSize: '0.85rem', fontWeight: 700, color: '#0A84FF' }}>
+                      <div style={{ textAlign: 'right', fontSize: '0.85rem', fontWeight: 700, color: 'var(--info)' }}>
                         €{fmt(ca.totalTerCost)}
                       </div>
                     </div>
@@ -3947,7 +3947,7 @@ export default function PortfolioAnalysis() {
                       fontSize: '0.68rem', color: 'var(--analysis-dim)',
                       display: 'flex', alignItems: 'flex-start', gap: 8,
                     }}>
-                      <Info size={12} style={{ flexShrink: 0, color: '#0A84FF', marginTop: 1 }} />
+                      <Info size={12} style={{ flexShrink: 0, color: 'var(--info)', marginTop: 1 }} />
                       <div>
                         Fonte: database interno — siti provider ETF (iShares, Vanguard, SPDR, Amundi) e KIID ufficiali.
                         I TER sono aggiornati a maggio 2026. Verifica annualmente sul sito del provider o su JustETF.
@@ -3996,7 +3996,7 @@ export default function PortfolioAnalysis() {
                           fontSize: '0.68rem', color: 'var(--analysis-dim)',
                           display: 'flex', alignItems: 'center', gap: 8,
                         }}>
-                          <Info size={12} style={{ flexShrink: 0, color: '#FF9F0A' }} />
+                          <Info size={12} style={{ flexShrink: 0, color: 'var(--warn)' }} />
                           Le commissioni sono quelle inserite manualmente nelle transazioni.
                           Per risultati accurati assicurati di compilare il campo "Commissioni" in ogni operazione.
                         </div>
@@ -4008,7 +4008,7 @@ export default function PortfolioAnalysis() {
                         fontSize: '0.8rem', color: 'var(--analysis-dim)',
                         display: 'flex', alignItems: 'flex-start', gap: 10,
                       }}>
-                        <AlertCircle size={16} style={{ flexShrink: 0, color: '#FF9F0A', marginTop: 1 }} />
+                        <AlertCircle size={16} style={{ flexShrink: 0, color: 'var(--warn)', marginTop: 1 }} />
                         <div>
                           <strong style={{ color: 'var(--text-1)', display: 'block', marginBottom: 4 }}>
                             Nessuna commissione registrata
@@ -4037,7 +4037,7 @@ export default function PortfolioAnalysis() {
                         ].map(b => {
                           const maxPct = 2.50;
                           const barW = Math.min((b.pct / maxPct) * 100, 100);
-                          const color = b.highlight ? '#0A84FF' : b.pct < 0.30 ? '#30D158' : b.pct < 0.80 ? '#FF9F0A' : '#FF453A';
+                          const color = b.highlight ? 'var(--info)' : b.pct < 0.30 ? 'var(--pos)' : b.pct < 0.80 ? 'var(--warn)' : 'var(--neg)';
                           return (
                             <div key={b.label}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
@@ -4073,7 +4073,7 @@ export default function PortfolioAnalysis() {
                       padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
                       fontSize: '0.8rem', fontWeight: obiettivoSubTab === st.key ? 700 : 400,
                       background: obiettivoSubTab === st.key ? 'rgba(10,132,255,0.15)' : 'var(--analysis-subtle-bg)',
-                      color: obiettivoSubTab === st.key ? '#0A84FF' : 'var(--analysis-dim)',
+                      color: obiettivoSubTab === st.key ? 'var(--info)' : 'var(--analysis-dim)',
                     }}>
                       {st.label}
                     </button>
@@ -4159,7 +4159,7 @@ export default function PortfolioAnalysis() {
                         }}>
                           <CheckCircle2 size={18} color="#30d158" />
                           <div>
-                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#30d158' }}>Portafoglio allineato all'obiettivo!</div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--pos)' }}>Portafoglio allineato all'obiettivo!</div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--analysis-dim)' }}>
                               Tutte le categorie rientrano nella soglia di tolleranza di ±{obiettivo.threshold}%.
                             </div>
@@ -4170,7 +4170,7 @@ export default function PortfolioAnalysis() {
                         <div style={{ marginTop: 20, padding: '14px 16px', borderRadius: 12, background: 'rgba(255,159,10,0.08)', border: '1px solid rgba(255,159,10,0.25)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                             <AlertCircle size={16} color="#ff9f0a" />
-                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#ff9f0a' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--warn)' }}>
                               {alerts.length} {alerts.length === 1 ? 'categoria fuori target' : 'categorie fuori target'}
                             </span>
                           </div>
@@ -4178,7 +4178,7 @@ export default function PortfolioAnalysis() {
                             <div key={a.key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: '0.8rem' }}>
                               <span style={{ fontSize: '1rem' }}>{a.emoji}</span>
                               <span style={{ flex: 1 }}>{a.label}</span>
-                              <span style={{ fontWeight: 700, color: a.diff > 0 ? '#ff9f0a' : '#30d158' }}>
+                              <span style={{ fontWeight: 700, color: a.diff > 0 ? 'var(--warn)' : 'var(--pos)' }}>
                                 {a.diff > 0
                                   ? `Vendi ${Math.abs(a.diffVal).toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}`
                                   : `Compra ${Math.abs(a.diffVal).toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}`}
@@ -4192,7 +4192,7 @@ export default function PortfolioAnalysis() {
                     {/* Link to portfolio manager */}
                     <div style={{ marginTop: 16, fontSize: '0.75rem', color: 'var(--analysis-dim)' }}>
                       Gestisci i target di allocazione in{' '}
-                      <a href="/portfolios" style={{ color: '#0A84FF', textDecoration: 'none', fontWeight: 600 }}>Portafogli →</a>
+                      <a href="/portfolios" style={{ color: 'var(--info)', textDecoration: 'none', fontWeight: 600 }}>Portafogli →</a>
                     </div>
                   </>
                 ) : (
@@ -4207,7 +4207,7 @@ export default function PortfolioAnalysis() {
                     <a href="/portfolios" style={{
                       display: 'inline-flex', alignItems: 'center', gap: 6,
                       padding: '9px 18px', borderRadius: 10, border: 'none',
-                      background: '#0A84FF', color: '#fff',
+                      background: 'var(--info)', color: '#fff',
                       fontSize: '0.875rem', fontWeight: 600, textDecoration: 'none',
                     }}>
                       <Target size={15} /> Vai a Portafogli

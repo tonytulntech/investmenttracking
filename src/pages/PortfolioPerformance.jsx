@@ -272,7 +272,7 @@ function TickerSparkLine({ data, width = 200, height = 55 }) {
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   });
   const isUp = prices[prices.length - 1] >= prices[0];
-  const color = isUp ? '#30D158' : '#FF453A';
+  const color = isUp ? 'var(--pos)' : 'var(--neg)';
   const [lx, ly] = pts[pts.length - 1].split(',');
   return (
     <svg width={width} height={height} style={{ display: 'block', overflow: 'visible' }}>
@@ -1543,7 +1543,7 @@ function PortfolioPerformance() {
             </h1>
             <span style={{ color: 'var(--text-3)', fontSize: '0.72rem' }}>
               TWR · {statistics.totalAssets} asset · {statistics.monthsTracked} mesi
-              {isRefreshing && <span style={{ marginLeft: 8, color: '#FF9F0A' }}>· aggiornamento…</span>}
+              {isRefreshing && <span style={{ marginLeft: 8, color: 'var(--warn)' }}>· aggiornamento…</span>}
             </span>
           </div>
           <button
@@ -1573,7 +1573,7 @@ function PortfolioPerformance() {
                 onClick={() => setDateFilter(val)}
                 style={{
                   padding: '6px 18px', borderRadius: 20, fontSize: '0.82rem', fontWeight: 500,
-                  background: isActive ? '#0A84FF' : 'var(--surface-2)',
+                  background: isActive ? 'var(--info)' : 'var(--surface-2)',
                   color: isActive ? '#fff' : 'var(--text-2)',
                   border: isActive ? 'none' : '1px solid var(--border)',
                   cursor: 'pointer'
@@ -1637,13 +1637,13 @@ function PortfolioPerformance() {
             {
               label: 'Valore Attuale',
               value: `€${Math.round(statistics.totalValue).toLocaleString('it-IT')}`,
-              color: '#0A84FF',
+              color: 'var(--info)',
               sub: 'Portafoglio ai prezzi correnti'
             },
             {
               label: statistics.totalReturn >= 0 ? 'Guadagno' : 'Perdita',
               value: `${statistics.totalReturn >= 0 ? '+' : ''}€${Math.round(statistics.totalReturn).toLocaleString('it-IT')}`,
-              color: statistics.totalReturn >= 0 ? '#30D158' : '#FF453A',
+              color: statistics.totalReturn >= 0 ? 'var(--pos)' : 'var(--neg)',
               sub: `${statistics.totalReturnPercent >= 0 ? '+' : ''}${statistics.totalReturnPercent.toFixed(2)}% sul capitale`
             },
           ].map(item => (
@@ -1666,18 +1666,18 @@ function PortfolioPerformance() {
           ? `${inclMonths}/${totalMonths} mesi (era ${statistics.twrFull >= 0 ? '+' : ''}${(statistics.twrFull || 0).toFixed(2)}% su ${totalMonths})`
           : `${totalMonths} mesi · esclusi versamenti`;
         const kpis = [
-          { label: 'Rendimento', value: `${statistics.totalReturnPercent >= 0 ? '+' : ''}${statistics.totalReturnPercent.toFixed(2)}%`, color: statistics.totalReturnPercent >= 0 ? '#30D158' : '#FF453A', sub: 'Sul capitale investito' },
-          { label: excl ? 'TWR adj.' : 'TWR', value: `${twrPercent >= 0 ? '+' : ''}${twrPercent.toFixed(2)}%`, color: twrPercent >= 0 ? '#30D158' : '#FF453A', sub: twrSub },
-          { label: 'CAGR', value: `${statistics.cagr >= 0 ? '+' : ''}${statistics.cagr.toFixed(2)}%`, color: statistics.cagr >= 0 ? '#30D158' : '#FF453A', sub: `Annualizzato${adjBadge}` },
+          { label: 'Rendimento', value: `${statistics.totalReturnPercent >= 0 ? '+' : ''}${statistics.totalReturnPercent.toFixed(2)}%`, color: statistics.totalReturnPercent >= 0 ? 'var(--pos)' : 'var(--neg)', sub: 'Sul capitale investito' },
+          { label: excl ? 'TWR adj.' : 'TWR', value: `${twrPercent >= 0 ? '+' : ''}${twrPercent.toFixed(2)}%`, color: twrPercent >= 0 ? 'var(--pos)' : 'var(--neg)', sub: twrSub },
+          { label: 'CAGR', value: `${statistics.cagr >= 0 ? '+' : ''}${statistics.cagr.toFixed(2)}%`, color: statistics.cagr >= 0 ? 'var(--pos)' : 'var(--neg)', sub: `Annualizzato${adjBadge}` },
           { label: 'Volatilità', value: `${statistics.volatility.toFixed(2)}%`, color: 'var(--text-1)', sub: `Ann. mensile${adjBadge}` },
-          { label: 'Sharpe Ratio', value: statistics.sharpeRatio.toFixed(2), color: statistics.sharpeRatio >= 1 ? '#30D158' : statistics.sharpeRatio >= 0 ? 'var(--text-1)' : '#FF453A', sub: `${statistics.sharpeRatio >= 1 ? 'Buono (>1)' : 'Nella media'}${adjBadge}` },
-          { label: 'Max Drawdown', value: `-${statistics.maxDrawdown.toFixed(2)}%`, color: '#FF453A', sub: `Dal picco${adjBadge}` },
+          { label: 'Sharpe Ratio', value: statistics.sharpeRatio.toFixed(2), color: statistics.sharpeRatio >= 1 ? 'var(--pos)' : statistics.sharpeRatio >= 0 ? 'var(--text-1)' : 'var(--neg)', sub: `${statistics.sharpeRatio >= 1 ? 'Buono (>1)' : 'Nella media'}${adjBadge}` },
+          { label: 'Max Drawdown', value: `-${statistics.maxDrawdown.toFixed(2)}%`, color: 'var(--neg)', sub: `Dal picco${adjBadge}` },
         ];
         return (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
             {kpis.map(kpi => (
               <div key={kpi.label} style={{ background: 'var(--card-bg)', borderRadius: 16, padding: '16px 20px', border: excl ? '1px solid rgba(10,132,255,0.22)' : 'none' }}>
-                <p style={{ fontSize: '0.72rem', color: excl ? '#0A84FF' : 'var(--text-3)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{kpi.label}</p>
+                <p style={{ fontSize: '0.72rem', color: excl ? 'var(--info)' : 'var(--text-3)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{kpi.label}</p>
                 <p style={{ fontSize: '1.5rem', fontWeight: 700, color: kpi.color, margin: 0, ...MONO }}>{kpi.value}</p>
                 <p style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginTop: 4 }}>{kpi.sub}</p>
               </div>
@@ -1689,18 +1689,18 @@ function PortfolioPerformance() {
       {/* ── 3.5 BANNER ESCLUSIONE MESI ── */}
       {excludedMonths.size > 0 && (
         <div style={{ background: 'rgba(10,132,255,0.06)', border: '1px solid rgba(10,132,255,0.22)', borderRadius: 14, padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.78rem', color: '#0A84FF', fontWeight: 600 }}>
+          <span style={{ fontSize: '0.78rem', color: 'var(--info)', fontWeight: 600 }}>
             Scenario · {excludedMonths.size} {excludedMonths.size === 1 ? 'mese escluso' : 'mesi esclusi'}
           </span>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
             {[...excludedMonths].sort().map(mk => (
-              <span key={mk} style={{ fontSize: '0.68rem', background: 'rgba(10,132,255,0.12)', color: '#0A84FF', padding: '2px 8px', borderRadius: 6, fontWeight: 600 }}>
+              <span key={mk} style={{ fontSize: '0.68rem', background: 'rgba(10,132,255,0.12)', color: 'var(--info)', padding: '2px 8px', borderRadius: 6, fontWeight: 600 }}>
                 {mk}
-                <button onClick={() => setExcludedMonths(prev => { const n = new Set(prev); n.delete(mk); return n; })} style={{ background: 'none', border: 'none', color: '#0A84FF', cursor: 'pointer', padding: '0 0 0 4px', fontSize: '0.68rem', fontWeight: 700 }}>×</button>
+                <button onClick={() => setExcludedMonths(prev => { const n = new Set(prev); n.delete(mk); return n; })} style={{ background: 'none', border: 'none', color: 'var(--info)', cursor: 'pointer', padding: '0 0 0 4px', fontSize: '0.68rem', fontWeight: 700 }}>×</button>
               </span>
             ))}
           </div>
-          <button onClick={() => setExcludedMonths(new Set())} style={{ fontSize: '0.72rem', color: '#0A84FF', background: 'none', border: '1px solid rgba(10,132,255,0.3)', borderRadius: 8, padding: '4px 12px', cursor: 'pointer', fontWeight: 600 }}>
+          <button onClick={() => setExcludedMonths(new Set())} style={{ fontSize: '0.72rem', color: 'var(--info)', background: 'none', border: '1px solid rgba(10,132,255,0.3)', borderRadius: 8, padding: '4px 12px', cursor: 'pointer', fontWeight: 600 }}>
             Reset
           </button>
         </div>
@@ -1718,14 +1718,14 @@ function PortfolioPerformance() {
             {/* Picco Patrimonio € */}
             <div style={{
               background: 'var(--surface-2)', borderRadius: 12, padding: '14px 18px',
-              borderLeft: `3px solid ${peakStats.isAtValuePeak ? '#30D158' : '#FF9F0A'}`,
+              borderLeft: `3px solid ${peakStats.isAtValuePeak ? 'var(--pos)' : 'var(--warn)'}`,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <p style={{ fontSize: '0.68rem', color: 'var(--text-3)', margin: 0, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Patrimonio massimo
                 </p>
                 {peakStats.isAtValuePeak && (
-                  <span style={{ fontSize: '0.58rem', fontWeight: 800, color: '#0B2E14', background: '#30D158', padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <span style={{ fontSize: '0.58rem', fontWeight: 800, color: '#0B2E14', background: 'var(--pos)', padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     ATH · Sei qui
                   </span>
                 )}
@@ -1742,7 +1742,7 @@ function PortfolioPerformance() {
                   <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-1)', ...MONO }}>
                     €{Math.round(peakStats.currentValue).toLocaleString('it-IT')}
                   </span>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#FF453A', marginLeft: 'auto', ...MONO }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--neg)', marginLeft: 'auto', ...MONO }}>
                     {peakStats.valueGapPct.toFixed(2)}% (−€{Math.round(-peakStats.valueGapAbs).toLocaleString('it-IT')})
                   </span>
                 </div>
@@ -1752,19 +1752,19 @@ function PortfolioPerformance() {
             {/* Picco Rendimento % sul capitale (money-weighted like) */}
             <div style={{
               background: 'var(--surface-2)', borderRadius: 12, padding: '14px 18px',
-              borderLeft: `3px solid ${peakStats.isAtReturnPeak ? '#30D158' : '#FF9F0A'}`,
+              borderLeft: `3px solid ${peakStats.isAtReturnPeak ? 'var(--pos)' : 'var(--warn)'}`,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <p style={{ fontSize: '0.68rem', color: 'var(--text-3)', margin: 0, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Rendimento massimo
                 </p>
                 {peakStats.isAtReturnPeak && (
-                  <span style={{ fontSize: '0.58rem', fontWeight: 800, color: '#0B2E14', background: '#30D158', padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <span style={{ fontSize: '0.58rem', fontWeight: 800, color: '#0B2E14', background: 'var(--pos)', padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     ATH · Sei qui
                   </span>
                 )}
               </div>
-              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: peakStats.peakReturnPct >= 0 ? '#30D158' : '#FF453A', margin: 0, ...MONO }}>
+              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: peakStats.peakReturnPct >= 0 ? 'var(--pos)' : 'var(--neg)', margin: 0, ...MONO }}>
                 {peakStats.peakReturnPct >= 0 ? '+' : ''}{peakStats.peakReturnPct.toFixed(2)}%
               </p>
               <p style={{ fontSize: '0.7rem', color: 'var(--text-3)', margin: '3px 0 8px' }}>
@@ -1773,10 +1773,10 @@ function PortfolioPerformance() {
               {!peakStats.isAtReturnPeak && (
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>Attuale:</span>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: peakStats.currentReturnPct >= 0 ? '#30D158' : '#FF453A', ...MONO }}>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: peakStats.currentReturnPct >= 0 ? 'var(--pos)' : 'var(--neg)', ...MONO }}>
                     {peakStats.currentReturnPct >= 0 ? '+' : ''}{peakStats.currentReturnPct.toFixed(2)}%
                   </span>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#FF453A', marginLeft: 'auto', ...MONO }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--neg)', marginLeft: 'auto', ...MONO }}>
                     {peakStats.returnGap.toFixed(2)}pp dal picco
                   </span>
                 </div>
@@ -1786,19 +1786,19 @@ function PortfolioPerformance() {
             {/* Picco Rendimento TWR% */}
             <div style={{
               background: 'var(--surface-2)', borderRadius: 12, padding: '14px 18px',
-              borderLeft: `3px solid ${peakStats.isAtTwrPeak ? '#30D158' : '#FF9F0A'}`,
+              borderLeft: `3px solid ${peakStats.isAtTwrPeak ? 'var(--pos)' : 'var(--warn)'}`,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <p style={{ fontSize: '0.68rem', color: 'var(--text-3)', margin: 0, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Rendimento TWR massimo
                 </p>
                 {peakStats.isAtTwrPeak && (
-                  <span style={{ fontSize: '0.58rem', fontWeight: 800, color: '#0B2E14', background: '#30D158', padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  <span style={{ fontSize: '0.58rem', fontWeight: 800, color: '#0B2E14', background: 'var(--pos)', padding: '2px 7px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     ATH · Sei qui
                   </span>
                 )}
               </div>
-              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: peakStats.peakTwrPct >= 0 ? '#30D158' : '#FF453A', margin: 0, ...MONO }}>
+              <p style={{ fontSize: '1.5rem', fontWeight: 700, color: peakStats.peakTwrPct >= 0 ? 'var(--pos)' : 'var(--neg)', margin: 0, ...MONO }}>
                 {peakStats.peakTwrPct >= 0 ? '+' : ''}{peakStats.peakTwrPct.toFixed(2)}%
               </p>
               <p style={{ fontSize: '0.7rem', color: 'var(--text-3)', margin: '3px 0 8px' }}>
@@ -1807,10 +1807,10 @@ function PortfolioPerformance() {
               {!peakStats.isAtTwrPeak && (
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>Attuale:</span>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: peakStats.currentTwrPct >= 0 ? '#30D158' : '#FF453A', ...MONO }}>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: peakStats.currentTwrPct >= 0 ? 'var(--pos)' : 'var(--neg)', ...MONO }}>
                     {peakStats.currentTwrPct >= 0 ? '+' : ''}{peakStats.currentTwrPct.toFixed(2)}%
                   </span>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#FF453A', marginLeft: 'auto', ...MONO }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--neg)', marginLeft: 'auto', ...MONO }}>
                     {peakStats.twrGap.toFixed(2)}pp dal picco
                   </span>
                 </div>
@@ -1898,11 +1898,11 @@ function PortfolioPerformance() {
                     </thead>
                     <tbody>
                       {[
-                        { label: 'Rendimento', myVal: `${statistics.totalReturnPercent >= 0 ? '+' : ''}${statistics.totalReturnPercent.toFixed(2)}%`, myColor: statistics.totalReturnPercent >= 0 ? '#30D158' : '#FF453A', getVal: (d) => `${d.metrics.totalReturn >= 0 ? '+' : ''}${d.metrics.totalReturn.toFixed(2)}%`, getColor: (d) => d.metrics.totalReturn >= 0 ? '#30D158' : '#FF453A' },
-                        { label: 'CAGR', myVal: `${statistics.cagr >= 0 ? '+' : ''}${statistics.cagr.toFixed(2)}%`, myColor: statistics.cagr >= 0 ? '#30D158' : '#FF453A', getVal: (d) => `${d.metrics.cagr >= 0 ? '+' : ''}${d.metrics.cagr.toFixed(2)}%`, getColor: (d) => d.metrics.cagr >= 0 ? '#30D158' : '#FF453A' },
+                        { label: 'Rendimento', myVal: `${statistics.totalReturnPercent >= 0 ? '+' : ''}${statistics.totalReturnPercent.toFixed(2)}%`, myColor: statistics.totalReturnPercent >= 0 ? 'var(--pos)' : 'var(--neg)', getVal: (d) => `${d.metrics.totalReturn >= 0 ? '+' : ''}${d.metrics.totalReturn.toFixed(2)}%`, getColor: (d) => d.metrics.totalReturn >= 0 ? 'var(--pos)' : 'var(--neg)' },
+                        { label: 'CAGR', myVal: `${statistics.cagr >= 0 ? '+' : ''}${statistics.cagr.toFixed(2)}%`, myColor: statistics.cagr >= 0 ? 'var(--pos)' : 'var(--neg)', getVal: (d) => `${d.metrics.cagr >= 0 ? '+' : ''}${d.metrics.cagr.toFixed(2)}%`, getColor: (d) => d.metrics.cagr >= 0 ? 'var(--pos)' : 'var(--neg)' },
                         { label: 'Volatilità', myVal: `${statistics.volatility.toFixed(2)}%`, myColor: 'var(--text-1)', getVal: (d) => `${d.metrics.volatility.toFixed(2)}%`, getColor: () => 'var(--text-1)' },
-                        { label: 'Max DD', myVal: `-${statistics.maxDrawdown.toFixed(2)}%`, myColor: '#FF453A', getVal: (d) => `-${d.metrics.maxDrawdown.toFixed(2)}%`, getColor: () => '#FF453A' },
-                        { label: 'Sharpe', myVal: statistics.sharpeRatio.toFixed(2), myColor: statistics.sharpeRatio >= 1 ? '#30D158' : 'var(--text-1)', getVal: (d) => d.metrics.sharpeRatio.toFixed(2), getColor: (d) => d.metrics.sharpeRatio >= 1 ? '#30D158' : 'var(--text-1)' },
+                        { label: 'Max DD', myVal: `-${statistics.maxDrawdown.toFixed(2)}%`, myColor: 'var(--neg)', getVal: (d) => `-${d.metrics.maxDrawdown.toFixed(2)}%`, getColor: () => 'var(--neg)' },
+                        { label: 'Sharpe', myVal: statistics.sharpeRatio.toFixed(2), myColor: statistics.sharpeRatio >= 1 ? 'var(--pos)' : 'var(--text-1)', getVal: (d) => d.metrics.sharpeRatio.toFixed(2), getColor: (d) => d.metrics.sharpeRatio >= 1 ? 'var(--pos)' : 'var(--text-1)' },
                       ].map(row => (
                         <tr key={row.label} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td style={{ padding: '6px 10px', color: 'var(--text-3)', fontSize: '0.78rem' }}>{row.label}</td>
@@ -1946,7 +1946,7 @@ function PortfolioPerformance() {
                 }}>
                   <span style={{ fontSize: '0.82rem', color: 'var(--text-2)', fontWeight: isTotal ? 600 : 400 }}>{label}</span>
                   {data ? (
-                    <span style={{ fontWeight: 700, fontSize: '0.92rem', color: data.return >= 0 ? '#30D158' : '#FF453A', ...MONO }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.92rem', color: data.return >= 0 ? 'var(--pos)' : 'var(--neg)', ...MONO }}>
                       {data.return >= 0 ? '+' : ''}{data.return.toFixed(1)}%
                     </span>
                   ) : (
@@ -1965,13 +1965,13 @@ function PortfolioPerformance() {
                 {statistics.bestMonth && (
                   <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(48,209,88,0.1)', border: '1px solid rgba(48,209,88,0.25)' }}>
                     <p style={{ fontSize: '0.72rem', color: 'var(--text-3)', margin: '0 0 3px' }}>Miglior mese · {statistics.bestMonth.month}</p>
-                    <p style={{ fontWeight: 700, color: '#30D158', fontSize: '1.2rem', margin: 0, ...MONO }}>+{statistics.bestMonth.return.toFixed(2)}%</p>
+                    <p style={{ fontWeight: 700, color: 'var(--pos)', fontSize: '1.2rem', margin: 0, ...MONO }}>+{statistics.bestMonth.return.toFixed(2)}%</p>
                   </div>
                 )}
                 {statistics.worstMonth && (
                   <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(255,69,58,0.1)', border: '1px solid rgba(255,69,58,0.25)' }}>
                     <p style={{ fontSize: '0.72rem', color: 'var(--text-3)', margin: '0 0 3px' }}>Peggior mese · {statistics.worstMonth.month}</p>
-                    <p style={{ fontWeight: 700, color: '#FF453A', fontSize: '1.2rem', margin: 0, ...MONO }}>{statistics.worstMonth.return.toFixed(2)}%</p>
+                    <p style={{ fontWeight: 700, color: 'var(--neg)', fontSize: '1.2rem', margin: 0, ...MONO }}>{statistics.worstMonth.return.toFixed(2)}%</p>
                   </div>
                 )}
               </div>
@@ -1983,9 +1983,9 @@ function PortfolioPerformance() {
             <h3 style={{ fontWeight: 600, color: 'var(--text-2)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>Altri Indicatori</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
-                { label: 'Sortino Ratio', value: statistics.sortinoRatio === Infinity ? '∞' : statistics.sortinoRatio.toFixed(2), color: statistics.sortinoRatio >= 1 ? '#30D158' : 'var(--text-1)' },
+                { label: 'Sortino Ratio', value: statistics.sortinoRatio === Infinity ? '∞' : statistics.sortinoRatio.toFixed(2), color: statistics.sortinoRatio >= 1 ? 'var(--pos)' : 'var(--text-1)' },
                 { label: 'Recovery Time', value: statistics.recoveryTime > 0 ? `${statistics.recoveryTime} mesi` : 'N/A', color: 'var(--text-1)' },
-                { label: 'Avg Mensile', value: `${statistics.avgMonthlyReturn >= 0 ? '+' : ''}${statistics.avgMonthlyReturn.toFixed(2)}%`, color: statistics.avgMonthlyReturn >= 0 ? '#30D158' : '#FF453A' },
+                { label: 'Avg Mensile', value: `${statistics.avgMonthlyReturn >= 0 ? '+' : ''}${statistics.avgMonthlyReturn.toFixed(2)}%`, color: statistics.avgMonthlyReturn >= 0 ? 'var(--pos)' : 'var(--neg)' },
               ].map(item => (
                 <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-3)' }}>{item.label}</span>
@@ -2007,7 +2007,7 @@ function PortfolioPerformance() {
               <p style={{ fontSize: '0.78rem', color: 'var(--text-3)', margin: '0 0 16px' }}>Performance mensile TWR · esclude nuovi investimenti</p>
             </div>
             {monthlyReturns.some(m => m.isCurrentMonth) && (
-              <span style={{ fontSize: '0.72rem', color: '#FF9F0A', fontWeight: 500, padding: '3px 10px', borderRadius: 8, background: 'rgba(255,159,10,0.12)', border: '1px solid rgba(255,159,10,0.25)' }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--warn)', fontWeight: 500, padding: '3px 10px', borderRadius: 8, background: 'rgba(255,159,10,0.12)', border: '1px solid rgba(255,159,10,0.25)' }}>
                 📅 Mese in corso
               </span>
             )}
@@ -2020,7 +2020,7 @@ function PortfolioPerformance() {
                 tick={({ x, y, payload, index }) => {
                   const entry = monthlyReturns[index];
                   return (
-                    <text x={x} y={y + 4} textAnchor="end" fontSize={11} fill={entry?.isCurrentMonth ? '#FF9F0A' : 'var(--text-3)'} transform={`rotate(-45, ${x}, ${y + 4})`}>
+                    <text x={x} y={y + 4} textAnchor="end" fontSize={11} fill={entry?.isCurrentMonth ? 'var(--warn)' : 'var(--text-3)'} transform={`rotate(-45, ${x}, ${y + 4})`}>
                       {payload.value}{entry?.isCurrentMonth ? ' ⬡' : ''}
                     </text>
                   );
@@ -2041,7 +2041,7 @@ function PortfolioPerformance() {
                 {monthlyReturns.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
-                    fill={entry.isCurrentMonth ? '#FF9F0A' : entry.return >= 0 ? '#30D158' : '#FF453A'}
+                    fill={entry.isCurrentMonth ? 'var(--warn)' : entry.return >= 0 ? 'var(--pos)' : 'var(--neg)'}
                     opacity={entry.isCurrentMonth ? 0.55 : 1}
                   />
                 ))}
@@ -2108,7 +2108,7 @@ function PortfolioPerformance() {
           {/* Drawdown summary table */}
           {Object.keys(benchmarkData).length > 0 && (() => {
             const series = ['Il mio Portafoglio', ...Object.keys(benchmarkData)];
-            const colors = { 'Il mio Portafoglio': '#FF453A', ...Object.fromEntries(Object.entries(benchmarkData).map(([n, d]) => [n, d.color])) };
+            const colors = { 'Il mio Portafoglio': 'var(--neg)', ...Object.fromEntries(Object.entries(benchmarkData).map(([n, d]) => [n, d.color])) };
             return (
               <div style={{ marginTop: 20, overflowX: 'auto' }}>
                 <table style={{ width: '100%', fontSize: '0.8rem', borderCollapse: 'collapse' }}>
@@ -2135,8 +2135,8 @@ function PortfolioPerformance() {
                               <span style={{ color: 'var(--text-2)', fontWeight: name === 'Il mio Portafoglio' ? 700 : 400 }}>{name}</span>
                             </span>
                           </td>
-                          <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 700, color: '#FF453A', fontSize: '0.82rem', ...MONO }}>{maxDD.toFixed(2)}%</td>
-                          <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600, color: currentDD < -1 ? '#FF453A' : '#30D158', fontSize: '0.82rem', ...MONO }}>{currentDD.toFixed(2)}%</td>
+                          <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 700, color: 'var(--neg)', fontSize: '0.82rem', ...MONO }}>{maxDD.toFixed(2)}%</td>
+                          <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600, color: currentDD < -1 ? 'var(--neg)' : 'var(--pos)', fontSize: '0.82rem', ...MONO }}>{currentDD.toFixed(2)}%</td>
                           <td style={{ padding: '6px 10px', textAlign: 'center', color: 'var(--text-2)', fontSize: '0.82rem', ...MONO }}>{avgDD ? avgDD.toFixed(2) + '%' : '—'}</td>
                         </tr>
                       );
@@ -2222,7 +2222,7 @@ function PortfolioPerformance() {
           const isExcluded = excludedMonths.has(monthKey);
           return {
             textAlign: 'center', padding: '6px 6px',
-            color: isExcluded ? 'var(--text-3)' : (heatmapSort.monthKey === monthKey ? '#0A84FF' : 'var(--text-3)'),
+            color: isExcluded ? 'var(--text-3)' : (heatmapSort.monthKey === monthKey ? 'var(--info)' : 'var(--text-3)'),
             fontWeight: heatmapSort.monthKey === monthKey ? 700 : 500,
             minWidth: 68, cursor: 'pointer', userSelect: 'none',
             textDecoration: isExcluded ? 'line-through' : 'none',
@@ -2284,7 +2284,7 @@ function PortfolioPerformance() {
                 {heatmapValueMode === 'percent' ? 'Performance mensile · TWR' : 'Guadagno mensile in € · al netto dei versamenti'}
                 {' '}<span style={{ color: 'var(--text-3)', fontSize: '0.7rem' }}>· Click mese: ordina · Shift+click: escludi dalle statistiche</span>
                 {heatmapSort.monthKey && (
-                  <> · Ordinato per <span style={{ color: '#0A84FF', fontWeight: 600 }}>{monthlyData.find(m => m.monthKey === heatmapSort.monthKey)?.month}</span> {heatmapSort.dir === 'desc' ? '↓' : '↑'} <button onClick={() => setHeatmapSort({ monthKey: null, dir: 'desc' })} style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: '0.72rem', textDecoration: 'underline', padding: 0, marginLeft: 4 }}>reset</button></>
+                  <> · Ordinato per <span style={{ color: 'var(--info)', fontWeight: 600 }}>{monthlyData.find(m => m.monthKey === heatmapSort.monthKey)?.month}</span> {heatmapSort.dir === 'desc' ? '↓' : '↑'} <button onClick={() => setHeatmapSort({ monthKey: null, dir: 'desc' })} style={{ background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: '0.72rem', textDecoration: 'underline', padding: 0, marginLeft: 4 }}>reset</button></>
                 )}
               </p>
               {excludedMonths.size > 0 && (
@@ -2299,7 +2299,7 @@ function PortfolioPerformance() {
                         {label}
                         <button
                           onClick={() => setExcludedMonths(prev => { const n = new Set(prev); n.delete(mk); return n; })}
-                          style={{ background: 'transparent', border: 'none', color: '#FF9F0A', cursor: 'pointer', padding: 0, fontSize: '0.9rem', lineHeight: 1, marginLeft: 2 }}
+                          style={{ background: 'transparent', border: 'none', color: 'var(--warn)', cursor: 'pointer', padding: 0, fontSize: '0.9rem', lineHeight: 1, marginLeft: 2 }}
                           title="Reinserisci mese"
                         >×</button>
                       </span>
@@ -2562,11 +2562,11 @@ function PortfolioPerformance() {
                       <span style={{ fontSize: '0.62rem', color: 'var(--text-3)', marginLeft: 5 }}>{r.name !== r.ticker ? r.name : ''}</span>
                     </div>
                     <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'baseline' }}>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: r.gainEur >= 0 ? '#30D158' : '#FF453A', ...MONO }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: r.gainEur >= 0 ? 'var(--pos)' : 'var(--neg)', ...MONO }}>
                         {r.gainEur >= 0 ? '+' : ''}€{Math.round(r.gainEur).toLocaleString('it-IT')}
                       </span>
                       {r.perfPct != null && (
-                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: r.perfPct >= 0 ? '#30D158' : '#FF453A', ...MONO }}>
+                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: r.perfPct >= 0 ? 'var(--pos)' : 'var(--neg)', ...MONO }}>
                           {r.perfPct >= 0 ? '+' : ''}{r.perfPct.toFixed(1)}%
                         </span>
                       )}
@@ -2671,7 +2671,7 @@ function PortfolioPerformance() {
               onClick={() => setAnalysisTab(val)}
               style={{
                 padding: '8px 20px', fontSize: '0.85rem', fontWeight: 500, border: 'none', background: 'none',
-                color: analysisTab === val ? '#0A84FF' : 'var(--text-3)',
+                color: analysisTab === val ? 'var(--info)' : 'var(--text-3)',
                 borderBottom: analysisTab === val ? '2px solid #0A84FF' : '2px solid transparent',
                 marginBottom: -1, cursor: 'pointer'
               }}
@@ -2727,9 +2727,9 @@ function PortfolioPerformance() {
                           {contributionView === 'role' ? (item.tickers.slice(0, 3).join(', ') + (item.tickers.length > 3 ? ` +${item.tickers.length - 3}` : '')) : contributionView === 'ticker' ? item.microCategory : (item.tickers.slice(0, 3).join(', ') + (item.tickers.length > 3 ? ` +${item.tickers.length - 3}` : ''))}
                         </td>
                         <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-1)', ...MONO }}>{item.avgWeight.toFixed(1)}%</td>
-                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: item.assetReturn >= 0 ? '#30D158' : '#FF453A', ...MONO }}>{item.assetReturn >= 0 ? '+' : ''}{item.assetReturn.toFixed(1)}%</td>
-                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: item.contributionEuro >= 0 ? '#30D158' : '#FF453A', ...MONO }}>{item.contributionEuro >= 0 ? '+' : ''}€{item.contributionEuro.toLocaleString('it-IT', { maximumFractionDigits: 0 })}</td>
-                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: item.contributionPercent >= 0 ? '#30D158' : '#FF453A', ...MONO }}>{item.contributionPercent >= 0 ? '+' : ''}{item.contributionPercent.toFixed(2)}%</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: item.assetReturn >= 0 ? 'var(--pos)' : 'var(--neg)', ...MONO }}>{item.assetReturn >= 0 ? '+' : ''}{item.assetReturn.toFixed(1)}%</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: item.contributionEuro >= 0 ? 'var(--pos)' : 'var(--neg)', ...MONO }}>{item.contributionEuro >= 0 ? '+' : ''}€{item.contributionEuro.toLocaleString('it-IT', { maximumFractionDigits: 0 })}</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: item.contributionPercent >= 0 ? 'var(--pos)' : 'var(--neg)', ...MONO }}>{item.contributionPercent >= 0 ? '+' : ''}{item.contributionPercent.toFixed(2)}%</td>
                       </tr>
                     );
                   })}
@@ -2741,10 +2741,10 @@ function PortfolioPerformance() {
                       {(contributionView === 'role' ? contributionData.byRole : contributionView === 'ticker' ? contributionData.byTicker : contributionData.byMicroCategory).reduce((s, t) => s + t.avgWeight, 0).toFixed(0)}%
                     </td>
                     <td style={{ padding: '8px 12px' }}></td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: contributionData.totalReturnEuro >= 0 ? '#30D158' : '#FF453A', ...MONO }}>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: contributionData.totalReturnEuro >= 0 ? 'var(--pos)' : 'var(--neg)', ...MONO }}>
                       {contributionData.totalReturnEuro >= 0 ? '+' : ''}€{contributionData.totalReturnEuro.toLocaleString('it-IT', { maximumFractionDigits: 0 })}
                     </td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: contributionData.totalReturnPercent >= 0 ? '#30D158' : '#FF453A', ...MONO }}>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: contributionData.totalReturnPercent >= 0 ? 'var(--pos)' : 'var(--neg)', ...MONO }}>
                       {contributionData.totalReturnPercent >= 0 ? '+' : ''}{contributionData.totalReturnPercent.toFixed(2)}%
                     </td>
                   </tr>
@@ -2773,10 +2773,10 @@ function PortfolioPerformance() {
                   <tr key={monthData.month} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '8px 12px', fontWeight: 500, color: 'var(--text-1)' }}>{monthData.month}</td>
                     <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: 'var(--text-1)', ...MONO }}>€{monthData.value.toLocaleString('it-IT', { maximumFractionDigits: 0 })}</td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', color: monthData.netCashFlow > 0 ? '#30D158' : monthData.netCashFlow < 0 ? '#FF453A' : 'var(--text-3)', ...MONO }}>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', color: monthData.netCashFlow > 0 ? 'var(--pos)' : monthData.netCashFlow < 0 ? 'var(--neg)' : 'var(--text-3)', ...MONO }}>
                       {monthData.netCashFlow !== undefined && monthData.netCashFlow !== 0 ? `${monthData.netCashFlow > 0 ? '+' : ''}€${(monthData.netCashFlow || 0).toLocaleString('it-IT', { maximumFractionDigits: 0 })}` : '-'}
                     </td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: monthData.return >= 0 ? '#30D158' : '#FF453A', ...MONO }}>
+                    <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: monthData.return >= 0 ? 'var(--pos)' : 'var(--neg)', ...MONO }}>
                       {monthData.return >= 0 ? '+' : ''}{monthData.return.toFixed(2)}%
                     </td>
                   </tr>
@@ -2790,7 +2790,7 @@ function PortfolioPerformance() {
                   <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700 }}>
                     {(() => {
                       const avg = monthlyReturns.reduce((s, m) => s + m.return, 0) / monthlyReturns.length;
-                      return <span style={{ color: avg >= 0 ? '#30D158' : '#FF453A' }}>Avg: {avg >= 0 ? '+' : ''}{avg.toFixed(2)}%</span>;
+                      return <span style={{ color: avg >= 0 ? 'var(--pos)' : 'var(--neg)' }}>Avg: {avg >= 0 ? '+' : ''}{avg.toFixed(2)}%</span>;
                     })()}
                   </td>
                 </tr>
@@ -2817,9 +2817,9 @@ function PortfolioPerformance() {
             </ResponsiveContainer>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 16 }}>
               {[
-                { label: 'Media', calc: () => rollingReturns.reduce((s, r) => s + r.rolling12m, 0) / rollingReturns.length, fmt: v => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`, color: v => v >= 0 ? '#30D158' : '#FF453A' },
-                { label: 'Massimo', calc: () => Math.max(...rollingReturns.map(r => r.rolling12m)), fmt: v => `+${v.toFixed(1)}%`, color: () => '#30D158' },
-                { label: 'Minimo', calc: () => Math.min(...rollingReturns.map(r => r.rolling12m)), fmt: v => `${v.toFixed(1)}%`, color: () => '#FF453A' },
+                { label: 'Media', calc: () => rollingReturns.reduce((s, r) => s + r.rolling12m, 0) / rollingReturns.length, fmt: v => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`, color: v => v >= 0 ? 'var(--pos)' : 'var(--neg)' },
+                { label: 'Massimo', calc: () => Math.max(...rollingReturns.map(r => r.rolling12m)), fmt: v => `+${v.toFixed(1)}%`, color: () => 'var(--pos)' },
+                { label: 'Minimo', calc: () => Math.min(...rollingReturns.map(r => r.rolling12m)), fmt: v => `${v.toFixed(1)}%`, color: () => 'var(--neg)' },
               ].map(stat => {
                 const val = stat.calc();
                 return (
@@ -2985,7 +2985,7 @@ function PortfolioPerformance() {
                 <span style={{
                   fontSize: '0.62rem', fontWeight: 600, padding: '2px 7px', borderRadius: 4,
                   background: origCcy && origCcy !== 'EUR' ? 'rgba(255,159,10,0.12)' : 'rgba(48,209,88,0.1)',
-                  color: origCcy && origCcy !== 'EUR' ? '#FF9F0A' : '#30D158',
+                  color: origCcy && origCcy !== 'EUR' ? 'var(--warn)' : 'var(--pos)',
                   border: `1px solid ${origCcy && origCcy !== 'EUR' ? 'rgba(255,159,10,0.3)' : 'rgba(48,209,88,0.25)'}`,
                 }}>
                   {ccyLabel}
@@ -2996,9 +2996,9 @@ function PortfolioPerformance() {
                     title={tooltipShowNative ? 'Mostra in EUR' : `Mostra in ${origCcy}`}
                     style={{
                       fontSize: '0.62rem', fontWeight: 700, padding: '2px 8px', borderRadius: 4,
-                      background: tooltipShowNative ? '#0A84FF' : 'var(--surface-2)',
+                      background: tooltipShowNative ? 'var(--info)' : 'var(--surface-2)',
                       color: tooltipShowNative ? '#fff' : 'var(--text-3)',
-                      border: `1px solid ${tooltipShowNative ? '#0A84FF' : 'var(--border)'}`,
+                      border: `1px solid ${tooltipShowNative ? 'var(--info)' : 'var(--border)'}`,
                       cursor: 'pointer',
                     }}
                   >
@@ -3024,7 +3024,7 @@ function PortfolioPerformance() {
                   onClick={(e) => { e.stopPropagation(); setTooltipPeriod(p.key); }}
                   style={{
                     flex: 1, padding: '4px 0', borderRadius: 6, fontSize: '0.68rem', fontWeight: 600,
-                    background: tooltipPeriod === p.key ? '#0A84FF' : 'var(--surface-2)',
+                    background: tooltipPeriod === p.key ? 'var(--info)' : 'var(--surface-2)',
                     color: tooltipPeriod === p.key ? '#fff' : 'var(--text-3)',
                     border: tooltipPeriod === p.key ? 'none' : '1px solid var(--border)',
                     cursor: 'pointer',
@@ -3052,7 +3052,7 @@ function PortfolioPerformance() {
                 {/* Avviso dati parziali */}
                 {insuffData && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5, padding: '4px 8px', borderRadius: 6, background: 'rgba(255,159,10,0.1)', border: '1px solid rgba(255,159,10,0.3)' }}>
-                    <span style={{ fontSize: '0.65rem', color: '#FF9F0A' }}>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--warn)' }}>
                       Dati dal {oldestKey} · solo {tooltipChartData.length} mesi disponibili
                     </span>
                   </div>
@@ -3060,7 +3060,7 @@ function PortfolioPerformance() {
                 {/* Performance periodo */}
                 {perfPct != null && (
                   <p style={{ fontSize: '0.67rem', color: 'var(--text-3)', margin: '6px 0 0', textAlign: 'right' }}>
-                    <span style={{ fontWeight: 700, color: perfPct >= 0 ? '#30D158' : '#FF453A' }}>
+                    <span style={{ fontWeight: 700, color: perfPct >= 0 ? 'var(--pos)' : 'var(--neg)' }}>
                       {perfPct >= 0 ? '+' : ''}{perfPct.toFixed(1)}%
                     </span>
                     {' '}periodo selezionato ({tooltipChartData.length} mesi)
@@ -3077,7 +3077,7 @@ function PortfolioPerformance() {
                     <p style={{ fontSize: '0.6rem', color: 'var(--text-3)', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Min periodo</p>
                     <p style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{fmtPraw(histMin)}</p>
                     {fromMin != null && (
-                      <p style={{ fontSize: '0.62rem', fontWeight: 600, color: '#30D158', margin: '2px 0 0' }}>
+                      <p style={{ fontSize: '0.62rem', fontWeight: 600, color: 'var(--pos)', margin: '2px 0 0' }}>
                         +{fromMin.toFixed(1)}% sopra
                       </p>
                     )}
@@ -3088,7 +3088,7 @@ function PortfolioPerformance() {
                     <p style={{ fontSize: '0.6rem', color: 'var(--text-3)', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Max periodo</p>
                     <p style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{fmtPraw(histMax)}</p>
                     {fromMax != null && (
-                      <p style={{ fontSize: '0.62rem', fontWeight: 600, color: fromMax >= -0.1 ? '#30D158' : '#FF453A', margin: '2px 0 0' }}>
+                      <p style={{ fontSize: '0.62rem', fontWeight: 600, color: fromMax >= -0.1 ? 'var(--pos)' : 'var(--neg)', margin: '2px 0 0' }}>
                         {fromMax >= -0.1 ? 'ATH ✓' : `${fromMax.toFixed(1)}% dal max`}
                       </p>
                     )}

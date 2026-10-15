@@ -21,10 +21,25 @@ export const REVIEW_FREQUENCIES = [
 
 export const MIN_NOTE_LENGTH = 20;
 
+// Composizione che lo studente sceglie per l'obiettivo (come spiegato nel corso). L'app non la suggerisce mai.
+export const ALLOCATION_BUCKETS = [
+  { key: 'equity', label: 'Azionario' },
+  { key: 'bondShort', label: 'Obbligazioni a breve (1-3 anni)' },
+  { key: 'bondMedium', label: 'Obbligazioni a medio termine (7-10 anni)' },
+  { key: 'cash', label: 'Liquidità' },
+  { key: 'gold', label: 'Oro' },
+];
+const num = (v) => (v === '' || v === null || v === undefined ? 0 : Number(v));
+export const allocationTotal = (a) => ALLOCATION_BUCKETS.reduce((s, b) => s + num(a?.[b.key]), 0);
+export const emptyAllocation = () => Object.fromEntries(ALLOCATION_BUCKETS.map(b => [b.key, '']));
+export const normalizeAllocation = (a) => Object.fromEntries(ALLOCATION_BUCKETS.map(b => [b.key, num(a?.[b.key])]));
+export const describeAllocation = (a) => ALLOCATION_BUCKETS.filter(b => num(a?.[b.key]) > 0).map(b => `${b.label.split(' (')[0].toLowerCase()} ${num(a[b.key])}%`).join(', ');
+
 const MONTHS = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
 export const monthName = (m) => MONTHS[m - 1];
 
 export const defaultRulesInput = () => ({
+  allocation: emptyAllocation(),
   rebalance: { method: 'threshold', thresholdPct: 5, calendarMonth: 1 },
   crashPlan: { choice: 'hold_and_buy', personalNote: '' },
   reviewFrequency: 'semiannual',
@@ -41,6 +56,11 @@ export function validateRulesInput(input) {
   if (r.method !== 'calendar' && !(th >= 1 && th <= 20)) e.thresholdPct = 'La soglia va da 1 a 20 punti percentuali.';
   const cm = Number(r.calendarMonth);
   if (r.method !== 'threshold' && !(Number.isInteger(cm) && cm >= 1 && cm <= 12)) e.calendarMonth = 'Scegli un mese.';
+
+  const al = input.allocation ?? {};
+  const values = ALLOCATION_BUCKETS.map(b => al[b.key]);
+  if (values.some(v => v !== '' && v !== null && v !== undefined && !(Number.isFinite(Number(v)) && Number(v) >= 0 && Number(v) <= 100))) e.allocation = 'Ogni percentuale va da 0 a 100.';
+  else if (Math.abs(allocationTotal(al) - 100) > 0.001) e.allocation = `Le percentuali devono fare 100 (ora fanno ${Math.round(allocationTotal(al) * 10) / 10}).`;
 
   const c = input.crashPlan ?? {};
   if (!CRASH_CHOICES.some(x => x.value === c.choice)) e.crashChoice = 'Scegli cosa farai in caso di crollo.';
@@ -65,6 +85,7 @@ export function buildRulesVersion({ goalId, input, version, now = new Date(), ch
       thresholdPct: input.rebalance.method === 'calendar' ? null : Number(input.rebalance.thresholdPct),
       calendarMonth: input.rebalance.method === 'threshold' ? null : Number(input.rebalance.calendarMonth),
     },
+    allocation: normalizeAllocation(input.allocation),
     crashPlan: { choice: input.crashPlan.choice, personalNote: input.crashPlan.personalNote.trim() },
     reviewFrequency: input.reviewFrequency,
     signedAt: now.toISOString(),
@@ -82,6 +103,7 @@ export const createRulesV1 = ({ goalId, input, now = new Date() }) => buildRules
 
 /** Regole attive → input modificabile (la firma va rifatta). */
 export const rulesToInput = (rules) => ({
+  allocation: rules.allocation ? { ...rules.allocation } : emptyAllocation(),
   rebalance: { method: rules.rebalance.method, thresholdPct: rules.rebalance.thresholdPct ?? 5, calendarMonth: rules.rebalance.calendarMonth ?? 1 },
   crashPlan: { choice: rules.crashPlan.choice, personalNote: rules.crashPlan.personalNote },
   reviewFrequency: rules.reviewFrequency,
@@ -97,7 +119,9 @@ export function describeRules(rules) {
   if (r.method !== 'threshold') parts.push(`ribilancio una volta all'anno, a ${monthName(r.calendarMonth)}`);
   const crash = CRASH_CHOICES.find(c => c.value === rules.crashPlan.choice)?.label.toLowerCase();
   const review = REVIEW_FREQUENCIES.find(f => f.value === rules.reviewFrequency)?.label.toLowerCase();
+  const comp = rules.allocation && allocationTotal(rules.allocation) > 0 ? [`Composizione scelta: ${describeAllocation(rules.allocation)}.`] : [];
   return [
+    ...comp,
     parts.join(' ed ').replace(/^./, c => c.toUpperCase()) + '.',
     `Se il portafoglio scende molto: ${crash}.`,
     `Rivedo queste regole ${review}.`,

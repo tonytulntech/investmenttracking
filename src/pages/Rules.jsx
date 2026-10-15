@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ScrollText, ShieldCheck, Clock, AlertTriangle } from 'lucide-react';
-import { useGoalData, saveAll, recordReview } from '../services/goalStore';
-import { describeRules } from '../lib/rulesModel';
+import { useGoalData, saveAll, saveRules, recordReview } from '../services/goalStore';
+import { describeRules, defaultRulesInput, validateRulesInput, createRulesV1 } from '../lib/rulesModel';
 import {
   activeRules, pendingRevision, coolingStatus, confirmRevision, cancelRevision, reviewsDue, nextReviewAt, COOLING_DAYS,
 } from '../lib/revisionModel';
 import RevisionFlow from '../components/guided/RevisionFlow';
-import { Choice, Field, Stack, errStyle, hint, label } from '../components/guided/wizardParts';
+import { Choice, Field, Stack, StepRules, errStyle, hint, label } from '../components/guided/wizardParts';
 
 const dayIt = (iso) => new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
 const badge = (color) => ({ fontSize: '0.7rem', fontWeight: 600, color, border: `1px solid ${color}`, borderRadius: 999, padding: '1px 8px', whiteSpace: 'nowrap' });
@@ -55,6 +56,31 @@ function PendingCard({ revision, data, now }) {
         {status.ready && signing && <button type="button" className="btn-primary" onClick={confirm}>Firma e applica</button>}
         <button type="button" className="btn-secondary" onClick={cancel}>Annulla la modifica</button>
       </div>
+    </div>
+  );
+}
+
+/** Prima firma delle regole di un obiettivo (dopo il corso): composizione scelta, ribilanciamento, piano in caso di crollo, firma. */
+function FirstRules({ goal, data, onDone }) {
+  const [input, setInput] = useState(defaultRulesInput);
+  const [errors, setErrors] = useState({});
+  const submit = () => {
+    const check = validateRulesInput(input);
+    setErrors(check.errors);
+    if (!check.valid) return;
+    saveRules([...data.rules, createRulesV1({ goalId: goal.id, input })]);
+    onDone();
+  };
+  return (
+    <div className="card">
+      <Stack gap="1.25rem">
+        <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-1)' }}>Firma le regole · {goal.name}</h2>
+        <StepRules goal={goal} rules={input} setRules={setInput} errors={errors} />
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+          <button type="button" className="btn-primary" onClick={submit}>Firma e salva</button>
+          <button type="button" className="btn-secondary" onClick={onDone}>Più tardi</button>
+        </div>
+      </Stack>
     </div>
   );
 }
@@ -141,7 +167,12 @@ function ReviewCard({ due, onChange }) {
 export default function Rules() {
   const data = useGoalData();
   const now = useMemo(() => new Date(), []);
-  const [editing, setEditing] = useState(null); // { goalId, planned }
+  const location = useLocation();
+  const [editing, setEditing] = useState(() => {
+    const r = location.state?.revise;
+    return r ? { goalId: r.goalId, planned: false, goalChanges: r.goalChanges } : null;
+  }); // { goalId, planned, goalChanges? }
+  const [signing, setSigning] = useState(null); // goalId in prima firma
 
   const due = reviewsDue({ goals: data.goals, rules: data.rules, lastReviewAt: data.progress.lastReviewAt, now });
   const editingGoal = editing && data.goals.find(g => g.id === editing.goalId);
@@ -161,7 +192,7 @@ export default function Rules() {
       {editingGoal && editingRules ? (
         <RevisionFlow
           key={editingGoal.id}
-          goal={editingGoal} rules={editingRules} data={data} planned={editing.planned}
+          goal={editingGoal} rules={editingRules} data={data} planned={editing.planned} initialGoalChanges={editing.goalChanges}
           onApplied={() => { if (editing.planned) recordReview(); }}
           onClose={() => setEditing(null)}
         />
@@ -170,10 +201,22 @@ export default function Rules() {
           {due.length > 0 && !data.revisions.some(r => r.status === 'pending') && (
             <ReviewCard due={due} onChange={setEditing} />
           )}
-          {data.goals.length === 0 && <div className="card"><p style={{ color: 'var(--text-2)' }}>Non hai ancora regole firmate: completa l&apos;esercizio Obiettivi.</p></div>}
+          {data.goals.length === 0 && <div className="card"><p style={{ color: 'var(--text-2)' }}>Non hai ancora obiettivi: completa prima l&apos;esercizio.</p></div>}
           {data.goals.map(goal => {
             const rules = activeRules(data.rules, goal.id);
             const pending = pendingRevision(data.revisions, goal.id);
+            if (!rules && signing === goal.id) return <FirstRules key={goal.id} goal={goal} data={data} onDone={() => setSigning(null)} />;
+            if (!rules) {
+              return (
+                <div key={goal.id} className="card">
+                  <Stack gap="0.75rem">
+                    <strong style={{ color: 'var(--text-1)' }}>{goal.name}</strong>
+                    <p style={{ fontSize: '0.88rem', color: 'var(--text-2)' }}>Non hai ancora firmato le regole per questo obiettivo. Finché non lo fai puoi modificare l&apos;obiettivo liberamente.</p>
+                    <button type="button" className="btn-primary" style={{ alignSelf: 'flex-start' }} onClick={() => setSigning(goal.id)}>Firma le regole</button>
+                  </Stack>
+                </div>
+              );
+            }
             return (
               <div key={goal.id} className="card">
                 <Stack gap="1rem">

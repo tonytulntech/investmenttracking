@@ -6,7 +6,7 @@
  * di attesa e una riconferma. Le versioni precedenti delle regole non si cancellano mai (`superseded`).
  */
 import { GOAL_TYPES, incomeTarget, validateGoalInput } from './goalModel';
-import { buildRulesVersion, validateRulesInput, monthName } from './rulesModel';
+import { buildRulesVersion, validateRulesInput, monthName, describeAllocation, normalizeAllocation, ALLOCATION_BUCKETS } from './rulesModel';
 
 export const COOLING_DAYS = 7;
 const DAY = 24 * 60 * 60 * 1000;
@@ -29,17 +29,17 @@ export const MIRROR_ANSWERS = [
 
 // Campi dell'obiettivo che attivano il flusso (§7, §16.2) e le loro etichette.
 const GOAL_FIELDS = {
-  emergency: { targetDate: 'Data' },
+  emergency: { targetDate: 'Data', monthsCovered: 'Mesi di spese coperti' },
   house: { targetAmount: 'Importo', targetDate: 'Data' },
   education: { targetAmount: 'Importo', targetDate: 'Data' },
   custom: { targetAmount: 'Importo', targetDate: 'Data' },
-  income: { monthlyWithdrawal: 'Prelievo mensile', withdrawalStartDate: 'Inizio dei prelievi' },
+  income: { monthlyWithdrawal: 'Prelievo mensile', withdrawalStartDate: 'Inizio dei prelievi', otherIncomeMonthly: 'Altri redditi' },
 };
 export const editableGoalFields = (type) => Object.keys(GOAL_FIELDS[type] ?? {});
 
 const eur = (n) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Math.round(Number(n)));
 const monthIt = (ym) => `${monthName(Number(ym.slice(5, 7)))} ${ym.slice(0, 4)}`;
-const showGoalValue = (field, v) => (field.toLowerCase().includes('date') ? monthIt(v) : eur(v));
+const showGoalValue = (field, v) => (field.toLowerCase().includes('date') ? monthIt(v) : field === 'monthsCovered' ? `${v} mesi` : eur(v));
 
 const CRASH_LABEL = { hold: 'aspetto', hold_and_buy: 'aspetto e continuo a versare', rebalance: 'riporto alle percentuali previste' };
 const REBALANCE_LABEL = { threshold: 'a soglia', calendar: 'una volta all\'anno', both: 'a soglia e una volta all\'anno' };
@@ -67,6 +67,11 @@ export function diffChanges({ goal, rules, changes }) {
       ruleFields.push('crashPlan');
       lines.push(`Se il portafoglio crolla: ${CRASH_LABEL[rules.crashPlan.choice]} → ${CRASH_LABEL[next.crashPlan.choice]}`);
     }
+    const oldAl = normalizeAllocation(rules.allocation), newAl = normalizeAllocation(next.allocation);
+    if (ALLOCATION_BUCKETS.some(b => oldAl[b.key] !== newAl[b.key])) {
+      ruleFields.push('allocation');
+      lines.push(`Composizione: ${describeAllocation(oldAl) || 'non dichiarata'} → ${describeAllocation(newAl)}`);
+    }
     if (next.crashPlan.personalNote.trim() !== rules.crashPlan.personalNote) {
       ruleFields.push('personalNote');
       lines.push('Frase personale modificata');
@@ -83,8 +88,8 @@ export function diffChanges({ goal, rules, changes }) {
       lines.push(`Revisione delle regole: ${REVIEW_LABEL[rules.reviewFrequency]} → ${REVIEW_LABEL[next.reviewFrequency]}`);
     }
   }
-  // Strutturale = obiettivo (data, importo, prelievo) o piano in caso di crollo (§7). Nota, ribilanciamento e frequenza no.
-  const structural = goalFields.length > 0 || ruleFields.includes('crashPlan');
+  // Strutturale = obiettivo (data, importo, prelievo), composizione o piano in caso di crollo (§7). Nota, ribilanciamento e frequenza no.
+  const structural = goalFields.length > 0 || ruleFields.includes('crashPlan') || ruleFields.includes('allocation');
   return { structural, lines, goalFields, ruleFields };
 }
 
@@ -146,6 +151,7 @@ export function applyGoalChanges(goal, goalChanges = {}, now = new Date()) {
     if (f in goalChanges) next[f] = f === 'targetDate' || f === 'withdrawalStartDate' ? goalChanges[f] : Number(goalChanges[f]);
   }
   if (goal.type === 'income') next = { ...next, targetAmount: incomeTarget(next).targetAmount, targetDate: next.withdrawalStartDate };
+  if (goal.type === 'emergency') next = { ...next, targetAmount: Number(next.monthlyExpenses) * Number(next.monthsCovered) };
   return next;
 }
 

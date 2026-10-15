@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
-import { evaluatePlan, STATUS_INFO } from '../../lib/goalModel';
-import { rulesToInput } from '../../lib/rulesModel';
+import { STATUS_INFO } from '../../lib/goalModel';
+import { evaluateFeasibility, allocationFor } from '../../lib/feasibility';
+import { rulesToInput, allocationTotal, normalizeAllocation } from '../../lib/rulesModel';
 import {
   LIFE_EVENTS, MIRROR_ANSWERS, COOLING_DAYS, editableGoalFields, diffChanges, applyGoalChanges,
   validateRevisionRequest, decideRevision, submitRevision,
@@ -18,6 +19,8 @@ const FIELD_META = {
   targetDate: { title: 'Entro quando?', kind: 'month' },
   monthlyWithdrawal: { title: 'Prelievo mensile (€ di oggi)', kind: 'number' },
   withdrawalStartDate: { title: 'Quando inizi a prelevare?', kind: 'month' },
+  otherIncomeMonthly: { title: 'Altri redditi al mese (€)', kind: 'number' },
+  monthsCovered: { title: 'Mesi di spese da coprire', kind: 'months' },
 };
 
 const WHY_KEYS = ['lifeEvent', 'lifeNote', 'mirror'];
@@ -26,10 +29,10 @@ const without = (errors, keys) => Object.fromEntries(Object.entries(errors).filt
 
 const COOLING_TEXT = 'Stai chiedendo di cambiare strategia mentre il mercato è in calo. Non è vietato: ti chiediamo solo di aspettare 7 giorni e riconfermare. La maggior parte degli errori costosi nasce in questi momenti.';
 
-export default function RevisionFlow({ goal, rules, data, planned = false, onClose, onApplied }) {
+export default function RevisionFlow({ goal, rules, data, planned = false, initialGoalChanges = null, onClose, onApplied }) {
   const now = useMemo(() => new Date(), []);
   const [step, setStep] = useState(0);
-  const [goalChanges, setGoalChanges] = useState(() => Object.fromEntries(editableGoalFields(goal.type).map(f => [f, goal[f]])));
+  const [goalChanges, setGoalChanges] = useState(() => ({ ...Object.fromEntries(editableGoalFields(goal.type).map(f => [f, goal[f]])), ...(initialGoalChanges ?? {}) }));
   const [rulesInput, setRulesInput] = useState(() => rulesToInput(rules));
   const [lifeEvent, setLifeEvent] = useState('');
   const [lifeNote, setLifeNote] = useState('');
@@ -60,14 +63,17 @@ export default function RevisionFlow({ goal, rules, data, planned = false, onClo
     : null;
 
   const impact = useMemo(() => {
-    if (step !== 2 || !diff.goalFields.length) return null;
+    if (step !== 2 || !(diff.goalFields.length || diff.ruleFields.includes('allocation'))) return null;
+    const declared = (al) => (al && allocationTotal(al) > 0 ? normalizeAllocation(al) : null);
+    const alloc = (g, al) => allocationFor(g, { scenarioId: declared(al) ? 'declared' : undefined, declared: declared(al) });
     try {
+      const after = applyGoalChanges(goal, goalChanges, now);
       return {
-        before: evaluatePlan(goal, { now, simulations: 1000 }),
-        after: evaluatePlan(applyGoalChanges(goal, goalChanges, now), { now, simulations: 1000 }),
+        before: evaluateFeasibility(goal, { allocation: alloc(goal, rules.allocation), now, simulations: 1000 }),
+        after: evaluateFeasibility(after, { allocation: alloc(after, rulesInput.allocation), now, simulations: 1000 }),
       };
     } catch { return null; }
-  }, [step, diff.goalFields.length, goal, goalChanges, now]);
+  }, [step, diff, goal, goalChanges, rules.allocation, rulesInput.allocation, now]);
 
   const next = () => {
     const all = check();
@@ -145,7 +151,9 @@ export default function RevisionFlow({ goal, rules, data, planned = false, onClo
                 <Field key={f} id={`rev-${f}`} title={FIELD_META[f].title} error={errors[f]}>
                   {FIELD_META[f].kind === 'month'
                     ? <input id={`rev-${f}`} className="input" type="month" value={goalChanges[f]} onChange={(e) => setGoalField(f, e.target.value)} />
-                    : <NumberInput id={`rev-${f}`} value={goalChanges[f]} onChange={(v) => setGoalField(f, v)} />}
+                    : FIELD_META[f].kind === 'months'
+                      ? <select id={`rev-${f}`} className="select" value={goalChanges[f]} onChange={(e) => setGoalField(f, Number(e.target.value))}>{[6, 9, 12].map(m => <option key={m} value={m}>{m} mesi</option>)}</select>
+                      : <NumberInput id={`rev-${f}`} value={goalChanges[f]} onChange={(v) => setGoalField(f, v)} />}
                 </Field>
               ))}
             </Stack>

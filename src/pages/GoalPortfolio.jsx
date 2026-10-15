@@ -5,7 +5,10 @@ import { useGoalData, saveBucketMap } from '../services/goalStore';
 import { getTransactions, assignTransactionsToGoal, snapshotFromTransactions } from '../services/localStorageService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { BUCKETS } from '../lib/glidePath';
-import { BUCKET_INFO, targetAllocationNow } from '../lib/goalModel';
+import { BUCKET_INFO } from '../lib/goalModel';
+import { activeRules } from '../lib/revisionModel';
+import { allocationTotal, normalizeAllocation } from '../lib/rulesModel';
+import { progressAmounts } from '../services/goalProgress';
 import {
   unassignedTransactions, groupByTicker, suggestGoalForTicker, suggestBucket, bucketWeights, driftFromTarget, mergeByTicker,
 } from '../lib/goalPortfolio';
@@ -83,35 +86,35 @@ function TxRow({ tx, goals, value, onAssign }) {
 function WeightsChart({ weights, target, drift }) {
   return (
     <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-      {BUCKETS.filter(b => (target[b] ?? 0) > 0 || weights[b] > 0).map(b => (
+      {BUCKETS.filter(b => (target?.[b] ?? 0) > 0 || weights[b] > 0).map(b => (
         <li key={b}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', fontSize: '0.85rem', flexWrap: 'wrap' }}>
             <span style={{ color: 'var(--text-1)', fontWeight: 600 }}>{BUCKET_INFO[b].label}</span>
             <span style={{ ...mono, color: 'var(--text-2)' }}>
-              {num(weights[b])}% <span style={{ color: 'var(--text-3)' }}>· modello {num(target[b] ?? 0, 0)}%</span>
-              <span style={{ marginLeft: 8, color: Math.abs(drift[b]) >= 5 ? 'var(--warn)' : 'var(--text-3)' }}>{drift[b] > 0 ? '+' : ''}{num(drift[b])} pt</span>
+              {num(weights[b])}%
+              {target && <span style={{ color: 'var(--text-3)' }}> · scelta {num(target[b] ?? 0, 0)}%</span>}
+              {drift && <span style={{ marginLeft: 8, color: Math.abs(drift[b]) >= 5 ? 'var(--warn)' : 'var(--text-3)' }}>{drift[b] > 0 ? '+' : ''}{num(drift[b])} pt</span>}
             </span>
           </div>
-          <div role="img" aria-label={`${BUCKET_INFO[b].label}: ${num(weights[b])}% contro ${num(target[b] ?? 0, 0)}% del modello`}
+          <div role="img" aria-label={target ? `${BUCKET_INFO[b].label}: ${num(weights[b])}% contro ${num(target[b] ?? 0, 0)}% scelto` : `${BUCKET_INFO[b].label}: ${num(weights[b])}%`}
             style={{ position: 'relative', height: 10, borderRadius: 5, background: 'var(--surface-2)', marginTop: 5 }}>
             <div style={{ position: 'absolute', inset: 0, width: `${Math.min(100, weights[b])}%`, background: BUCKET_COLORS[b], borderRadius: 5 }} />
-            <div style={{ position: 'absolute', top: -3, bottom: -3, left: `${Math.min(100, target[b] ?? 0)}%`, width: 2, background: 'var(--text-1)', opacity: 0.7 }} />
+            {target && <div style={{ position: 'absolute', top: -3, bottom: -3, left: `${Math.min(100, target[b] ?? 0)}%`, width: 2, background: 'var(--text-1)', opacity: 0.7 }} />}
           </div>
         </li>
       ))}
-      <li style={hint}>La linea chiara indica la composizione del modello del corso per oggi.</li>
+      {target && <li style={hint}>La linea chiara indica la composizione che hai scelto nelle tue regole.</li>}
     </ul>
   );
 }
 
 // ── Pagina ──────────────────────────────────────────────────────────────────
 export default function GoalPortfolio() {
-  const { goals, bucketMap } = useGoalData();
+  const { goals, rules, bucketMap } = useGoalData();
   const [txVersion, setTxVersion] = useState(0);
   const [selectedId, setSelectedId] = useState(null);
   const [prices, setPrices] = useState({});
   const [pricesState, setPricesState] = useState('idle');
-  const now = useMemo(() => new Date(), []);
 
   const allTx = useMemo(() => getTransactions(), [txVersion]); // eslint-disable-line react-hooks/exhaustive-deps
   const activeGoals = goals.filter(g => g.status === 'active');
@@ -140,8 +143,13 @@ export default function GoalPortfolio() {
   const snap = useMemo(() => snapshotFromTransactions(goalTx, prices), [goalTx, prices]);
   const holdings = useMemo(() => mergeByTicker(snap.holdings).sort((a, b) => b.marketValue - a.marketValue), [snap]);
   const weights = useMemo(() => bucketWeights(holdings, bucketMap), [holdings, bucketMap]);
-  const target = useMemo(() => (goal ? targetAllocationNow(goal, now) : {}), [goal, now]);
-  const drift = useMemo(() => driftFromTarget(weights.weights, target), [weights, target]);
+  // Composizione scelta dallo studente nelle regole firmate (se c'è): è lui a deciderla, qui si mostra solo lo scostamento.
+  const declared = useMemo(() => {
+    const r = goal ? activeRules(rules, goal.id) : null;
+    return r?.allocation && allocationTotal(r.allocation) === 100 ? normalizeAllocation(r.allocation) : null;
+  }, [goal, rules]);
+  const drift = useMemo(() => (declared ? driftFromTarget(weights.weights, declared) : null), [weights, declared]);
+  const prog = goal ? progressAmounts(goal.targetAmount, snap.totalValue) : null;
 
   const setBucket = (ticker, bucket) => {
     const next = { ...bucketMap };
@@ -156,7 +164,7 @@ export default function GoalPortfolio() {
           <Wallet size={20} /> Il mio portafoglio
         </h1>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-3)', marginTop: 4 }}>
-          Ogni obiettivo ha il suo portafoglio. Gli ETF li scegli tu: qui vedi come sono distribuiti rispetto al modello del corso.
+          Ogni obiettivo ha il suo portafoglio. Gli investimenti li scegli tu: qui vedi a che punto sei e come sono distribuiti.
         </p>
       </div>
 
@@ -190,6 +198,18 @@ export default function GoalPortfolio() {
                 <div><div style={hint}>Valore oggi</div><div style={{ ...mono, fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-1)' }}>{eur(snap.totalValue)}</div></div>
                 <div><div style={hint}>Versato</div><div style={{ ...mono, fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-1)' }}>{eur(snap.totalInvested)}</div></div>
               </div>
+              {prog && holdings.length > 0 && (
+                <div>
+                  <div role="progressbar" aria-valuenow={Math.round(prog.percent)} aria-valuemin={0} aria-valuemax={100} aria-label="Avanzamento verso l'obiettivo"
+                    style={{ height: 8, borderRadius: 4, background: 'var(--surface-2)' }}>
+                    <div style={{ height: 8, borderRadius: 4, width: `${prog.percent}%`, background: 'var(--accent)' }} />
+                  </div>
+                  <div style={{ ...hint, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <span>Obiettivo {eur(goal.targetAmount)} di oggi · {Math.round(prog.percent)}%</span>
+                    <span>{prog.reached ? 'Importo raggiunto' : <>Mancano <span style={mono}>{eur(prog.remaining)}</span></>}</span>
+                  </div>
+                </div>
+              )}
               {pricesState === 'loading' && <p style={hint}>Aggiorno i prezzi…</p>}
               {snap.hasUnpriced && pricesState !== 'loading' && (
                 <p style={{ ...hint, color: 'var(--warn)' }}>Prezzo non disponibile per {snap.unpriced.map(u => u.ticker).join(', ')}: per quei titoli il valore è calcolato al costo.</p>
@@ -236,13 +256,16 @@ export default function GoalPortfolio() {
               </div>
 
               <div className="card">
-                <h2 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-1)', marginBottom: '0.9rem' }}>Rispetto al modello del corso</h2>
+                <h2 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-1)', marginBottom: '0.9rem' }}>
+                  {declared ? 'Rispetto alla composizione che hai scelto' : 'Come è composto oggi'}
+                </h2>
                 {weights.unclassified.value > 0 && (
                   <p style={{ ...hint, color: 'var(--warn)', marginTop: 0, marginBottom: '0.9rem' }}>
                     {eur(weights.unclassified.value)} ({weights.unclassified.tickers.join(', ')}) non hanno ancora un bucket: scegline uno sopra per vedere i pesi completi.
                   </p>
                 )}
-                <WeightsChart weights={weights.weights} target={target} drift={drift} />
+                <WeightsChart weights={weights.weights} target={declared} drift={drift} />
+                {!declared && <p style={hint}>Quando firmi le regole e indichi la composizione che hai scelto, qui vedrai quanto te ne discosti. <Link to="/regole" style={{ color: 'var(--accent)' }}>Firma le regole →</Link></p>}
               </div>
             </>
           )}

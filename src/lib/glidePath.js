@@ -1,3 +1,5 @@
+// NOTA (decisione v3): l'interfaccia non usa più questo modulo — l'app non propone allocazioni (lo insegna il corso).
+// Conservato solo per un'eventuale tabella fornita dall'autore; la fattibilità usa src/lib/feasibility.js.
 /**
  * Glide path: allocazione per bucket in funzione degli anni all'obiettivo
  * (GUIDED_MODE_SPEC.md §3). Funzioni pure.

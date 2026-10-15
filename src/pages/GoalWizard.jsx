@@ -1,20 +1,18 @@
-import { useState, useEffect, useMemo, useDeferredValue } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TrendingUp, ArrowLeft, ArrowRight, Check } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, CartesianGrid } from 'recharts';
 import {
-  GOAL_TYPES, MONTHS_COVERED, LOSS_OPTIONS, BUCKET_INFO, STATUS_INFO,
-  validateGoalInput, createGoal, riskProfileFromAnswers, incomeTarget, incomeHorizon, evaluatePlan, monthlyNeeded,
+  GOAL_TYPES, MONTHS_COVERED, STATUS_INFO, validateGoalInput, incomeTarget, incomeHorizon, goalFromFields,
 } from '../lib/goalModel';
-import { defaultRulesInput, validateRulesInput, createRulesV1 } from '../lib/rulesModel';
-import { label, hint, errStyle, Field, NumberInput, Choice, Stack, StepRules } from '../components/guided/wizardParts';
-import { BUCKETS } from '../lib/glidePath';
+import { evaluateFeasibility, allocationFor } from '../lib/feasibility';
+import { hint, errStyle, Field, NumberInput, Choice, Stack } from '../components/guided/wizardParts';
+import FeasibilitySheet from '../components/guided/FeasibilitySheet';
+import { DEFAULT_SCENARIO } from '../config/scenarios';
 import { getDraft, saveDraft, completeOnboarding } from '../services/goalStore';
-import { MARKET_ASSUMPTIONS } from '../config/marketAssumptions';
 
 const eur = (n) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Math.round(n));
 const pct = (n) => `${Math.round(n)}%`;
-const BUCKET_COLORS = { equity: 'var(--info)', bondShort: 'var(--pos)', bondMedium: 'var(--accent)', cash: 'var(--text-3)', gold: 'var(--warn)' };
+const monthIt = (ym) => new Date(`${ym}-01T12:00:00`).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
 const TYPE_ORDER = ['emergency', 'house', 'education', 'custom', 'income'];
 
 const defaultGoalFields = (type) => ({
@@ -27,8 +25,7 @@ const defaultGoalFields = (type) => ({
 });
 
 const initialState = (draft) => ({
-  stepIndex: 0, monthlyExpenses: '', types: [], goals: {}, risk: { lossReaction: '', incomeStability: '', experience: '' },
-  shifts: {}, rules: {},
+  stepIndex: 0, monthlyExpenses: '', types: [], goals: {}, scenarios: {},
   ...(draft && typeof draft === 'object' ? draft : {}),
 });
 
@@ -37,9 +34,7 @@ const buildSteps = (types) => {
   return [
     { id: 'intro' }, { id: 'types' },
     ...ordered.map(t => ({ id: `goal:${t}`, kind: 'goal', type: t })),
-    { id: 'risk' },
     ...ordered.map(t => ({ id: `plan:${t}`, kind: 'plan', type: t })),
-    ...ordered.map(t => ({ id: `rules:${t}`, kind: 'rules', type: t })),
     { id: 'done' },
   ];
 };
@@ -49,8 +44,8 @@ function StepIntro({ state, set, errors }) {
   return (
     <Stack>
       <p style={{ color: 'var(--text-2)', fontSize: '0.92rem' }}>
-        In questo esercizio definisci i tuoi obiettivi, vedi come si comporta il modello del corso nel tempo e scrivi le tue regole.
-        Ci vogliono pochi minuti e puoi riprendere da dove hai lasciato.
+        In questo esercizio scegli due o tre obiettivi, controlli se sono raggiungibili e li salvi. Più avanti collegherai i tuoi investimenti
+        e l&apos;app ti dirà a che punto sei e quanto manca. Puoi riprendere da dove hai lasciato.
       </p>
       <Field id="expenses" title="Quanto spendi in media al mese? (€)" error={errors.monthlyExpenses}
         help="Serve per calcolare il fondo emergenza e quanto ti servirebbe per vivere di rendita.">
@@ -64,7 +59,7 @@ function StepTypes({ state, set, errors }) {
   const toggle = (t) => set({ types: state.types.includes(t) ? state.types.filter(x => x !== t) : [...state.types, t] });
   return (
     <Stack>
-      <p style={{ color: 'var(--text-2)', fontSize: '0.92rem' }}>Scegli gli obiettivi che vuoi pianificare. Puoi sceglierne più di uno.</p>
+      <p style={{ color: 'var(--text-2)', fontSize: '0.92rem' }}>Scegli gli obiettivi che vuoi pianificare: di solito bastano due o tre.</p>
       <div role="group" aria-label="Obiettivi" style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
         {TYPE_ORDER.map(t => (
           <Choice key={t} role="checkbox" selected={state.types.includes(t)} onClick={() => toggle(t)}
@@ -176,177 +171,41 @@ function StepGoal({ type, state, set, errors }) {
   );
 }
 
-function StepRisk({ state, set, errors }) {
-  const r = state.risk;
-  const upd = (patch) => set({ risk: { ...r, ...patch } });
+
+function StepPlan({ type, state, set, now }) {
+  const f = state.goals[type] ?? defaultGoalFields(type);
+  const scenario = state.scenarios[type] ?? DEFAULT_SCENARIO;
   return (
-    <Stack gap="1.5rem">
-      <div>
-        <p style={{ ...label, fontSize: '0.92rem' }}>Hai 10.000 € investiti. Dopo un anno ne vedi 7.000. Cosa fai?</p>
-        <div role="radiogroup" aria-label="Reazione a una perdita" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {LOSS_OPTIONS.map(o => (
-            <Choice key={o.value} selected={Number(r.lossReaction) === o.value} onClick={() => upd({ lossReaction: o.value })} title={o.label} />
-          ))}
-        </div>
-        {errors.lossReaction && <p role="alert" style={errStyle}>{errors.lossReaction}</p>}
-      </div>
-      <div>
-        <p style={{ ...label, fontSize: '0.92rem' }}>Il tuo reddito è stabile o varia molto?</p>
-        <div role="radiogroup" aria-label="Stabilità del reddito" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <Choice selected={r.incomeStability === 'stable'} onClick={() => upd({ incomeStability: 'stable' })} title="È stabile" />
-          <Choice selected={r.incomeStability === 'variable'} onClick={() => upd({ incomeStability: 'variable' })} title="Varia molto" />
-        </div>
-        {errors.incomeStability && <p role="alert" style={errStyle}>{errors.incomeStability}</p>}
-      </div>
-      <div>
-        <p style={{ ...label, fontSize: '0.92rem' }}>Hai mai investito?</p>
-        <div role="radiogroup" aria-label="Esperienza" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <Choice selected={r.experience === 'none'} onClick={() => upd({ experience: 'none' })} title="No, è la prima volta" />
-          <Choice selected={r.experience === 'some'} onClick={() => upd({ experience: 'some' })} title="Qualche volta" />
-          <Choice selected={r.experience === 'experienced'} onClick={() => upd({ experience: 'experienced' })} title="Sì, da tempo" />
-        </div>
-        {errors.experience && <p role="alert" style={errStyle}>{errors.experience}</p>}
-      </div>
-    </Stack>
-  );
-}
-
-function AllocationBar({ allocation }) {
-  return (
-    <div>
-      <div role="img" aria-label="Composizione del modello" style={{ display: 'flex', height: 14, borderRadius: 7, overflow: 'hidden', background: 'var(--surface-2)' }}>
-        {BUCKETS.filter(b => allocation[b] > 0).map(b => (
-          <div key={b} style={{ width: `${allocation[b]}%`, background: BUCKET_COLORS[b] }} title={`${BUCKET_INFO[b].label} ${allocation[b]}%`} />
-        ))}
-      </div>
-      <ul style={{ listStyle: 'none', padding: 0, margin: '0.8rem 0 0', display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
-        {BUCKETS.filter(b => allocation[b] > 0).map(b => (
-          <li key={b} style={{ display: 'flex', gap: '0.6rem', alignItems: 'baseline' }}>
-            <span style={{ width: 10, height: 10, borderRadius: 3, background: BUCKET_COLORS[b], flexShrink: 0 }} />
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-1)' }}>
-              <strong style={{ fontFamily: 'var(--font-mono)' }}>{allocation[b]}%</strong> {BUCKET_INFO[b].label}
-              <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-3)' }}>{BUCKET_INFO[b].text}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function FanChart({ fan, target }) {
-  const data = fan.map(p => ({ anno: p.year, peggiore: Math.round(p.p5), mediano: Math.round(p.p50), migliore: Math.round(p.p95) }));
-  return (
-    <div style={{ width: '100%', height: 200 }}>
-      <ResponsiveContainer>
-        <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" />
-          <XAxis dataKey="anno" tick={{ fill: 'var(--text-3)', fontSize: 11 }} tickFormatter={(v) => `${v}a`} />
-          <YAxis tick={{ fill: 'var(--text-3)', fontSize: 11 }} width={48} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
-          <Tooltip formatter={(v) => eur(v)} labelFormatter={(v) => `Tra ${v} anni`}
-            contentStyle={{ background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 8 }} />
-          <ReferenceLine y={target} stroke="var(--warn)" strokeDasharray="4 4" />
-          <Line type="monotone" dataKey="migliore" stroke="var(--pos)" dot={false} strokeWidth={1.5} />
-          <Line type="monotone" dataKey="mediano" stroke="var(--info)" dot={false} strokeWidth={2.5} />
-          <Line type="monotone" dataKey="peggiore" stroke="var(--neg)" dot={false} strokeWidth={1.5} />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-function StepPlan({ type, goal, now, shift, setShift }) {
-  const deferred = useDeferredValue(shift);
-  const plan = useMemo(() => evaluatePlan(goal, { now, simulations: 1500, equityShift: deferred }), [goal, now, deferred]);
-  const [needed, setNeeded] = useState({ state: 'idle', value: null });
-  useEffect(() => { setNeeded({ state: 'idle', value: null }); }, [goal, deferred]);
-
-  const ev = plan.evaluation;
-  const info = STATUS_INFO[ev.status];
-  const targetYear = goal.targetDate.slice(0, 4);
-  const calc = () => {
-    setNeeded({ state: 'loading', value: null });
-    setTimeout(() => setNeeded({ state: 'done', value: monthlyNeeded({ ...plan, input: { ...plan.input, simulations: 800 } }) }), 30);
-  };
-
-  return (
-    <Stack gap="1.25rem">
+    <Stack gap="1rem">
       <p style={{ color: 'var(--text-2)', fontSize: '0.92rem' }}>
-        Questo è il <strong>modello del corso</strong> per un orizzonte di {Math.round(plan.years * 10) / 10} anni e il tuo profilo. Puoi adottarlo
-        così com&apos;è oppure spostare l&apos;azionario di qualche punto. Nel tempo il modello diventa più prudente.
+        Prova a cambiare importo, data o versamento: la fattibilità si aggiorna subito. Quando i numeri ti convincono, vai avanti.
       </p>
-      <div className="rounded-lg p-4" style={{ background: 'var(--surface-2)', border: `1px solid ${info.color}` }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '1rem', flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: 700, color: info.color }}>{info.label}</span>
-          <span style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-1)', fontFamily: 'var(--font-mono)' }} aria-label="Probabilità di raggiungere l'obiettivo">
-            {pct(ev.successProbability)}
-          </span>
-        </div>
-        <div style={hint}>probabilità di avere almeno {eur(goal.targetAmount)} di oggi{type === 'income' ? ' all\'inizio dei prelievi' : ''}, dopo inflazione e tasse</div>
-        <div style={{ ...hint, marginTop: '0.2rem' }}>
-          {eur(goal.targetAmount)} di oggi ≈ {eur(plan.nominalTarget)} nel {targetYear}
-        </div>
-      </div>
-
-      <div>
-        <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-1)', marginBottom: '0.6rem' }}>Cosa potresti ritrovare (€ di oggi)</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.6rem', marginBottom: '0.6rem' }}>
-          {[['Scenario peggiore', ev.percentiles.p5, 'var(--neg)'], ['Mediano', ev.percentiles.p50, 'var(--info)'], ['Scenario migliore', ev.percentiles.p95, 'var(--pos)']].map(([t, v, c]) => (
-            <div key={t} className="rounded-lg p-3" style={{ background: 'var(--surface-2)' }}>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-3)' }}>{t}</div>
-              <div style={{ fontWeight: 700, color: c, fontFamily: 'var(--font-mono)' }}>{eur(v)}</div>
-            </div>
-          ))}
-        </div>
-        <FanChart fan={ev.fan} target={goal.targetAmount} />
-        <p style={hint}>Linea tratteggiata: il tuo obiettivo. Lo scenario peggiore è il 5° percentile, il migliore il 95°.</p>
-      </div>
-
-      <div>
-        <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-1)', marginBottom: '0.6rem' }}>Com&apos;è composto oggi</h3>
-        <AllocationBar allocation={plan.allocationNow} />
-      </div>
-
-      {type !== 'emergency' && (
-        <div>
-          <label htmlFor="shift" style={label}>Sposta l&apos;azionario: {shift > 0 ? '+' : ''}{shift} punti</label>
-          <input id="shift" type="range" min={-10} max={10} step={5} value={shift} onChange={(e) => setShift(Number(e.target.value))} style={{ width: '100%' }} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', ...hint }}><span>Più prudente</span><span>Come il modello</span><span>Più audace</span></div>
-        </div>
-      )}
-
-      {ev.status !== 'on_track' && ev.status !== 'reached' && (
-        <div>
-          {needed.state === 'idle' && <button type="button" className="btn-secondary" onClick={calc}>Calcola cosa servirebbe per arrivare al {MARKET_ASSUMPTIONS.thresholds.onTrack}%</button>}
-          {needed.state === 'loading' && <p style={hint}>Calcolo in corso…</p>}
-          {needed.state === 'done' && (
-            <p style={{ fontSize: '0.88rem', color: 'var(--text-2)' }}>
-              {needed.value == null
-                ? 'Con questi numeri non si arriva alla soglia in modo realistico: cambiano soprattutto importo e data.'
-                : <>Con circa <strong style={{ color: 'var(--text-1)' }}>{eur(needed.value)}</strong> al mese (oggi {eur(goal.monthlyContribution)}) la probabilità arriverebbe al {MARKET_ASSUMPTIONS.thresholds.onTrack}%.</>}
-            </p>
-          )}
-        </div>
-      )}
-      <p style={hint}>Simulazione basata su ipotesi dichiarate (rendimenti, inflazione, tasse). Non è una previsione né una raccomandazione.</p>
+      <FeasibilitySheet
+        type={type} fields={f} monthlyExpenses={state.monthlyExpenses} now={now}
+        scenario={scenario}
+        onScenario={(id) => set({ scenarios: { ...state.scenarios, [type]: id } })}
+        onFields={(patch) => set({ goals: { ...state.goals, [type]: { ...f, ...patch } } })}
+      />
     </Stack>
   );
 }
 
 function StepDone({ goals, now }) {
-  const rows = useMemo(() => goals.map(g => ({ g, plan: evaluatePlan(g, { now, simulations: 800 }) })), [goals, now]);
+  const rows = useMemo(() => goals.map(g => ({ g, ev: evaluateFeasibility(g, { allocation: allocationFor(g), now, simulations: 800 }).evaluation })), [goals, now]);
   return (
     <Stack>
-      <p style={{ color: 'var(--text-2)', fontSize: '0.92rem' }}>Ecco il riepilogo. Confermando salvi obiettivi e regole firmate: potrai riguardarli quando vuoi.</p>
-      {rows.map(({ g, plan }) => {
-        const info = STATUS_INFO[plan.evaluation.status];
+      <p style={{ color: 'var(--text-2)', fontSize: '0.92rem' }}>
+        Ecco i tuoi obiettivi. Confermando li salvi: potrai modificarli quando vuoi finché non firmi le regole. Poi importa le tue operazioni e collegale agli obiettivi.
+      </p>
+      {rows.map(({ g, ev }) => {
+        const info = STATUS_INFO[ev.status];
         return (
           <div key={g.id} className="rounded-lg p-4" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
               <strong style={{ color: 'var(--text-1)' }}>{g.name}</strong>
-              <span style={{ color: info.color, fontWeight: 600 }}>{info.label} · {pct(plan.evaluation.successProbability)}</span>
+              <span style={{ color: info.color, fontWeight: 600 }}>{info.label} · {pct(ev.successProbability)}</span>
             </div>
-            <div style={hint}>{eur(g.targetAmount)} di oggi, entro {new Date(`${g.targetDate}-01T12:00:00`).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}</div>
+            <div style={hint}>{eur(g.targetAmount)} di oggi, entro {monthIt(g.targetDate)} · versamento {eur(g.monthlyContribution)}/mese</div>
           </div>
         );
       })}
@@ -355,9 +214,7 @@ function StepDone({ goals, now }) {
 }
 
 // ── Pagina ──────────────────────────────────────────────────────────────────
-const TITLES = {
-  intro: 'Iniziamo', types: 'I tuoi obiettivi', risk: 'Come reagisci ai cali', done: 'Riepilogo',
-};
+const TITLES = { intro: 'Iniziamo', types: 'I tuoi obiettivi', done: 'Riepilogo' };
 
 export default function GoalWizard({ standalone = false }) {
   const navigate = useNavigate();
@@ -373,17 +230,11 @@ export default function GoalWizard({ standalone = false }) {
   const index = Math.min(state.stepIndex, steps.length - 1);
   const step = steps[index];
 
-  const riskProfile = useMemo(() => {
-    try { return riskProfileFromAnswers(state.risk); } catch { return null; }
-  }, [state.risk]);
-
   const goalFor = (type) => {
     const f = state.goals[type] ?? defaultGoalFields(type);
-    const input = { ...f, type, equityShift: state.shifts[type] ?? 0 };
-    if (!riskProfile || !validateGoalInput(input, { now, monthlyExpenses: state.monthlyExpenses }).valid) return null;
-    return createGoal(input, { riskProfile, monthlyExpenses: state.monthlyExpenses, now });
+    const { goal } = goalFromFields(type, f, { now, monthlyExpenses: state.monthlyExpenses, scenario: state.scenarios[type] ?? DEFAULT_SCENARIO, base: state.goalIds?.[type] ? { id: state.goalIds[type] } : undefined });
+    return goal;
   };
-  const rulesFor = (type) => state.rules[type] ?? defaultRulesInput();
   const orderedTypes = TYPE_ORDER.filter(t => state.types.includes(t));
 
   const validateStep = () => {
@@ -393,14 +244,7 @@ export default function GoalWizard({ standalone = false }) {
       const f = state.goals[step.type] ?? defaultGoalFields(step.type);
       return validateGoalInput({ ...f, type: step.type }, { now, monthlyExpenses: state.monthlyExpenses }).errors;
     }
-    if (step.id === 'risk') {
-      const e = {};
-      if (!LOSS_OPTIONS.some(o => o.value === Number(state.risk.lossReaction))) e.lossReaction = 'Scegli una risposta.';
-      if (!['stable', 'variable'].includes(state.risk.incomeStability)) e.incomeStability = 'Scegli una risposta.';
-      if (!['none', 'some', 'experienced'].includes(state.risk.experience)) e.experience = 'Scegli una risposta.';
-      return e;
-    }
-    if (step.kind === 'rules') return validateRulesInput(rulesFor(step.type)).errors;
+    if (step.kind === 'plan') return goalFor(step.type) ? {} : { plan: 'Correggi i dati dell\'obiettivo per continuare.' };
     return {};
   };
 
@@ -417,8 +261,7 @@ export default function GoalWizard({ standalone = false }) {
     try {
       const goals = orderedTypes.map(t => goalFor(t));
       if (goals.some(g => g === null)) throw new Error('Alcuni dati non sono completi: torna indietro e controlla gli obiettivi.');
-      const rules = goals.map((g, i) => createRulesV1({ goalId: g.id, input: rulesFor(orderedTypes[i]), now }));
-      completeOnboarding({ goals, rules, now });
+      completeOnboarding({ goals, rules: [], now });
       navigate('/obiettivi', { replace: true });
     } catch (err) {
       setSaveError(err.message);
@@ -429,20 +272,11 @@ export default function GoalWizard({ standalone = false }) {
   if (step.id === 'intro') body = <StepIntro state={state} set={set} errors={errors} />;
   else if (step.id === 'types') body = <StepTypes state={state} set={set} errors={errors} />;
   else if (step.kind === 'goal') body = <StepGoal type={step.type} state={state} set={set} errors={errors} />;
-  else if (step.id === 'risk') body = <StepRisk state={state} set={set} errors={errors} />;
-  else if (step.kind === 'plan') {
-    const g = goalFor(step.type);
-    body = g
-      ? <StepPlan type={step.type} goal={g} now={now} shift={state.shifts[step.type] ?? 0} setShift={(v) => set({ shifts: { ...state.shifts, [step.type]: v } })} />
-      : <p role="alert" style={errStyle}>Mancano dei dati: torna indietro e completa l&apos;obiettivo.</p>;
-  } else if (step.kind === 'rules') {
-    const g = goalFor(step.type);
-    body = g ? <StepRules goal={g} rules={rulesFor(step.type)} setRules={(v) => set({ rules: { ...state.rules, [step.type]: v } })} errors={errors} /> : null;
-  } else body = <StepDone goals={orderedTypes.map(goalFor).filter(Boolean)} now={now} />;
+  else if (step.kind === 'plan') body = <StepPlan type={step.type} state={state} set={set} now={now} />;
+  else body = <StepDone goals={orderedTypes.map(goalFor).filter(Boolean)} now={now} />;
 
   const title = step.kind === 'goal' ? `Obiettivo: ${GOAL_TYPES[step.type].label}`
-    : step.kind === 'plan' ? `Il modello · ${GOAL_TYPES[step.type].label}`
-    : step.kind === 'rules' ? `Le tue regole · ${GOAL_TYPES[step.type].label}` : TITLES[step.id];
+    : step.kind === 'plan' ? `Fattibilità · ${GOAL_TYPES[step.type].label}` : TITLES[step.id];
 
   return (
     <div style={{ minHeight: standalone ? '100vh' : undefined, background: standalone ? 'var(--bg)' : undefined, padding: standalone ? '1.25rem 1rem 3rem' : 0 }}>
@@ -460,13 +294,14 @@ export default function GoalWizard({ standalone = false }) {
 
         <div className="card">{body}</div>
 
+        {errors.plan && <p role="alert" style={{ ...errStyle, marginTop: '1rem' }}>{errors.plan}</p>}
         {saveError && <p role="alert" style={{ ...errStyle, marginTop: '1rem' }}>{saveError}</p>}
         <div className={`flow-actions${standalone ? '' : ' above-nav'}`}>
           <button type="button" className="btn-secondary" onClick={back} disabled={index === 0} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <ArrowLeft size={16} /> Indietro
           </button>
           {step.id === 'done'
-            ? <button type="button" className="btn-primary" onClick={finish} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Check size={16} /> Concludi l&apos;esercizio</button>
+            ? <button type="button" className="btn-primary" onClick={finish} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Check size={16} /> Salva i miei obiettivi</button>
             : <button type="button" className="btn-primary" onClick={next} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Avanti <ArrowRight size={16} /></button>}
         </div>
       </div>

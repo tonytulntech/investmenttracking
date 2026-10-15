@@ -1098,7 +1098,72 @@ function PositionsTable({ positions, prices, onEdit }) {
     <div style={{ textAlign:'center', padding:'3rem', color:'var(--text-3)' }}>Nessuna posizione.</div>
   );
   return (
-    <div style={{ overflowX:'auto' }}>
+    <>
+    {/* ── Mobile card view ── */}
+    <div className="mobile-cards" style={{ padding:'0.65rem' }}>
+      {sorted.map(pos => {
+        const price = prices[pos.ticker]?.price;
+        const val   = marketValue(pos, prices);
+        const gross = annualGross(pos);
+        const yld   = price ? (pos.dividendPerShare / price) * 100 : null;
+        const yoc   = yieldOnCost(pos);
+        return (
+          <div key={pos.id} style={{
+            background:'var(--card-bg)', border:'1px solid var(--border)',
+            borderRadius:10, padding:'0.75rem', display:'flex', flexDirection:'column', gap:'0.5rem'
+          }}>
+            {/* header: ticker+name, badges, configure */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'0.5rem' }}>
+              <div style={{ minWidth:0, flex:1 }}>
+                <span style={{ fontWeight:700, fontSize:'0.88rem' }}>{pos.ticker}</span>
+                <span style={{ color:'var(--text-3)', fontSize:'0.72rem', marginLeft:6, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{pos.name}</span>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
+                <AssetBadge type={pos.assetType} />
+                <MoatBadge rating={pos.moatRating} />
+                <button onClick={() => onEdit(pos)} title="Configura" style={{
+                  background:'var(--bg)', border:'1px solid var(--border)', borderRadius:7,
+                  padding:'4px 6px', cursor:'pointer', color:'var(--text-2)',
+                  display:'flex', alignItems:'center',
+                }}>
+                  <Settings2 size={12} />
+                </button>
+              </div>
+            </div>
+            {/* data grid: Valore | Div./anno | YoC */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'0.4rem', fontSize:'0.78rem' }}>
+              <div>
+                <div style={{ color:'var(--text-3)', fontSize:'0.65rem', textTransform:'uppercase', letterSpacing:'0.04em' }}>Valore</div>
+                <div style={{ fontWeight:600, fontFamily:'monospace', fontVariantNumeric:'tabular-nums' }}>
+                  {price ? <Blur>{fmtEur(val)}</Blur> : <span style={{ color:'var(--text-3)' }}>n/d</span>}
+                </div>
+              </div>
+              <div>
+                <div style={{ color:'var(--text-3)', fontSize:'0.65rem', textTransform:'uppercase', letterSpacing:'0.04em' }}>Div./anno</div>
+                <div style={{ fontWeight:600, color: gross > 0 ? 'var(--pos)' : 'var(--text-3)', fontFamily:'monospace', fontVariantNumeric:'tabular-nums' }}>
+                  {gross > 0 ? <Blur>{fmtEur(gross)}</Blur> : '—'}
+                </div>
+              </div>
+              <div>
+                <div style={{ color:'var(--text-3)', fontSize:'0.65rem', textTransform:'uppercase', letterSpacing:'0.04em' }}>YoC</div>
+                <div style={{ fontWeight:600, color: yoc > 0 ? 'var(--info)' : 'var(--text-3)', fontFamily:'monospace', fontVariantNumeric:'tabular-nums' }}>
+                  {yoc > 0 ? fmtPct(yoc) : '—'}
+                </div>
+              </div>
+            </div>
+            {/* footer: Yield, CAGR, Payout */}
+            <div style={{ display:'flex', gap:'0.75rem', fontSize:'0.7rem', color:'var(--text-3)', flexWrap:'wrap' }}>
+              {yld != null && <span>Yield <span style={{ color: yld > 6 ? 'var(--warn)' : 'var(--text-2)' }}>{fmtPct(yld)}</span></span>}
+              {pos.dividendGrowthRate > 0 && <span>CAGR <span style={{ color: pos.dividendGrowthRate >= 5 ? 'var(--pos)' : 'var(--text-2)' }}>+{pos.dividendGrowthRate}%</span></span>}
+              {pos.payoutRatio > 0 && <span>Payout <span style={{ color: pos.payoutRatio > 100 ? 'var(--neg)' : pos.payoutRatio > 80 ? 'var(--warn)' : 'var(--text-2)' }}>{pos.payoutRatio}%</span></span>}
+              <span style={{ marginLeft:'auto', color:'var(--text-2)' }}>{pos.shares} az. · <Blur>{fmtEur(pos.avgCostBasis)}</Blur>/az.</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+    {/* ── Desktop table ── */}
+    <div className="desktop-table" style={{ overflowX:'auto' }}>
       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.82rem' }}>
         <thead>
           <tr style={{ background:'var(--bg)' }}>
@@ -1175,6 +1240,7 @@ function PositionsTable({ positions, prices, onEdit }) {
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 

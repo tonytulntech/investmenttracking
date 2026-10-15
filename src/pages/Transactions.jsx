@@ -695,7 +695,74 @@ function Transactions() {
         </div>
       ) : (
         <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* ── Mobile card view ── */}
+          <div className="mobile-cards" style={{ padding: '0.65rem' }}>
+            {filteredTransactions.map((tx) => {
+              const total = tx.quantity * tx.price;
+              return (
+                <div key={tx.id} style={{
+                  background: 'var(--surface-2)', border: '1px solid var(--border)',
+                  borderRadius: 12, padding: '0.85rem 1rem',
+                  opacity: tx.excludeFromStats ? 0.45 : 1,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{
+                        fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px', borderRadius: 6,
+                        background: tx.type === 'buy' ? 'var(--pos-weak)' : 'var(--neg-weak)',
+                        color: tx.type === 'buy' ? 'var(--pos)' : 'var(--neg)',
+                      }}>
+                        {tx.type === 'buy' ? 'ACQ' : 'VND'}
+                      </span>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-3)' }}>{formatDate(tx.date)}</span>
+                      {tx.excludeFromStats && (
+                        <span style={{ fontSize: '0.6rem', fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'rgba(255,159,10,0.18)', color: 'var(--warn)' }}>ESCLUSA</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button onClick={() => toggleExcludeFromStats(tx)} style={{ padding: 6, borderRadius: 6, border: 'none', cursor: 'pointer', background: tx.excludeFromStats ? 'rgba(255,159,10,0.15)' : 'transparent', color: tx.excludeFromStats ? 'var(--warn)' : 'var(--text-3)' }}>
+                        {tx.excludeFromStats ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                      <button onClick={() => handleEdit(tx)} style={{ padding: 6, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'transparent', color: 'var(--accent)' }}>
+                        <Edit2 size={14} />
+                      </button>
+                      <button onClick={() => handleDelete(tx.id)} style={{ padding: 6, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'transparent', color: 'var(--neg)' }}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-1)' }}>{tx.ticker}</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{tx.name || ''}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: '1rem', color: 'var(--text-1)' }}>
+                      €{total.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>
+                      {tx.quantity.toLocaleString('it-IT', { maximumFractionDigits: 4 })} × €{tx.price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.66rem', fontWeight: 600, padding: '1px 7px', borderRadius: 5, background: 'var(--accent-weak)', color: 'var(--accent)', border: '1px solid rgba(124,130,255,0.2)' }}>
+                      {tx.platform || 'Manuale'}
+                    </span>
+                    <span style={{ fontSize: '0.66rem', fontWeight: 600, padding: '1px 7px', borderRadius: 5, background: 'var(--surface-1)', color: 'var(--text-3)', border: '1px solid var(--border)' }}>
+                      {tx.macroCategory || tx.category || '-'}
+                    </span>
+                    {tx.commission > 0 && (
+                      <span style={{ fontSize: '0.66rem', color: 'var(--warn)' }}>
+                        comm. €{tx.commission.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Desktop table view ── */}
+          <div className="desktop-table overflow-x-auto">
             <table className="table">
               <thead>
                 <tr>

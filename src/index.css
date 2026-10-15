@@ -1084,6 +1084,14 @@
   .pf-hide-sm { display: none !important; }
 }
 
+/* ── Responsive table → card toggle ───────────────────────── */
+.desktop-table { display: block; }
+.mobile-cards  { display: none; }
+@media (max-width: 640px) {
+  .desktop-table { display: none !important; }
+  .mobile-cards  { display: flex !important; flex-direction: column; gap: 0.65rem; }
+}
+
 /* Projection chart SVG più corto su mobile */
 @media (max-width: 640px) {
   .projection-svg { height: 200px !important; }

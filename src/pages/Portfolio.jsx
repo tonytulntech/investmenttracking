@@ -381,7 +381,75 @@ function Portfolio() {
             boxShadow: '0 1px 2px rgba(0,0,0,0.28)',
             marginBottom: '1rem',
           }}>
-            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            {/* ── Mobile card view ── */}
+            <div className="mobile-cards" style={{ padding: '0.65rem' }}>
+              {filteredPortfolio.map((holding, index) => {
+                const cls = classifyHolding(holding);
+                const plColor = holding.unrealizedPL >= 0 ? 'var(--pos)' : 'var(--neg)';
+                const yield_ = holding.dividendYield;
+                return (
+                  <div key={index} style={{
+                    background: 'var(--surface-2)', border: '1px solid var(--border)',
+                    borderRadius: 12, padding: '0.85rem 1rem',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <Blur><span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-1)' }}>{holding.ticker}</span></Blur>
+                        <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <Blur>{holding.name}</Blur>
+                        </span>
+                      </div>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: cls.macroColor + '1e', color: cls.macroColor, borderRadius: 6, padding: '2px 8px', fontSize: '0.68rem', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: cls.macroColor }} />
+                        {cls.macroLabel}
+                      </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                      <div>
+                        <span style={{ fontSize: '0.6rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block' }}>Valore</span>
+                        <span style={{ ...MONO, fontWeight: 600, fontSize: '0.88rem', color: 'var(--text-1)' }}>
+                          <Blur>€{holding.marketValue.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Blur>
+                        </span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.6rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block' }}>P/L</span>
+                        <span style={{ ...MONO, fontWeight: 600, fontSize: '0.88rem', color: plColor }}>
+                          <Blur>{holding.unrealizedPL >= 0 ? '+' : ''}{holding.unrealizedPL.toLocaleString('it-IT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}€</Blur>
+                        </span>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.6rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block' }}>ROI</span>
+                        <span style={{ ...MONO, fontWeight: 600, fontSize: '0.88rem', color: plColor }}>
+                          {holding.roi >= 0 ? '+' : ''}{holding.roi.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                    {(yield_ != null || (holding.ter && holding.ter > 0)) && (
+                      <div style={{ display: 'flex', gap: 12, marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                        {yield_ != null && (
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>
+                            Yield <span style={{ fontWeight: 600, color: yield_ >= 4 ? 'var(--pos)' : 'var(--accent)' }}>{yield_.toFixed(2)}%</span>
+                          </span>
+                        )}
+                        {holding.ter > 0 && (
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>
+                            TER <span style={{ fontWeight: 600, color: 'var(--warn)' }}>{holding.ter.toFixed(2)}%</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {filteredPortfolio.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-3)', fontSize: '0.85rem' }}>
+                  Nessun risultato trovato
+                </div>
+              )}
+            </div>
+
+            {/* ── Desktop table view ── */}
+            <div className="desktop-table" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
               <table style={{
                 width: '100%', borderCollapse: 'collapse',
                 fontFamily: 'inherit', fontSize: '0.82rem',

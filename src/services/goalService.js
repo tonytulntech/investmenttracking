@@ -8,7 +8,7 @@
  * in termini nominali (ipotesi prudente: non indicizzati all'inflazione).
  */
 import { simulateGoal } from '../lib/multiAssetMonteCarlo';
-import { glidePathAllocation, withGold } from '../lib/glidePath';
+import { glidePathAllocation, withGold, adjustEquity } from '../lib/glidePath';
 import { MARKET_ASSUMPTIONS as MA, getCorrelation } from '../config/marketAssumptions';
 
 export const GOAL_STATUS = {
@@ -21,9 +21,20 @@ export const GOAL_STATUS = {
 
 const MS_PER_MONTH = 30.4375 * 24 * 60 * 60 * 1000;
 
-/** Anni (frazionari) da `now` al 31/12 di `goalYear`. Negativo se già passato. */
-export function yearsUntilGoal(goalYear, now = new Date()) {
-  const end = new Date(goalYear, 11, 31);
+/**
+ * Anni (frazionari) da `now` alla scadenza. Negativo se già passata.
+ * `goal` può essere un anno (→ 31/12), 'YYYY-MM' (→ fine mese) o 'YYYY-MM-DD'.
+ */
+export function yearsUntilGoal(goal, now = new Date()) {
+  let end;
+  if (typeof goal === 'string' && /^\d{4}-\d{2}$/.test(goal)) {
+    const [y, m] = goal.split('-').map(Number);
+    end = new Date(y, m, 0); // ultimo giorno del mese
+  } else if (typeof goal === 'string') {
+    end = new Date(goal);
+  } else {
+    end = new Date(goal, 11, 31);
+  }
   return Math.round((end - now) / MS_PER_MONTH) / 12;
 }
 
@@ -56,10 +67,12 @@ export function portfolioStats(weights) {
  * @param {Object} [p.riskProfile]           { maxTolerableLoss, incomeStability }
  * @param {number} [p.extraYears=0]          anni oltre la data (rendita: orizzonte fino a horizonEndAge)
  * @param {number} [p.goldPct=0]             oro scelto a mano, 0–10
+ * @param {number} [p.equityShift=0]         spostamento dell'azionario scelto dallo studente (−10…+10); ignorato per il fondo emergenza
  */
-export function glideSchedule({ type, riskProfile, extraYears = 0, goldPct = 0 } = {}) {
+export function glideSchedule({ type, riskProfile, extraYears = 0, goldPct = 0, equityShift = 0 } = {}) {
   return (monthsLeft) => {
-    const a = glidePathAllocation({ years: monthsLeft / 12 + extraYears, type, riskProfile });
+    let a = glidePathAllocation({ years: monthsLeft / 12 + extraYears, type, riskProfile });
+    if (equityShift && type !== 'emergency') a = adjustEquity(a, equityShift);
     return goldPct ? withGold(a, goldPct) : a;
   };
 }
@@ -94,7 +107,8 @@ export function nominalTargetForSuccess(targetReal, costBasis, years, inflation 
  * @param {number} input.currentValue          - valore attuale del portafoglio (€)
  * @param {number} [input.initialCostBasis]    - capitale già versato (default: currentValue, cioè si assume nessun gain già maturato; passare il valore reale per tasse più accurate)
  * @param {number} input.targetAmount          - importo obiettivo in € di oggi
- * @param {number} input.goalYear
+ * @param {number} [input.goalYear]          - anno (31/12)
+ * @param {string} [input.goalDate]          - 'YYYY-MM' o 'YYYY-MM-DD' (ha la precedenza su goalYear)
  * @param {number} [input.monthlyContribution=0]
  * @param {Object<string, number>} [input.weights] - allocazione costante per macro categoria/bucket
  * @param {(monthsLeft:number)=>Object<string, number>} [input.allocationAt] - allocazione che cambia nel tempo (glide path)
@@ -110,6 +124,7 @@ export function evaluateGoal({
   initialCostBasis,
   targetAmount,
   goalYear,
+  goalDate,
   monthlyContribution = 0,
   weights,
   allocationAt,
@@ -120,7 +135,7 @@ export function evaluateGoal({
   seed = 42,
   taxRate = MA.taxRate,
 }) {
-  const yearsLeft = yearsUntilGoal(goalYear, now);
+  const yearsLeft = yearsUntilGoal(goalDate ?? goalYear, now);
   const months = Math.round(yearsLeft * 12);
 
   const funded = currentValue >= targetAmount;
@@ -172,7 +187,7 @@ export function monthlyNeededForSuccess(input, targetProbability = MA.thresholds
 
   if (probAt(0) >= targetProbability) return 0;
 
-  const months = Math.max(1, Math.round(yearsUntilGoal(input.goalYear, input.now) * 12));
+  const months = Math.max(1, Math.round(yearsUntilGoal(input.goalDate ?? input.goalYear, input.now) * 12));
   const base = Math.max(100, (input.targetAmount - input.currentValue) / months);
   const cap = base * 4; // copre ampiamente inflazione, tasse e volatilità
   let hi = base;

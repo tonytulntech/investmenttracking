@@ -48,6 +48,13 @@ export const MARKET_ASSUMPTIONS = {
     'inflation|commodity': 0.4, 'inflation|realEstate': 0.2,  'inflation|crypto': 0.0,
   },
 
+  // Tasso di prelievo annuo sostenibile (% del capitale) per durata della rendita (spec §11.1).
+  safeWithdrawalRate: [
+    { maxYears: 30, rate: 4.0 },
+    { maxYears: 40, rate: 3.5 },
+    { maxYears: Infinity, rate: 3.3 },
+  ],
+
   // Soglie del semaforo sulla probabilità di successo (%) (D5 della spec).
   thresholds: { onTrack: 75, watch: 50 },
 
@@ -70,6 +77,11 @@ export function resolveTaxRate(residence = {}) {
   const raw = profile?.rate ?? residence.customRate;
   if (typeof raw !== 'number' || !Number.isFinite(raw)) return MARKET_ASSUMPTIONS.taxRate;
   return Math.min(60, Math.max(0, raw));
+}
+
+/** Tasso di prelievo sostenibile (%) per una rendita che dura `years` anni. */
+export function safeWithdrawalRateFor(years) {
+  return MARKET_ASSUMPTIONS.safeWithdrawalRate.find(r => years <= r.maxYears).rate;
 }
 
 export function getCorrelation(a, b) {

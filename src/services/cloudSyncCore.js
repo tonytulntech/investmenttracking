@@ -22,6 +22,11 @@ export const SYNC_KEYS = [
   'etf_missing_dismissed',
   'reported_tickers_v1',
   'inv-mode',
+  // esercizio Obiettivi (obiettivi, regole firmate, avanzamento, bozza del wizard)
+  'inv_goals_v1',
+  'inv_goal_rules_v1',
+  'inv_student_progress_v1',
+  'inv_goal_wizard_draft_v1',
 ];
 
 // Chiavi che da sole non contano come "dati": preferenze/default creati all'avvio.

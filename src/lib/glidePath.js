@@ -69,6 +69,18 @@ export function glidePathAllocation({ years, type, riskProfile = {} }) {
 }
 
 /**
+ * Sposta l'azionario di `delta` punti (−10…+10), a spese/favore dei bucket meno rischiosi.
+ * Serve allo slider dello studente: stessa logica dell'aggiustamento per rischio.
+ */
+export function adjustEquity(allocation, delta) {
+  const d = Math.max(-10, Math.min(10, Math.round(delta)));
+  const a = { ...allocation };
+  if (d < 0) reduceEquity(a, -d);
+  else if (d > 0) increaseEquity(a, d);
+  return a;
+}
+
+/**
  * Aggiunge fino al 10% di oro (solo su scelta manuale dello studente), sottraendolo
  * dagli altri bucket in proporzione (metodo del resto maggiore: somma sempre 100).
  */

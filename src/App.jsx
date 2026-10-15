@@ -2,12 +2,13 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import {
   TrendingUp, LayoutDashboard, Wallet, FileText, Settings, Plus,
-  RefreshCcw, BarChart3, PiggyBank,
+  RefreshCcw, BarChart3, PiggyBank, Target,
   Sun, Moon, ScanSearch, Layers, Eye, EyeOff, Coins,
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
 import { ModeProvider, useMode } from './context/ModeContext';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { useGoalData } from './services/goalStore';
 import AuthGate from './components/AuthGate';
 import { PrivacyPage, TermsPage } from './pages/Legal';
 import { migrateTickersPersistent } from './services/localStorageService';
@@ -25,6 +26,8 @@ const PortfolioManager     = lazy(() => import('./pages/PortfolioManager'));
 const Rebalancing          = lazy(() => import('./pages/Rebalancing'));
 const Transactions         = lazy(() => import('./pages/Transactions'));
 const SettingsPage         = lazy(() => import('./pages/Settings'));
+const Goals                = lazy(() => import('./pages/Goals'));
+const GoalWizard           = lazy(() => import('./pages/GoalWizard'));
 
 // ── Navigation structure ─────────────────────────────────────────
 // Nav snella: solo pagine che l'utente usa davvero. Le pagine "nascoste"
@@ -33,6 +36,7 @@ const SettingsPage         = lazy(() => import('./pages/Settings'));
 // import, entry di nav e route.
 const primaryNav = [
   { name: 'Dashboard',   href: '/',             icon: LayoutDashboard },
+  { name: 'Obiettivi',   href: '/obiettivi',    icon: Target },
   { name: 'Portfolio',   href: '/portfolio',    icon: Wallet },
   { name: 'Performance', href: '/performance',  icon: BarChart3 },
   { name: 'Transazioni', href: '/transactions', icon: FileText },
@@ -51,16 +55,18 @@ const mobileNav = [
   { name: 'Ribilancia',   href: '/rebalancing',  icon: RefreshCcw },
   { name: 'Impostazioni', href: '/settings',     icon: Settings },
 ];
-// In modalità Guidata "Ribilancia" non è raggiungibile: al suo posto Transazioni.
+// In modalità Guidata "Ribilancia" non è raggiungibile: al suo posto Obiettivi (le transazioni restano raggiungibili dal pulsante +).
 const mobileNavGuided = [
   mobileNav[0],
   mobileNav[1],
-  { name: 'Transazioni',  href: '/transactions', icon: FileText },
+  { name: 'Obiettivi',    href: '/obiettivi',    icon: Target },
   mobileNav[3],
 ];
 
 const appRoutes = [
   { path: '/',                 element: <Dashboard /> },
+  { path: '/obiettivi',        element: <Goals /> },
+  { path: '/guida/inizia',     element: <GoalWizard /> },
   { path: '/portfolio',        element: <Portfolio /> },
   { path: '/performance',      element: <PortfolioPerformance /> },
   { path: '/analysis',         element: <PortfolioAnalysis /> },
@@ -314,6 +320,21 @@ function AppShell() {
 // Pagine pubbliche: leggibili senza accesso (richieste anche da Google per il consenso OAuth).
 const PUBLIC_PAGES = { '/privacy': PrivacyPage, '/termini': TermsPage };
 
+// Primo accesso di un cliente (modalità Guidata assegnata): l'esercizio Obiettivi è l'unica schermata
+// finché non è concluso. L'amministratore e chi usa l'app senza account non sono mai bloccati.
+function OnboardingGate({ children }) {
+  const { cloudEnabled, profile } = useAuth();
+  const { mode } = useMode();
+  const { progress } = useGoalData();
+  const gated = cloudEnabled && profile && !profile.isAdmin && mode === 'guided' && !progress.onboardingCompleted;
+  if (!gated) return children;
+  return (
+    <Suspense fallback={<div style={{ padding: '3rem', textAlign: 'center', opacity: 0.5 }}>Caricamento…</div>}>
+      <GoalWizard standalone />
+    </Suspense>
+  );
+}
+
 function App() {
   const { pathname } = useLocation();
   const PublicPage = PUBLIC_PAGES[pathname.replace(/\/+$/, '')];
@@ -324,7 +345,9 @@ function App() {
       <AuthGate>
         <PrivacyProvider>
           <ModeProvider>
-            <AppShell />
+            <OnboardingGate>
+              <AppShell />
+            </OnboardingGate>
           </ModeProvider>
         </PrivacyProvider>
       </AuthGate>

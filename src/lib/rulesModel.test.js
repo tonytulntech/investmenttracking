@@ -4,6 +4,7 @@ import { defaultRulesInput, validateRulesInput, createRulesV1, describeRules, MI
 const NOW = new Date('2026-10-15T10:00:00Z');
 const valid = () => ({
   ...defaultRulesInput(),
+  allocation: { equity: 50, bondShort: 10, bondMedium: 30, cash: 5, gold: 5 },
   crashPlan: { choice: 'hold_and_buy', personalNote: 'Non guardo il portafoglio e continuo a versare come previsto.' },
   signedName: 'Mario Rossi', accepted: true,
 });
@@ -13,7 +14,7 @@ describe('validateRulesInput', () => {
   it('i default da soli NON bastano: servono nota, nome e conferma', () => {
     const r = validateRulesInput(defaultRulesInput());
     expect(r.valid).toBe(false);
-    expect(Object.keys(r.errors).sort()).toEqual(['accepted', 'personalNote', 'signedName']);
+    expect(Object.keys(r.errors).sort()).toEqual(['accepted', 'allocation', 'personalNote', 'signedName']);
   });
   it('la nota deve avere almeno 20 caratteri (spazi esclusi ai bordi)', () => {
     const v = valid();
@@ -81,6 +82,24 @@ describe('describeRules', () => {
   });
   it('metodo "both": cita soglia e mese', () => {
     const rules = createRulesV1({ goalId: 'g', input: { ...valid(), rebalance: { method: 'both', thresholdPct: 4, calendarMonth: 1 } }, now: NOW });
-    expect(describeRules(rules)[0]).toMatch(/4 punti.*gennaio/);
+    expect(describeRules(rules)[1]).toMatch(/4 punti.*gennaio/);
+  });
+});
+
+describe('composizione dichiarata dallo studente', () => {
+  const withAl = (al) => ({ ...valid(), allocation: al });
+  it('deve fare 100 e ogni voce 0–100', () => {
+    expect(validateRulesInput(withAl({ equity: 60, bondShort: 0, bondMedium: 40, cash: 0, gold: 0 })).valid).toBe(true);
+    expect(validateRulesInput(withAl({ equity: 60, bondMedium: 30 })).errors.allocation).toMatch(/fare 100.*90/);
+    expect(validateRulesInput(withAl({ equity: 120, bondMedium: -20 })).errors.allocation).toMatch(/0 a 100/);
+    expect(validateRulesInput(withAl({ equity: 'abc', bondMedium: 100 })).errors.allocation).toBeTruthy();
+  });
+  it('campi vuoti valgono 0 e la versione salva numeri', () => {
+    const r = createRulesV1({ goalId: 'g', input: withAl({ equity: '70', bondShort: '', bondMedium: '30', cash: '', gold: '' }), now: NOW });
+    expect(r.allocation).toEqual({ equity: 70, bondShort: 0, bondMedium: 30, cash: 0, gold: 0 });
+  });
+  it('descrive la composizione scelta come documento', () => {
+    const r = createRulesV1({ goalId: 'g', input: withAl({ equity: 70, bondMedium: 30 }), now: NOW });
+    expect(describeRules(r)[0]).toBe('Composizione scelta: azionario 70%, obbligazioni a medio termine 30%.');
   });
 });

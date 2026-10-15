@@ -1,10 +1,10 @@
 /**
  * Modello degli obiettivi (GUIDED_MODE_SPEC.md §2, §11, §12): tipi, validazione,
- * capitale necessario, valutazione con glide path. Funzioni pure.
+ * capitale necessario. La valutazione di fattibilità è in feasibility.js. Funzioni pure.
  * Importi sempre in € di OGGI; la data è 'YYYY-MM'.
  */
-import { evaluateGoal, glideSchedule, monthlyNeededForSuccess, yearsUntilGoal } from '../services/goalService';
-import { MARKET_ASSUMPTIONS as MA, resolveTaxRate, safeWithdrawalRateFor } from '../config/marketAssumptions';
+import { MARKET_ASSUMPTIONS as MA, safeWithdrawalRateFor } from '../config/marketAssumptions';
+import { SCENARIOS, DEFAULT_SCENARIO } from '../config/scenarios';
 
 export const GOAL_TYPES = {
   emergency: { label: 'Fondo emergenza', family: 'security', priority: 1, hint: 'Se non hai un fondo emergenza, parti da quello.' },
@@ -16,19 +16,12 @@ export const GOAL_TYPES = {
 
 export const MONTHS_COVERED = [6, 9, 12];
 
-export const LOSS_OPTIONS = [
-  { value: 10, label: 'Vendo tutto per non perdere altro' },
-  { value: 20, label: 'Vendo una parte' },
-  { value: 30, label: 'Aspetto senza fare nulla' },
-  { value: 40, label: 'Ne approfitto per comprare' },
-];
-
 export const BUCKET_INFO = {
-  equity: { label: 'Azionario', text: 'Fa crescere il capitale nel lungo periodo, ma oscilla molto.' },
-  bondShort: { label: 'Obbligazioni a breve (1-3 anni)', text: 'Oscillano poco e si trasformano in contanti in fretta.' },
-  bondMedium: { label: 'Obbligazioni a medio termine (7-10 anni)', text: 'Rendono un po\' di più della liquidità, con oscillazioni moderate.' },
-  cash: { label: 'Liquidità', text: 'Disponibile subito, quasi nessuna oscillazione.' },
-  gold: { label: 'Oro', text: 'Diversifica, ma non produce reddito.' },
+  equity: { label: 'Azionario' },
+  bondShort: { label: 'Obbligazioni a breve (1-3 anni)' },
+  bondMedium: { label: 'Obbligazioni a medio termine (7-10 anni)' },
+  cash: { label: 'Liquidità' },
+  gold: { label: 'Oro' },
 };
 
 export const STATUS_INFO = {
@@ -46,14 +39,6 @@ const num = (v) => (v === '' || v === null || v === undefined ? NaN : Number(v))
 
 /** € di oggi → € nominali alla data (capitalizzazione annua, come nella specifica: 100k a 6 anni al 2,2% ≈ 113.900). */
 export const nominalAtDate = (real, years, inflationPct = MA.inflation) => real * Math.pow(1 + inflationPct / 100, years);
-
-export function riskProfileFromAnswers({ lossReaction, incomeStability, experience }) {
-  const loss = Number(lossReaction);
-  if (!LOSS_OPTIONS.some(o => o.value === loss)) throw new Error('Risposta non valida: reazione alla perdita');
-  if (!['stable', 'variable'].includes(incomeStability)) throw new Error('Risposta non valida: stabilità del reddito');
-  if (!['none', 'some', 'experienced'].includes(experience)) throw new Error('Risposta non valida: esperienza');
-  return { maxTolerableLoss: loss, incomeStability, experience };
-}
 
 /** Età alla data di inizio prelievi e anni di durata della rendita. */
 export function incomeHorizon({ birthYear, withdrawalStartDate, horizonEndAge }) {
@@ -123,7 +108,7 @@ export function validateGoalInput(input, { now = new Date(), monthlyExpenses } =
 const makeId = () => `goal_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
 /** Costruisce l'obiettivo da salvare (dati già validati). */
-export function createGoal(input, { riskProfile, monthlyExpenses, now = new Date() }) {
+export function createGoal(input, { monthlyExpenses, now = new Date() }) {
   const type = input.type;
   const base = {
     id: input.id ?? makeId(),
@@ -136,8 +121,7 @@ export function createGoal(input, { riskProfile, monthlyExpenses, now = new Date
     taxResidence: input.taxResidence.country === 'OTHER'
       ? { country: 'OTHER', customRate: Number(input.taxResidence.customRate) }
       : { country: 'IT' },
-    riskProfile: { ...riskProfile },
-    equityShift: Number(input.equityShift ?? 0),
+    scenario: SCENARIOS.some(x => x.id === input.scenario) ? input.scenario : DEFAULT_SCENARIO,
     status: 'active',
     amountsInRealTerms: true,
     createdAt: input.createdAt ?? now.toISOString(),
@@ -158,39 +142,26 @@ export function createGoal(input, { riskProfile, monthlyExpenses, now = new Date
   return { ...base, targetAmount: Number(input.targetAmount), targetDate: input.targetDate };
 }
 
-/**
- * Valuta un obiettivo seguendo il glide path (con lo spostamento scelto dallo studente).
- * Per la rendita l'orizzonte del glide path è la durata fino a `horizonEndAge`, non la data di inizio (§12.3).
- * Semplificazione v1: la fase "transizione" (riserva negli ultimi 24 mesi) non è ancora simulata.
- */
-export function evaluatePlan(goal, { now = new Date(), simulations = 1500, equityShift = goal.equityShift ?? 0 } = {}) {
-  const extraYears = goal.type === 'income' ? Math.max(0, incomeHorizon(goal).horizonYears) : 0;
-  const allocationAt = glideSchedule({
-    type: goal.type === 'emergency' ? 'emergency' : undefined,
-    riskProfile: goal.riskProfile, extraYears, equityShift,
-  });
-  const input = {
-    currentValue: goal.initialCapital,
-    targetAmount: goal.targetAmount,
-    goalDate: goal.targetDate,
-    monthlyContribution: goal.monthlyContribution,
-    allocationAt,
-    taxRate: resolveTaxRate(goal.taxResidence),
-    now,
-    simulations,
-  };
-  const evaluation = evaluateGoal(input);
-  const years = yearsUntilGoal(goal.targetDate, now);
+const str = (v) => (v === null || v === undefined ? '' : String(v));
+
+/** Obiettivo salvato → campi del modulo (stringhe), per modificarlo o provare un cambiamento. */
+export function fieldsFromGoal(goal) {
   return {
-    evaluation,
-    input,
-    years,
-    allocationNow: allocationAt(Math.max(1, Math.round(years * 12))),
-    nominalTarget: nominalAtDate(goal.targetAmount, Math.max(0, years)),
+    name: goal.name,
+    initialCapital: str(goal.initialCapital), monthlyContribution: str(goal.monthlyContribution),
+    taxResidence: goal.taxResidence.country === 'OTHER'
+      ? { country: 'OTHER', customRate: str(goal.taxResidence.customRate) } : { country: 'IT', customRate: '' },
+    targetAmount: str(goal.targetAmount), targetDate: str(goal.targetDate),
+    monthsCovered: goal.monthsCovered ?? 6,
+    birthYear: str(goal.birthYear), withdrawalStartDate: str(goal.withdrawalStartDate ?? ''),
+    monthlyWithdrawal: str(goal.monthlyWithdrawal), otherIncomeMonthly: str(goal.otherIncomeMonthly ?? 0), horizonEndAge: goal.horizonEndAge ?? 95,
   };
 }
 
-/** Versamento mensile necessario per arrivare alla soglia "in linea" (può richiedere qualche secondo). */
-export function monthlyNeeded(plan) {
-  return monthlyNeededForSuccess(plan.input, MA.thresholds.onTrack);
+/** Campi del modulo → obiettivo, oppure gli errori di validazione. Mantiene id, nome e date di creazione. */
+export function goalFromFields(type, fields, { monthlyExpenses, now = new Date(), scenario, base } = {}) {
+  const input = { ...fields, type, scenario: scenario ?? base?.scenario, id: base?.id, createdAt: base?.createdAt };
+  const check = validateGoalInput(input, { now, monthlyExpenses });
+  if (!check.valid) return { goal: null, errors: check.errors };
+  return { goal: createGoal(input, { monthlyExpenses, now }), errors: {} };
 }

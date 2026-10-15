@@ -420,6 +420,23 @@ export const restoreFullBackup = (backup) => {
  * Clear all transactions (with confirmation)
  * @returns {boolean} Success status
  */
+/**
+ * Assegna transazioni a un obiettivo (`goalId`), o le rimette "da assegnare" (null). Una sola scrittura.
+ * @returns {number} transazioni modificate
+ */
+export const assignTransactionsToGoal = (ids, goalId) => {
+  const wanted = new Set(ids);
+  let changed = 0;
+  const all = getTransactions().map(tx => {
+    if (!wanted.has(tx.id) || (tx.goalId ?? null) === (goalId ?? null)) return tx;
+    changed += 1;
+    const { goalId: _old, ...rest } = tx;
+    return goalId ? { ...rest, goalId, updatedAt: new Date().toISOString() } : { ...rest, updatedAt: new Date().toISOString() };
+  });
+  if (changed > 0) localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(all));
+  return changed;
+};
+
 export const clearAllTransactions = () => {
   try {
     localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
@@ -816,7 +833,12 @@ export function calculateRealizedPL() {
  * @returns {Object}  { holdings, totalInvested, totalValue, unrealizedPL, realizedPL, totalPL, returnPct }
  */
 export function portfolioSnapshot(priceMap = {}) {
-  const transactions = getTransactions()
+  return snapshotFromTransactions(getTransactions(), priceMap);
+}
+
+/** Come portfolioSnapshot, ma su un elenco di transazioni dato (es. quelle di un solo obiettivo). */
+export function snapshotFromTransactions(allTransactions, priceMap = {}) {
+  const transactions = allTransactions
     .filter(tx => !tx.excludeFromStats)
     .slice()
     .sort((a, b) => new Date(a.date) - new Date(b.date));

@@ -1,6 +1,19 @@
-# Investment Tracker — Specifica "Modalità Guidata" (Goal-Based) — v2
+# Investment Tracker — Specifica "Modalità Guidata" (Goal-Based) — v3
 
-> Documento di riferimento per Claude Code. **Le "Decisioni v2" qui sotto hanno la precedenza sul testo della specifica originale** (sezioni 0–20, più sotto) dove c'è conflitto.
+> Documento di riferimento per Claude Code. **Le "Decisioni v3" e poi le "Decisioni v2" qui sotto hanno la precedenza sul testo della specifica originale** (sezioni 0–20, più sotto) dove c'è conflitto.
+
+## Decisioni v3 (ott 2026) — l'app NON consiglia come investire
+
+Prevalgono su v2 e sul testo originale.
+
+1. **Niente ripartizione consigliata.** L'app non propone né mostra alcuna suddivisione del capitale (azionario/obbligazionario/oro/liquidità), glide path, profilo di rischio, "modello del corso" o slider dell'azionario: sarebbe consulenza. **La ripartizione la insegna l'autore nel corso**; lo studente la sceglie e la dichiara lui. Eliminati: passo "profilo di rischio", AllocationBar, slider, `targetAllocationNow`. `src/lib/glidePath.js` e `glideSchedule` restano nel repo ma non sono usati dall'interfaccia.
+2. **Funzione dell'app = fattibilità del piano + avanzamento tramite gli investimenti collegati.** Per obiettivo: probabilità di raggiungerlo; se il **versamento è troppo basso, adeguato o più del necessario** (riferimento: versamento minimo per arrivare al 75%, tolleranza +20% prima di dire "più del necessario"); cifra o rendita **raggiungibile** col versamento attuale; quanto **manca** e a che punto si è.
+3. **Ipotesi di rendimento** (`src/config/scenarios.js`): prudente / medio / dinamico, mostrate solo come probabilità e rendimento reale stimato, mai come composizione. Se lo studente dichiara la **propria composizione** nelle regole firmate (`rules.allocation`, somma 100) il calcolo usa quella e compare «La tua composizione». Il fondo emergenza assume sempre liquidità. Le percentuali dei bucket sono un *input dello studente*, non un output dell'app; lo scostamento si mostra solo rispetto a ciò che ha scelto lui.
+4. **Esercizio Obiettivi = fase di pianificazione libera:** scegli 2–3 obiettivi, per ciascuno un **foglio di fattibilità interattivo** (`FeasibilitySheet`) dove si modificano importo, data/orizzonte, rendita, versamento e capitale vedendo subito l'effetto (con scorciatoie «Imposta il versamento a…», «Imposta l'importo a…»), poi si salva. Le **regole firmate non fanno più parte dell'esercizio**: si firmano dopo il corso da «Le mie regole» (composizione scelta, controllo percentuali, piano in caso di crollo, revisione periodica).
+5. **Modifiche dopo il salvataggio:** senza regole firmate, l'obiettivo si modifica liberamente dal foglio (anche da «I miei obiettivi»). Con regole firmate, versamento/capitale/ipotesi si cambiano direttamente; importo, data, rendita, mesi coperti, altri redditi, **composizione** e piano in caso di crollo passano dalla revisione (§7: attesa 7 giorni se calo di mercato).
+6. **Collegamento investimenti → obiettivi:** transazioni con `goalId` (vedi fetta 3a). Con investimenti collegati, il capitale del calcolo è il valore reale dei titoli assegnati (sostituisce quello dichiarato) e la fattibilità si aggiorna; avanzamento = valore / importo, «mancano X €» in euro di oggi.
+
+---
 
 ## Decisioni v2 (ott 2026)
 

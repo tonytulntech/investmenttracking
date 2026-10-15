@@ -4,22 +4,21 @@ import {
   validateRevisionRequest, reviewsDue, nextReviewAt, activeRules, pendingRevision,
 } from './revisionModel';
 import { createGoal } from './goalModel';
-import { createRulesV1, defaultRulesInput, rulesToInput } from './rulesModel';
+import { createRulesV1, defaultRulesInput, rulesToInput, describeRules } from './rulesModel';
 
 const NOW = new Date('2026-10-15T10:00:00Z');
 const DAY = 86400000;
 const later = (d) => new Date(NOW.getTime() + d * DAY);
-const RISK = { maxTolerableLoss: 30, incomeStability: 'stable', experience: 'some' };
 
 const baseGoal = () => createGoal({
   id: 'g1', type: 'house', name: 'Casa', initialCapital: 10000, monthlyContribution: 600,
   taxResidence: { country: 'IT' }, targetAmount: 60000, targetDate: '2034-10',
-}, { riskProfile: RISK, monthlyExpenses: 2000, now: NOW });
+}, { monthlyExpenses: 2000, now: NOW });
 const incomeGoal = () => createGoal({
   id: 'g2', type: 'income', name: 'Rendita', initialCapital: 20000, monthlyContribution: 800,
   taxResidence: { country: 'IT' }, birthYear: 1985, withdrawalStartDate: '2050-01', monthlyWithdrawal: 3000, otherIncomeMonthly: 500, horizonEndAge: 95,
-}, { riskProfile: RISK, monthlyExpenses: 2000, now: NOW });
-const signed = () => ({ ...defaultRulesInput(), crashPlan: { choice: 'hold_and_buy', personalNote: 'Non vendo e continuo a versare come previsto.' }, signedName: 'Mario Rossi', accepted: true });
+}, { monthlyExpenses: 2000, now: NOW });
+const signed = () => ({ ...defaultRulesInput(), allocation: { equity: 50, bondShort: 10, bondMedium: 30, cash: 5, gold: 5 }, crashPlan: { choice: 'hold_and_buy', personalNote: 'Non vendo e continuo a versare come previsto.' }, signedName: 'Mario Rossi', accepted: true });
 const baseRules = (goalId = 'g1') => createRulesV1({ goalId, input: signed(), now: NOW });
 
 const state = () => ({ goals: [baseGoal()], rules: [baseRules()], revisions: [] });
@@ -228,5 +227,25 @@ describe('rulesToInput', () => {
     expect(i.accepted).toBe(false);
     expect(i.crashPlan.choice).toBe('hold_and_buy');
     expect(i.rebalance.thresholdPct).toBe(5);
+  });
+});
+
+describe('composizione dichiarata: cambiarla è strutturale', () => {
+  it('diffChanges la riconosce e la mette tra le modifiche strutturali', () => {
+    const next = signed(); next.allocation = { equity: 80, bondShort: 0, bondMedium: 20, cash: 0, gold: 0 };
+    const d = diffChanges({ goal: baseGoal(), rules: baseRules(), changes: { rules: next } });
+    expect(d.structural).toBe(true);
+    expect(d.ruleFields).toEqual(['allocation']);
+    expect(d.lines[0]).toBe('Composizione: azionario 50%, obbligazioni a breve 10%, obbligazioni a medio termine 30%, liquidità 5%, oro 5% → azionario 80%, obbligazioni a medio termine 20%');
+  });
+  it('in un calo di mercato, senza evento di vita, scatta l\'attesa di 7 giorni', () => {
+    const next = signed(); next.allocation = { equity: 80, bondShort: 0, bondMedium: 20, cash: 0, gold: 0 };
+    const r = submitRevision({ ...state(), request: req({ changes: { rules: next } }), stress: crash, now: NOW });
+    expect(r.outcome).toBe('cooling');
+  });
+  it('regole firmate prima di questa funzione (senza composizione) restano leggibili', () => {
+    const legacy = { ...baseRules() }; delete legacy.allocation;
+    expect(() => diffChanges({ goal: baseGoal(), rules: legacy, changes: { rules: signed() } })).not.toThrow();
+    expect(describeRules(legacy).some(l => l.startsWith('Composizione'))).toBe(false);
   });
 });

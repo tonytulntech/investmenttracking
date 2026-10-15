@@ -582,11 +582,11 @@ function Rebalancing() {
     return (
       <div className="space-y-6 animate-fade-in max-w-6xl">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+          <h1 className="text-3xl font-bold flex items-center gap-3">
             <RefreshCcw className="w-8 h-8 text-primary-600" />
             Ribilanciamento
           </h1>
-          <p className="text-gray-600 mt-1">Suggerimenti di swap/acquisto per riportare i Ruoli in target.</p>
+          <p className="mt-1" style={{ color: 'var(--text-2)' }}>Suggerimenti di swap/acquisto per riportare i Ruoli in target.</p>
         </div>
 
         {/* Nuovo motore per Ruoli — funziona senza la strategia globale */}
@@ -615,11 +615,11 @@ function Rebalancing() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+          <h1 className="text-3xl font-bold flex items-center gap-3">
             <RefreshCcw className="w-8 h-8 text-primary-600" />
             Ribilanciamento — Strategia globale (legacy)
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="mt-1" style={{ color: 'var(--text-2)' }}>
             Strategia: <strong>{strategy.goalName || 'Non definito'}</strong>
           </p>
         </div>
@@ -627,7 +627,7 @@ function Rebalancing() {
           {/* ETF Frazionati Toggle */}
           <div className="flex items-center gap-3 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
             <span className="text-sm font-medium text-blue-900">ETF Frazionati?</span>
-            <div className="flex bg-white rounded-lg border border-blue-300 overflow-hidden">
+            <div className="flex rounded-lg overflow-hidden" style={{ background: 'var(--surface-1)', border: '1px solid var(--border)' }}>
               <button
                 onClick={() => setFractionalETF(true)}
                 className={`px-3 py-1 text-sm font-medium transition-colors ${
@@ -661,24 +661,24 @@ function Rebalancing() {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-2)' }}>
                 Budget Mensile PAC
               </label>
               <div className="flex items-center gap-2">
-                <span className="text-gray-500">€</span>
+                <span style={{ color: 'var(--text-3)' }}>€</span>
                 <input
                   type="number"
                   value={monthlyBudget}
                   onChange={(e) => setMonthlyBudget(parseFloat(e.target.value) || 0)}
-                  className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="input w-32"
                   min="0"
                   step="50"
                 />
               </div>
             </div>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm" style={{ color: 'var(--text-2)' }}>
               <p>Prezzi al: <strong>{format(new Date(), 'dd/MM/yyyy', { locale: it })}</strong></p>
-              <p className="text-xs text-gray-500">Aggiornati da Yahoo Finance</p>
+              <p className="text-xs" style={{ color: 'var(--text-3)' }}>Aggiornati da Yahoo Finance</p>
             </div>
           </div>
           {!fractionalETF && (
@@ -734,11 +734,11 @@ function Rebalancing() {
         <div className="card border-2 border-orange-200 bg-gradient-to-r from-orange-50 to-yellow-50">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-orange-600" />
                 Calendario Acquisti PAC - Quote Intere (12 Mesi)
               </h3>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm mt-1" style={{ color: 'var(--text-2)' }}>
                 Budget mensile: <strong>€{monthlyBudget.toLocaleString('it-IT')}</strong> |
                 Suggerimenti con quote intere acquistabili
               </p>
@@ -748,9 +748,9 @@ function Rebalancing() {
           {/* Monthly Calendar */}
           <div className="space-y-3 max-h-[500px] overflow-y-auto">
             {wholeUnitCalendar.map((month, index) => (
-              <div key={index} className="bg-white rounded-lg p-4 border border-orange-200">
+              <div key={index} className="rounded-lg p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--border)' }}>
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-bold text-gray-900 text-lg">{month.monthFull}</h4>
+                  <h4 className="font-bold text-lg">{month.monthFull}</h4>
                   <div className="flex items-center gap-4 text-sm">
                     <span className="text-green-600 font-medium">
                       Investito: €{month.totalSpent.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
@@ -773,14 +773,14 @@ function Rebalancing() {
                 {month.purchases.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {month.purchases.map((purchase, pIndex) => (
-                      <div key={pIndex} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+                      <div key={pIndex} className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                         <div>
-                          <span className="font-semibold text-gray-900">{purchase.ticker}</span>
-                          <span className="text-xs text-gray-500 ml-2">@€{purchase.price.toFixed(2)}</span>
+                          <span className="font-semibold">{purchase.ticker}</span>
+                          <span className="text-xs ml-2" style={{ color: 'var(--text-3)' }}>@€{purchase.price.toFixed(2)}</span>
                         </div>
                         <div className="text-right">
                           <span className="font-bold text-orange-600">{purchase.units} quote</span>
-                          <span className="text-sm text-gray-600 ml-2">
+                          <span className="text-sm ml-2" style={{ color: 'var(--text-2)' }}>
                             (€{purchase.amount.toLocaleString('it-IT', { minimumFractionDigits: 2 })})
                           </span>
                         </div>
@@ -788,7 +788,7 @@ function Rebalancing() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-sm italic">Budget insufficiente per quote intere questo mese</p>
+                  <p className="text-sm italic" style={{ color: 'var(--text-3)' }}>Budget insufficiente per quote intere questo mese</p>
                 )}
               </div>
             ))}
@@ -796,20 +796,20 @@ function Rebalancing() {
 
           {/* 12-Month Summary */}
           {calendarSummary && (
-            <div className="mt-4 bg-white rounded-lg p-4 border-2 border-orange-300">
-              <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <div className="mt-4 rounded-lg p-4" style={{ background: 'var(--card-bg)', border: '2px solid var(--warn)' }}>
+              <h4 className="font-bold mb-3 flex items-center gap-2">
                 📊 Riepilogo 12 Mesi
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-600 mb-2">Quote accumulate per ticker:</p>
+                  <p className="text-sm mb-2" style={{ color: 'var(--text-2)' }}>Quote accumulate per ticker:</p>
                   <div className="space-y-1">
                     {calendarSummary.tickerTotals.map((t, i) => (
                       <div key={i} className="flex justify-between text-sm">
                         <span className="font-medium">{t.ticker}</span>
                         <span>
                           <strong>{t.units}</strong> quote
-                          <span className="text-gray-500 ml-1">
+                          <span className="ml-1" style={{ color: 'var(--text-3)' }}>
                             (€{t.amount.toLocaleString('it-IT', { minimumFractionDigits: 2 })})
                           </span>
                         </span>
@@ -817,16 +817,16 @@ function Rebalancing() {
                     ))}
                   </div>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-3">
+                <div className="rounded-lg p-3" style={{ background: 'var(--surface-2)' }}>
                   <div className="grid grid-cols-2 gap-3 text-center">
                     <div>
-                      <p className="text-xs text-gray-500">Totale Investito</p>
+                      <p className="text-xs" style={{ color: 'var(--text-3)' }}>Totale Investito</p>
                       <p className="text-lg font-bold text-green-600">
                         €{calendarSummary.totalInvested.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500">Utilizzo Medio</p>
+                      <p className="text-xs" style={{ color: 'var(--text-3)' }}>Utilizzo Medio</p>
                       <p className="text-lg font-bold text-blue-600">
                         {calendarSummary.avgUtilization.toFixed(1)}%
                       </p>
@@ -834,7 +834,7 @@ function Rebalancing() {
                   </div>
                 </div>
               </div>
-              <p className="text-xs text-gray-500 mt-3">
+              <p className="text-xs mt-3" style={{ color: 'var(--text-3)' }}>
                 ⚠️ I calcoli usano prezzi attuali. Verifica sempre prima di acquistare.
               </p>
             </div>
@@ -847,16 +847,16 @@ function Rebalancing() {
         <div className="card bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
                 <ShoppingCart className="w-5 h-5 text-green-600" />
                 Prossimi Acquisti PAC
               </h3>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm mt-1" style={{ color: 'var(--text-2)' }}>
                 Suggerimenti per il prossimo investimento mensile (quote frazionarie)
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-600">Budget mensile</p>
+              <p className="text-sm" style={{ color: 'var(--text-2)' }}>Budget mensile</p>
               <p className="text-2xl font-bold text-green-600">€{monthlyBudget.toLocaleString('it-IT')}</p>
             </div>
           </div>
@@ -870,9 +870,9 @@ function Rebalancing() {
             {Array.isArray(nextPurchases) && nextPurchases.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {nextPurchases.map((purchase, index) => (
-                  <div key={index} className="bg-white rounded-lg p-4 shadow-sm border border-green-200">
+                  <div key={index} className="rounded-lg p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--border)', boxShadow: '0 1px 2px rgba(0,0,0,0.12)' }}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-semibold text-gray-900">{purchase.assetClass}</span>
+                      <span className="font-semibold">{purchase.assetClass}</span>
                       <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
                         {purchase.percentageOfBudget}%
                       </span>
@@ -882,8 +882,8 @@ function Rebalancing() {
                 ))}
               </div>
             ) : (
-              <div className="bg-gray-50 rounded-lg p-4 text-center">
-                <p className="text-gray-600">✓ Portfolio bilanciato! Continua con la strategia attuale.</p>
+              <div className="rounded-lg p-4 text-center" style={{ background: 'var(--surface-2)' }}>
+                <p style={{ color: 'var(--text-2)' }}>✓ Portfolio bilanciato! Continua con la strategia attuale.</p>
               </div>
             )}
           </div>
@@ -892,7 +892,7 @@ function Rebalancing() {
 
       {/* Deviation Analysis */}
       <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        <h3 className="text-lg font-semibold mb-4">
           Analisi Scostamenti MACRO
         </h3>
         <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -932,12 +932,12 @@ function Rebalancing() {
                   <td className="text-right">{item.current}%</td>
                   <td className="text-right">{item.target}%</td>
                   <td className={`text-right font-medium ${
-                    item.difference > 0 ? 'text-primary-600' : item.difference < 0 ? 'text-orange-600' : 'text-gray-600'
+                    item.difference > 0 ? 'text-primary-600' : item.difference < 0 ? 'text-orange-600' : ''
                   }`}>
                     {item.difference > 0 ? '+' : ''}{item.difference}%
                   </td>
                   <td className={`text-right font-medium ${
-                    item.amountDifference > 0 ? 'text-primary-600' : item.amountDifference < 0 ? 'text-orange-600' : 'text-gray-600'
+                    item.amountDifference > 0 ? 'text-primary-600' : item.amountDifference < 0 ? 'text-orange-600' : ''
                   }`}>
                     {item.amountDifference > 0 ? '+' : ''}€{item.amountDifference.toLocaleString('it-IT')}
                   </td>
@@ -949,7 +949,7 @@ function Rebalancing() {
                       <span className="text-sm text-success-600 font-medium">🟢 Comprare</span>
                     )}
                     {Math.abs(item.difference) <= 5 && (
-                      <span className="text-sm text-gray-500">✓ OK</span>
+                      <span className="text-sm" style={{ color: 'var(--text-3)' }}>✓ OK</span>
                     )}
                   </td>
                 </tr>
@@ -964,11 +964,11 @@ function Rebalancing() {
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Layers className="w-5 h-5 text-purple-600" />
                 Analisi Dettagliata MICRO
               </h3>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm mt-1" style={{ color: 'var(--text-2)' }}>
                 Distribuzione per sotto-categorie di investimento
               </p>
             </div>
@@ -978,7 +978,7 @@ function Rebalancing() {
                   onClick={() => setHideOutOfStrategy(!hideOutOfStrategy)}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
                     hideOutOfStrategy
-                      ? 'bg-gray-100 border-gray-300 text-gray-700'
+                      ? 'border-[var(--border)]'
                       : 'bg-yellow-50 border-yellow-300 text-yellow-700'
                   }`}
                 >
@@ -1034,7 +1034,7 @@ function Rebalancing() {
                         <div>
                           <span className="font-semibold">{item.microCategory}</span>
                           {item.tickers.length > 0 && (
-                            <span className="text-xs text-gray-500 ml-2">
+                            <span className="text-xs ml-2" style={{ color: 'var(--text-3)' }}>
                               ({item.tickers.map(t => t.ticker).join(', ')})
                             </span>
                           )}
@@ -1045,7 +1045,7 @@ function Rebalancing() {
                     <td className="text-right">{item.current}%</td>
                     <td className="text-right">{item.target}%</td>
                     <td className={`text-right font-medium ${
-                      item.difference > 0 ? 'text-primary-600' : item.difference < 0 ? 'text-orange-600' : 'text-gray-600'
+                      item.difference > 0 ? 'text-primary-600' : item.difference < 0 ? 'text-orange-600' : ''
                     }`}>
                       {item.difference > 0 ? '+' : ''}{item.difference}%
                     </td>
@@ -1055,7 +1055,7 @@ function Rebalancing() {
                           {item.statusLabel}
                         </span>
                         {item.actionNote && (
-                          <span className="text-xs text-gray-500 italic">{item.actionNote}</span>
+                          <span className="text-xs italic" style={{ color: 'var(--text-3)' }}>{item.actionNote}</span>
                         )}
                       </div>
                     </td>
@@ -1080,27 +1080,27 @@ function Rebalancing() {
       {/* PAC Calendar (Fractional only) */}
       {fractionalETF && pacCalendar.length > 0 && (
         <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Calendar className="w-5 h-5 text-primary-600" />
             Calendario Acquisti PAC (Prossimi 6 Mesi)
           </h3>
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="text-sm mb-4" style={{ color: 'var(--text-2)' }}>
             Piano di accumulo mensile: <strong>€{monthlyBudget.toLocaleString('it-IT')}/mese</strong>
           </p>
 
           <div className="space-y-3">
             {pacCalendar.map((month, index) => (
-              <div key={index} className="border border-gray-200 rounded-lg p-4">
+              <div key={index} className="rounded-lg p-4" style={{ border: '1px solid var(--border)' }}>
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-semibold text-gray-900">{month.month}</h4>
-                  <span className="text-sm text-gray-600">
+                  <h4 className="font-semibold">{month.month}</h4>
+                  <span className="text-sm" style={{ color: 'var(--text-2)' }}>
                     Totale: <strong>€{month.total.toLocaleString('it-IT')}</strong>
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                   {month.purchases.map((purchase, pIndex) => (
-                    <div key={pIndex} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                      <span className="text-sm font-medium text-gray-700">{purchase.assetClass}</span>
+                    <div key={pIndex} className="flex items-center justify-between p-2 rounded" style={{ background: 'var(--surface-2)' }}>
+                      <span className="text-sm font-medium" style={{ color: 'var(--text-2)' }}>{purchase.assetClass}</span>
                       <span className="text-sm font-bold text-primary-600">
                         €{purchase.amount.toLocaleString('it-IT')}
                       </span>
@@ -1116,11 +1116,11 @@ function Rebalancing() {
       {/* PIC Rebalancing Suggestions */}
       {picSuggestions.length > 0 && (
         <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <DollarSign className="w-5 h-5 text-primary-600" />
             Ribilanciamento Immediato (PIC)
           </h3>
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="text-sm mb-4" style={{ color: 'var(--text-2)' }}>
             Importi necessari per riportare immediatamente il portafoglio all'allocazione obiettivo
           </p>
 
@@ -1140,18 +1140,18 @@ function Rebalancing() {
                     <td className="font-semibold">{item.assetClass}</td>
                     <td className="text-right">
                       €{item.currentValue.toLocaleString('it-IT')}
-                      <span className="text-xs text-gray-500 ml-1">({item.currentPercentage}%)</span>
+                      <span className="text-xs ml-1" style={{ color: 'var(--text-3)' }}>({item.currentPercentage}%)</span>
                     </td>
                     <td className="text-right">
                       €{item.targetValue.toLocaleString('it-IT')}
-                      <span className="text-xs text-gray-500 ml-1">({item.targetPercentage}%)</span>
+                      <span className="text-xs ml-1" style={{ color: 'var(--text-3)' }}>({item.targetPercentage}%)</span>
                     </td>
                     <td className="text-right font-bold text-success-600">
                       +€{item.amountNeeded.toLocaleString('it-IT')}
                     </td>
                   </tr>
                 ))}
-                <tr className="border-t-2 border-gray-300 font-bold">
+                <tr className="font-bold" style={{ borderTop: '2px solid var(--border)' }}>
                   <td>TOTALE INVESTIMENTO</td>
                   <td></td>
                   <td></td>
@@ -1167,11 +1167,11 @@ function Rebalancing() {
 
       {deviation.length === 0 && (
         <div className="card text-center py-12">
-          <RefreshCcw className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+          <RefreshCcw className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--text-3)' }} />
+          <h3 className="text-xl font-semibold mb-2">
             Nessun Dato Disponibile
           </h3>
-          <p className="text-gray-600">
+          <p style={{ color: 'var(--text-2)' }}>
             Aggiungi delle transazioni per vedere l'analisi di ribilanciamento
           </p>
         </div>

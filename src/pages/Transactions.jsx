@@ -516,8 +516,8 @@ function Transactions() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Transazioni</h1>
-          <p className="text-gray-600 mt-1">Gestisci le tue operazioni</p>
+          <h1 className="text-3xl font-bold" style={{ color: 'var(--text-1)' }}>Transazioni</h1>
+          <p style={{ color: 'var(--text-2)', marginTop: '0.25rem' }}>Gestisci le tue operazioni</p>
         </div>
         <div className="flex gap-2">
           <label className={`btn-secondary flex items-center gap-2 cursor-pointer ${importLoading ? 'opacity-60 pointer-events-none' : ''}`}>
@@ -556,7 +556,7 @@ function Transactions() {
       <div className="card">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-[3] relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: 'var(--text-3)' }} />
             <input
               type="text"
               placeholder="Cerca ticker, nome o ISIN..."
@@ -681,11 +681,11 @@ function Transactions() {
       {/* Transactions List */}
       {filteredTransactions.length === 0 ? (
         <div className="card text-center py-12">
-          <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+          <FileText className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--text-3)' }} />
+          <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-1)' }}>
             Nessuna transazione
           </h3>
-          <p className="text-gray-600 mb-6">
+          <p className="mb-6" style={{ color: 'var(--text-2)' }}>
             Aggiungi la tua prima transazione per iniziare
           </p>
           <button onClick={handleAdd} className="btn-primary inline-flex items-center gap-2">
@@ -800,7 +800,7 @@ function Transactions() {
                         }}>ESCLUSA</span>
                       )}
                     </td>
-                    <td className="text-gray-600 max-w-xs truncate">{tx.name || '-'}</td>
+                    <td className="max-w-xs truncate" style={{ color: 'var(--text-2)' }}>{tx.name || '-'}</td>
                     <td>
                       <span style={{
                         fontSize: '0.7rem', fontWeight: 600, padding: '2px 7px',
@@ -815,11 +815,11 @@ function Transactions() {
                     </td>
                     <td>
                       {(tx.microCategory || tx.subCategory) ? (
-                        <span className="text-sm text-gray-700 bg-gray-100 px-2 py-1 rounded">
+                        <span className="text-sm px-2 py-1 rounded" style={{ color: 'var(--text-2)', background: 'var(--surface-2)' }}>
                           {tx.microCategory || tx.subCategory}
                         </span>
                       ) : (
-                        <span className="text-xs text-gray-400 italic">Non rilevata</span>
+                        <span className="text-xs italic" style={{ color: 'var(--text-3)' }}>Non rilevata</span>
                       )}
                     </td>
                     <td className="text-right">{tx.quantity.toLocaleString('it-IT', { maximumFractionDigits: 8 })}</td>
@@ -833,7 +833,7 @@ function Transactions() {
                           €{tx.commission.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       ) : (
-                        <span className="text-gray-400">-</span>
+                        <span style={{ color: 'var(--text-3)' }}>-</span>
                       )}
                     </td>
                     <td className="text-right">
@@ -842,7 +842,7 @@ function Transactions() {
                           {tx.ter.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                         </span>
                       ) : (
-                        <span className="text-gray-400">-</span>
+                        <span style={{ color: 'var(--text-3)' }}>-</span>
                       )}
                     </td>
                     <td className="text-right">
@@ -885,15 +885,16 @@ function Transactions() {
 
       {/* Modal Form */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-apple-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-slide-up">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">
+        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+          <div className="rounded-apple-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-slide-up" style={{ background: 'var(--surface-1)' }}>
+            <div className="sticky top-0 px-6 py-4 flex items-center justify-between" style={{ background: 'var(--surface-1)', borderBottom: '1px solid var(--border)' }}>
+              <h2 className="text-xl font-bold" style={{ color: 'var(--text-1)' }}>
                 {editingTransaction ? 'Modifica Transazione' : 'Nuova Transazione'}
               </h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 rounded-lg transition-colors"
+                style={{ color: 'var(--text-2)' }}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -902,7 +903,7 @@ function Transactions() {
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
               {/* Type */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                   Tipo Operazione *
                 </label>
                 <div className="grid grid-cols-2 gap-4">
@@ -912,7 +913,7 @@ function Transactions() {
                     className={`p-4 rounded-lg border-2 font-medium transition-all ${
                       formData.type === 'buy'
                         ? 'border-success-600 bg-success-50 text-success-700'
-                        : 'border-gray-200 hover:border-gray-300'
+                        : 'border-[var(--border)] hover:border-[var(--text-3)]'
                     }`}
                   >
                     Acquisto
@@ -923,7 +924,7 @@ function Transactions() {
                     className={`p-4 rounded-lg border-2 font-medium transition-all ${
                       formData.type === 'sell'
                         ? 'border-danger-600 bg-danger-50 text-danger-700'
-                        : 'border-gray-200 hover:border-gray-300'
+                        : 'border-[var(--border)] hover:border-[var(--text-3)]'
                     }`}
                   >
                     Vendita
@@ -934,7 +935,7 @@ function Transactions() {
               {/* Cash Flow Type (only for Cash) */}
               {formData.macroCategory === 'Cash' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                     Tipo Movimento *
                   </label>
                   <div className="grid grid-cols-2 gap-4">
@@ -944,7 +945,7 @@ function Transactions() {
                       className={`p-4 rounded-lg border-2 font-medium transition-all ${
                         formData.cashFlowType === 'income'
                           ? 'border-success-600 bg-success-50 text-success-700'
-                          : 'border-gray-200 hover:border-gray-300'
+                          : 'border-[var(--border)] hover:border-[var(--text-3)]'
                       }`}
                     >
                       💰 Entrata (Guadagno)
@@ -955,7 +956,7 @@ function Transactions() {
                       className={`p-4 rounded-lg border-2 font-medium transition-all ${
                         formData.cashFlowType === 'expense'
                           ? 'border-danger-600 bg-danger-50 text-danger-700'
-                          : 'border-gray-200 hover:border-gray-300'
+                          : 'border-[var(--border)] hover:border-[var(--text-3)]'
                       }`}
                     >
                       💸 Uscita (Spesa)
@@ -967,7 +968,7 @@ function Transactions() {
               {/* Ticker & Name */}
               <div className={formData.macroCategory === 'Cash' ? '' : 'grid grid-cols-2 gap-4'}>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                     <Tag className="w-4 h-4 inline mr-1" />
                     {formData.macroCategory === 'Cash' ? 'Descrizione *' : 'Ticker *'}
                   </label>
@@ -986,19 +987,19 @@ function Transactions() {
                     </p>
                   )}
                   {!editingTransaction && formData.macroCategory !== 'Cash' && autoFillSource === 'history' && (
-                    <p className="text-xs text-blue-600 mt-1">
+                    <p className="text-xs mt-1" style={{ color: 'var(--info)' }}>
                       📋 Form auto-compilato dall'ultima transazione
                     </p>
                   )}
                   {formData.macroCategory === 'Cash' && (
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>
                       Esempio: "Conto Corrente Intesa", "Contante Portafoglio", "Deposito Vincolato"
                     </p>
                   )}
                 </div>
                 {formData.macroCategory !== 'Cash' && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                       Nome
                     </label>
                     <input
@@ -1015,7 +1016,7 @@ function Transactions() {
               {/* ISIN - Only show if NOT Cash */}
               {formData.macroCategory !== 'Cash' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                     ISIN
                   </label>
                   <input
@@ -1030,7 +1031,7 @@ function Transactions() {
 
               {/* MACRO Category */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                   MACRO-Asset Class *
                 </label>
                 <select
@@ -1047,7 +1048,7 @@ function Transactions() {
 
               {/* MICRO Category */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                   MICRO-Asset Class
                   {formData.macroCategory && Object.keys(availableMicroCategories).length > 0 && ' *'}
                 </label>
@@ -1063,7 +1064,7 @@ function Transactions() {
                     <option key={micro} value={micro}>{micro}</option>
                   ))}
                 </select>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>
                   {!formData.macroCategory && 'Seleziona prima una MACRO-Asset Class'}
                   {formData.macroCategory && Object.keys(availableMicroCategories).length === 0 && 'Nessuna sottocategoria disponibile'}
                 </p>
@@ -1071,7 +1072,7 @@ function Transactions() {
 
               {/* Date */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                   <Calendar className="w-4 h-4 inline mr-1" />
                   Data *
                 </label>
@@ -1088,7 +1089,7 @@ function Transactions() {
               {/* Price & Quantity - Different for Cash */}
               {formData.macroCategory === 'Cash' ? (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                     <DollarSign className="w-4 h-4 inline mr-1" />
                     Importo € *
                   </label>
@@ -1102,14 +1103,14 @@ function Transactions() {
                     className="input"
                     required
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>
                     Importo totale in euro del contante
                   </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                       <DollarSign className="w-4 h-4 inline mr-1" />
                       Prezzo *
                     </label>
@@ -1125,7 +1126,7 @@ function Transactions() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                       <Hash className="w-4 h-4 inline mr-1" />
                       Quantità *
                     </label>
@@ -1146,7 +1147,7 @@ function Transactions() {
               {/* Currency & Commission - No commission for Cash */}
               {formData.macroCategory === 'Cash' ? (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                     Valuta
                   </label>
                   <select
@@ -1162,7 +1163,7 @@ function Transactions() {
               ) : (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                       Valuta
                     </label>
                     <select
@@ -1176,7 +1177,7 @@ function Transactions() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                       Commissioni €
                     </label>
                     <input
@@ -1188,7 +1189,7 @@ function Transactions() {
                       placeholder="0.00"
                       className="input"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>
                       Commissioni di broker/exchange
                     </p>
                   </div>
@@ -1198,7 +1199,7 @@ function Transactions() {
               {/* TER Field - Only show if NOT Cash */}
               {formData.macroCategory !== 'Cash' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                     TER (Total Expense Ratio) %
                   </label>
                   <input
@@ -1211,7 +1212,7 @@ function Transactions() {
                     placeholder="0.22"
                     className="input"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>
                     {formData.ter
                       ? `Costo annuale: ~${formData.ter}% del patrimonio investito`
                       : 'Inserisci il TER manualmente. Verrà salvato e sincronizzato per lo stesso ticker'}
@@ -1240,7 +1241,7 @@ function Transactions() {
                         <p className="text-lg font-semibold text-orange-700">
                           +€{parseFloat(formData.commission).toFixed(2)}
                         </p>
-                        <p className="text-xs text-gray-600 mt-1">
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>
                           Totale: €{((parseFloat(formData.price) * parseFloat(formData.quantity)) + parseFloat(formData.commission)).toFixed(2)}
                         </p>
                       </div>
@@ -1251,7 +1252,7 @@ function Transactions() {
 
               {/* Platform */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                   Broker / Piattaforma
                 </label>
                 <select
@@ -1263,14 +1264,14 @@ function Transactions() {
                     <option key={p} value={p}>{p}</option>
                   ))}
                 </select>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>
                   Broker o piattaforma usata per questa transazione
                 </p>
               </div>
 
               {/* Notes */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                   Note
                 </label>
                 <textarea

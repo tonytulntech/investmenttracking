@@ -147,13 +147,13 @@ function Settings() {
     <div className="space-y-6 animate-fade-in max-w-4xl">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Impostazioni</h1>
-        <p className="text-gray-600 mt-1">Gestisci le preferenze dell'app</p>
+        <h1 className="text-3xl font-bold" style={{ color: 'var(--text-1)' }}>Impostazioni</h1>
+        <p style={{ color: 'var(--text-2)', marginTop: '0.25rem' }}>Gestisci le preferenze dell'app</p>
       </div>
 
       {/* General Settings */}
       <div className="card">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <SettingsIcon className="w-5 h-5" />
           Impostazioni Generali
         </h2>
@@ -161,7 +161,7 @@ function Settings() {
         <div className="space-y-4">
           {/* Currency */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
               Valuta Predefinita
             </label>
             <select
@@ -177,7 +177,7 @@ function Settings() {
 
           {/* Date Format */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
               Formato Data
             </label>
             <select
@@ -194,23 +194,25 @@ function Settings() {
           {/* Auto Refresh */}
           <div className="flex items-center justify-between">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium" style={{ color: 'var(--text-2)' }}>
                 Aggiornamento Automatico Prezzi
               </label>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm mt-1" style={{ color: 'var(--text-3)' }}>
                 Aggiorna i prezzi automaticamente quando apri l'app
               </p>
             </div>
             <button
               onClick={() => handleSettingChange('autoRefreshPrices', !settings.autoRefreshPrices)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                settings.autoRefreshPrices ? 'bg-primary-600' : 'bg-gray-200'
+                settings.autoRefreshPrices ? 'bg-primary-600' : ''
               }`}
+              style={settings.autoRefreshPrices ? {} : { background: 'var(--surface-2)', border: '1px solid var(--border)' }}
             >
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                className={`inline-block h-4 w-4 transform rounded-full transition-transform ${
                   settings.autoRefreshPrices ? 'translate-x-6' : 'translate-x-1'
                 }`}
+                style={{ background: settings.autoRefreshPrices ? '#fff' : 'var(--text-3)' }}
               />
             </button>
           </div>
@@ -219,7 +221,7 @@ function Settings() {
 
       {/* Storage Info */}
       <div className="card">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Database className="w-5 h-5" />
           Dati e Archiviazione
         </h2>
@@ -227,19 +229,19 @@ function Settings() {
         {storageInfo && (
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-sm text-gray-600 mb-1">Transazioni</p>
-                <p className="text-2xl font-bold text-gray-900">{storageInfo.transactionsCount}</p>
+              <div className="rounded-lg p-4" style={{ background: 'var(--surface-2)' }}>
+                <p className="text-sm mb-1" style={{ color: 'var(--text-2)' }}>Transazioni</p>
+                <p className="text-2xl font-bold" style={{ color: 'var(--text-1)' }}>{storageInfo.transactionsCount}</p>
               </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-sm text-gray-600 mb-1">Spazio Usato</p>
-                <p className="text-2xl font-bold text-gray-900">
+              <div className="rounded-lg p-4" style={{ background: 'var(--surface-2)' }}>
+                <p className="text-sm mb-1" style={{ color: 'var(--text-2)' }}>Spazio Usato</p>
+                <p className="text-2xl font-bold" style={{ color: 'var(--text-1)' }}>
                   {(storageInfo.storageSize / 1024).toFixed(2)} KB
                 </p>
               </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-sm text-gray-600 mb-1">Ultimo Sync</p>
-                <p className="text-sm font-medium text-gray-900">
+              <div className="rounded-lg p-4" style={{ background: 'var(--surface-2)' }}>
+                <p className="text-sm mb-1" style={{ color: 'var(--text-2)' }}>Ultimo Sync</p>
+                <p className="text-sm font-medium" style={{ color: 'var(--text-1)' }}>
                   {storageInfo.lastSync
                     ? format(new Date(storageInfo.lastSync), 'dd/MM/yyyy HH:mm')
                     : 'Mai'
@@ -292,8 +294,8 @@ function Settings() {
               </button>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-              <p className="text-sm text-blue-800">
+            <div className="rounded-lg p-4 mt-4" style={{ background: 'var(--info-weak)', border: '1px solid var(--info)' }}>
+              <p className="text-sm" style={{ color: 'var(--text-1)' }}>
                 <strong>💡 Nota:</strong> Usa "Aggiorna Sotto-Categorie" per rilevare automaticamente
                 le sotto-categorie di tutte le transazioni esistenti (ETF: Azionario, Obbligazionario, etc.;
                 Crypto: Bitcoin, Stablecoin, etc.).
@@ -312,7 +314,7 @@ function Settings() {
 
         <div className="space-y-4">
           <div>
-            <p className="text-sm text-gray-700 mb-2">
+            <p className="text-sm mb-2" style={{ color: 'var(--text-2)' }}>
               Elimina tutti i dati dell'app. <strong>Questa azione è irreversibile.</strong>
             </p>
             <button
@@ -328,15 +330,15 @@ function Settings() {
 
       {/* Clear Confirmation Modal */}
       {showClearConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-apple-lg max-w-md w-full p-6 animate-slide-up">
+        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+          <div className="rounded-apple-lg max-w-md w-full p-6 animate-slide-up" style={{ background: 'var(--surface-1)' }}>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-danger-100 rounded-full flex items-center justify-center">
-                <AlertCircle className="w-6 h-6 text-danger-600" />
+              <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'var(--neg-weak)' }}>
+                <AlertCircle className="w-6 h-6" style={{ color: 'var(--neg)' }} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Conferma Eliminazione</h3>
-                <p className="text-sm text-gray-600">Questa azione non può essere annullata</p>
+                <h3 className="text-lg font-bold" style={{ color: 'var(--text-1)' }}>Conferma Eliminazione</h3>
+                <p className="text-sm" style={{ color: 'var(--text-2)' }}>Questa azione non può essere annullata</p>
               </div>
             </div>
 
@@ -366,11 +368,11 @@ function Settings() {
       )}
 
       {/* App Info */}
-      <div className="card bg-gray-50">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+      <div className="card" style={{ background: 'var(--surface-2)' }}>
+        <h2 className="text-lg font-semibold mb-4">
           Informazioni App
         </h2>
-        <div className="space-y-2 text-sm text-gray-600">
+        <div className="space-y-2 text-sm" style={{ color: 'var(--text-2)' }}>
           <p><strong>Nome:</strong> Investment Tracker</p>
           <p><strong>Versione:</strong> 3.0.0</p>
           <p><strong>Tecnologie:</strong> React, Vite, TailwindCSS, LocalStorage</p>

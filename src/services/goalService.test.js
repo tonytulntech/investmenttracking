@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createSeededRandom } from './monteCarloService';
+import { MARKET_ASSUMPTIONS as MA, resolveTaxRate } from '../config/marketAssumptions';
 import {
   GOAL_STATUS, yearsUntilGoal, glidePathTarget, glidePathAllocation, portfolioStats,
   statusFromProbability, toRealAfterTax, nominalTargetForSuccess, evaluateGoal,
@@ -67,14 +68,15 @@ describe('glide path', () => {
 describe('portfolioStats', () => {
   it('100% azionario: rendimento al netto dei costi, volatilità dell\'asset', () => {
     const s = portfolioStats({ equity: 100 });
-    expect(s.expectedReturn).toBeCloseTo(5.8, 5);
-    expect(s.volatility).toBeCloseTo(15, 5);
+    expect(s.expectedReturn).toBeCloseTo(6.3, 5);
+    expect(s.volatility).toBeCloseTo(15.5, 5);
   });
   it('60/40: volatilità inferiore all\'azionario e superiore all\'obbligazionario', () => {
     const s = portfolioStats({ equity: 60, bond: 40 });
-    expect(s.volatility).toBeCloseTo(Math.sqrt(92.2), 1);
-    expect(s.volatility).toBeLessThan(15);
-    expect(s.volatility).toBeGreaterThan(5);
+    // 0,6²·15,5² + 0,4²·6² + 2·0,6·0,4·0,2·15,5·6 = 101,18
+    expect(s.volatility).toBeCloseTo(Math.sqrt(101.18), 1);
+    expect(s.volatility).toBeLessThan(15.5);
+    expect(s.volatility).toBeGreaterThan(6);
   });
   it('normalizza i pesi e ignora categorie sconosciute', () => {
     const a = portfolioStats({ equity: 60, bond: 40 });
@@ -91,8 +93,8 @@ describe('portfolioStats', () => {
 
 describe('statusFromProbability', () => {
   it.each([
-    [100, GOAL_STATUS.ON_TRACK], [80, GOAL_STATUS.ON_TRACK], [79.9, GOAL_STATUS.WATCH],
-    [60, GOAL_STATUS.WATCH], [59.9, GOAL_STATUS.REVIEW], [0, GOAL_STATUS.REVIEW],
+    [100, GOAL_STATUS.ON_TRACK], [75, GOAL_STATUS.ON_TRACK], [74.9, GOAL_STATUS.WATCH],
+    [50, GOAL_STATUS.WATCH], [49.9, GOAL_STATUS.REVIEW], [0, GOAL_STATUS.REVIEW],
   ])('%s%% → %s', (p, status) => expect(statusFromProbability(p)).toBe(status));
 });
 
@@ -176,7 +178,7 @@ describe('evaluateGoal', () => {
 describe('monthlyNeededForSuccess', () => {
   it('è 0 se già sufficiente', () => {
     const input = { ...base, currentValue: 90000, monthlyContribution: 0 };
-    expect(evaluateGoal({ ...input, simulations: 1000 }).successProbability).toBeGreaterThanOrEqual(80);
+    expect(evaluateGoal({ ...input, simulations: 1000 }).successProbability).toBeGreaterThanOrEqual(MA.thresholds.onTrack);
     expect(monthlyNeededForSuccess(input)).toBe(0);
   });
   it('restituisce un versamento che raggiunge la soglia, e uno meno non basta', () => {
@@ -184,8 +186,8 @@ describe('monthlyNeededForSuccess', () => {
     const needed = monthlyNeededForSuccess(input);
     expect(needed).toBeGreaterThan(0);
     const p = (m) => evaluateGoal({ ...input, monthlyContribution: m, simulations: 1000 }).successProbability;
-    expect(p(needed)).toBeGreaterThanOrEqual(80);
-    expect(p(Math.max(0, needed - 2))).toBeLessThan(80);
+    expect(p(needed)).toBeGreaterThanOrEqual(MA.thresholds.onTrack);
+    expect(p(Math.max(0, needed - 2))).toBeLessThan(MA.thresholds.onTrack);
   });
 });
 
@@ -208,5 +210,35 @@ describe('recommendAction', () => {
   });
   it('include l\'importo suggerito', () => {
     expect(recommendAction({ evaluation: ev('review'), monthlyNeeded: 450 }).amount).toBe(450);
+  });
+});
+
+describe('residenza fiscale', () => {
+  it('resolveTaxRate: Italia 26%, altro paese con aliquota scelta dall\'utente', () => {
+    expect(resolveTaxRate({ country: 'IT' })).toBe(26);
+    expect(resolveTaxRate({ country: 'OTHER', customRate: 19 })).toBe(19);
+    expect(resolveTaxRate({ country: 'XX', customRate: 15 })).toBe(15);
+  });
+  it('resolveTaxRate: valori mancanti o assurdi non producono tasse errate', () => {
+    expect(resolveTaxRate()).toBe(26);
+    expect(resolveTaxRate({ country: 'OTHER' })).toBe(26);
+    expect(resolveTaxRate({ country: 'OTHER', customRate: NaN })).toBe(26);
+    expect(resolveTaxRate({ country: 'OTHER', customRate: 120 })).toBe(60);
+    expect(resolveTaxRate({ country: 'OTHER', customRate: -5 })).toBe(0);
+  });
+  it('Italia non è modificabile con un customRate', () => {
+    expect(resolveTaxRate({ country: 'IT', customRate: 5 })).toBe(26);
+  });
+  it('tassa più alta al ritiro → probabilità di successo non superiore', () => {
+    const p = (taxRate) => evaluateGoal({ ...base, taxRate }).successProbability;
+    expect(p(0)).toBeGreaterThan(p(26));
+    expect(p(26)).toBeGreaterThan(p(40));
+  });
+  it('senza taxRate si usa quella italiana', () => {
+    expect(evaluateGoal(base).successProbability).toBe(evaluateGoal({ ...base, taxRate: 26 }).successProbability);
+  });
+  it('a tassa zero il target reale dopo tasse coincide con quello lordo deflazionato', () => {
+    const nominal = nominalTargetForSuccess(50000, 20000, 10, MA.inflation, 0);
+    expect(nominal).toBeCloseTo(50000 * Math.pow(1 + MA.inflation / 100, 10), 6);
   });
 });

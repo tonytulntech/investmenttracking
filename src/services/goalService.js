@@ -102,6 +102,7 @@ export function nominalTargetForSuccess(targetReal, costBasis, years, inflation 
  * @param {Date}   [input.now]
  * @param {number} [input.simulations=2000]
  * @param {number} [input.seed=42]             - seme: stesso input → stesso output
+ * @param {number} [input.taxRate]             - % plusvalenze al ritiro (default: Italia); vedi resolveTaxRate()
  */
 export function evaluateGoal({
   currentValue,
@@ -113,6 +114,7 @@ export function evaluateGoal({
   now = new Date(),
   simulations = 2000,
   seed = 42,
+  taxRate = MA.taxRate,
 }) {
   const yearsLeft = yearsUntilGoal(goalYear, now);
   const months = Math.round(yearsLeft * 12);
@@ -130,7 +132,7 @@ export function evaluateGoal({
 
   const years = months / 12;
   const costBasis = (initialCostBasis ?? currentValue) + monthlyContribution * months;
-  const nominalTarget = nominalTargetForSuccess(targetAmount, costBasis, years);
+  const nominalTarget = nominalTargetForSuccess(targetAmount, costBasis, years, MA.inflation, taxRate);
 
   const mc = runMonteCarlo({
     initialValue: currentValue,
@@ -140,12 +142,12 @@ export function evaluateGoal({
     years,
     simulations,
     inflation: MA.inflation,
-    taxRate: MA.taxRate,
+    taxRate,
     targetAmount: nominalTarget,
     rng: createSeededRandom(seed),
   });
 
-  const real = v => toRealAfterTax(v, costBasis, years);
+  const real = v => toRealAfterTax(v, costBasis, years, MA.inflation, taxRate);
   // REACHED = l'importo c'è già oggi. La probabilità resta quella reale di
   // ritrovarlo alla scadenza (dopo inflazione e tasse): non è forzata a 100.
   return {

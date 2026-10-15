@@ -12,12 +12,14 @@ import { createCloudSync } from '../services/cloudSync';
  *  ready     – app utilizzabile
  */
 const AuthContext = createContext({
-  cloudEnabled: false, phase: 'ready', user: null, syncStatus: 'idle', error: null,
-  sendLink: async () => {}, verifyCode: async () => {}, signOut: async () => ({ ok: true }),
+  cloudEnabled: false, googleEnabled: false, phase: 'ready', user: null, syncStatus: 'idle', error: null,
+  sendLink: async () => {}, verifyCode: async () => {}, signInWithGoogle: async () => {}, signOut: async () => ({ ok: true }),
   resolveConflict: async () => {}, retry: () => {},
 });
 
 const SIGNUPS_CLOSED = /signups? not allowed|otp_disabled/i;
+// Il pulsante Google compare solo dopo aver attivato il provider in Supabase (VITE_GOOGLE_LOGIN=true).
+const GOOGLE_ENABLED = import.meta.env.VITE_GOOGLE_LOGIN === 'true';
 
 export function AuthProvider({ children }) {
   const [phase, setPhase] = useState(isCloudEnabled ? 'loading' : 'ready');
@@ -91,10 +93,18 @@ export function AuthProvider({ children }) {
       options: { shouldCreateUser: false, emailRedirectTo: window.location.origin },
     });
     if (!err) return;
-    if (err.status === 429) throw new Error('Troppi tentativi: attendi un minuto e riprova.');
+    if (err.status === 429) throw new Error('Limite di invii email raggiunto: riprova più tardi (può servire fino a un\'ora) oppure accedi con Google.');
     // Non riveliamo se un indirizzo è autorizzato o no.
     if (SIGNUPS_CLOSED.test(`${err.code ?? ''} ${err.message ?? ''}`)) return;
     throw new Error('Impossibile inviare il link. Riprova tra poco.');
+  }, []);
+
+  const signInWithGoogle = useCallback(async () => {
+    const { error: err } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    });
+    if (err) throw new Error('Accesso con Google non disponibile. Riprova.');
   }, []);
 
   const verifyCode = useCallback(async (email, token) => {
@@ -139,8 +149,8 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      cloudEnabled: isCloudEnabled, phase, user, syncStatus, error,
-      sendLink, verifyCode, signOut, resolveConflict, retry,
+      cloudEnabled: isCloudEnabled, googleEnabled: GOOGLE_ENABLED, phase, user, syncStatus, error,
+      sendLink, verifyCode, signInWithGoogle, signOut, resolveConflict, retry,
     }}>
       {children}
     </AuthContext.Provider>

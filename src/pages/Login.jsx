@@ -1,16 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TrendingUp, Mail, KeyRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Login() {
-  const { sendLink, verifyCode } = useAuth();
+  const { sendLink, verifyCode, signInWithGoogle, googleEnabled } = useAuth();
   const [email, setEmail] = useState('');
   const [step, setStep] = useState('email'); // email | sent
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  // Ritorno da un accesso Google rifiutato (utente non invitato): messaggio chiaro e URL ripulito.
+  useEffect(() => {
+    const params = new URLSearchParams(`${window.location.search}&${window.location.hash.slice(1)}`);
+    if (params.get('error') || params.get('error_code')) {
+      setError('Accesso non autorizzato: questo indirizzo non risulta tra quelli invitati.');
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
+
+  const startGoogle = async () => {
+    setBusy(true); setError('');
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  };
 
   const submitEmail = async (e) => {
     e.preventDefault();
@@ -57,6 +76,19 @@ export default function Login() {
           </div>
         </div>
 
+        {step === 'email' && googleEnabled && (
+          <>
+            <button type="button" className="btn-secondary" disabled={busy} onClick={startGoogle}
+              style={{ width: '100%', justifyContent: 'center' }}>
+              Continua con Google
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '1rem 0', color: 'var(--text-3)', fontSize: '0.75rem' }}>
+              <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              oppure
+              <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            </div>
+          </>
+        )}
         {step === 'email' ? (
           <form onSubmit={submitEmail} noValidate>
             <label htmlFor="login-email" className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>

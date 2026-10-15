@@ -1143,3 +1143,32 @@
   transition: transform 0.15s ease;
 }
 .mobile-fab:active { transform: translate(-50%, 12px) scale(0.94); }
+
+/* ── Ponte palette legacy → token semantici (solo tema scuro) ───────────────
+   Le pagine legacy (Rebalancing "strategia globale", PAC, Strategy, Backtest)
+   usano classi Tailwind pastello pensate per sfondo chiaro. In dark le
+   rimappiamo sui token --info/--warn/--pos/--neg/--accent. */
+[data-theme="dark"] .bg-blue-50,  [data-theme="dark"] .bg-blue-100   { background-color: var(--info-weak); }
+[data-theme="dark"] .bg-purple-50,[data-theme="dark"] .bg-purple-100 { background-color: var(--accent-weak); }
+[data-theme="dark"] .bg-orange-50,[data-theme="dark"] .bg-orange-100,
+[data-theme="dark"] .bg-yellow-50,[data-theme="dark"] .bg-yellow-100 { background-color: var(--warn-weak); }
+[data-theme="dark"] .bg-green-50, [data-theme="dark"] .bg-green-100  { background-color: var(--pos-weak); }
+[data-theme="dark"] .bg-red-50,   [data-theme="dark"] .bg-red-100    { background-color: var(--neg-weak); }
+[data-theme="dark"] .bg-gradient-to-r,
+[data-theme="dark"] .bg-gradient-to-br { background-image: none; background-color: var(--surface-2); }
+
+[data-theme="dark"] .border-blue-200,   [data-theme="dark"] .border-blue-300,
+[data-theme="dark"] .border-purple-200, [data-theme="dark"] .border-orange-200,
+[data-theme="dark"] .border-orange-300, [data-theme="dark"] .border-yellow-200,
+[data-theme="dark"] .border-yellow-300, [data-theme="dark"] .border-green-200,
+[data-theme="dark"] .border-red-200 { border-color: var(--border-strong); }
+
+[data-theme="dark"] .text-blue-600,   [data-theme="dark"] .text-blue-700,
+[data-theme="dark"] .text-blue-800,   [data-theme="dark"] .text-blue-900   { color: var(--info); }
+[data-theme="dark"] .text-purple-600, [data-theme="dark"] .text-purple-700 { color: var(--accent); }
+[data-theme="dark"] .text-orange-600, [data-theme="dark"] .text-orange-700,
+[data-theme="dark"] .text-orange-800, [data-theme="dark"] .text-orange-900,
+[data-theme="dark"] .text-yellow-600, [data-theme="dark"] .text-yellow-700,
+[data-theme="dark"] .text-yellow-800 { color: var(--warn); }
+[data-theme="dark"] .text-green-600,  [data-theme="dark"] .text-green-700  { color: var(--pos); }
+[data-theme="dark"] .text-red-600,    [data-theme="dark"] .text-red-700    { color: var(--neg); }

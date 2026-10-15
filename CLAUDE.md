@@ -33,6 +33,7 @@ Investment Tracker → **Investitore 1.0**: web app di analisi di portafoglio in
 - `src/context/ModeContext.jsx`: `useMode()` → `{ mode, setMode, canAccess }`. Chiave localStorage `inv-mode`, default `advanced`.
 - `App.jsx`: `AppShell` filtra sidebar, bottom-nav e `<Routes>` per modalità (rotta vietata → redirect a `/`). In Guidata la bottom-nav usa Transazioni al posto di Ribilancia.
 - Selettore in Impostazioni. Guidata oggi = Dashboard, Portfolio, Transazioni, Impostazioni (**provvisorio**, finché non esistono le pagine guidate). Pro = Avanzata (nessuna feature ancora).
+- **Obiettivi (logica pronta, UI da fare):** `src/config/marketAssumptions.js` (ipotesi di mercato, glide path, soglie semaforo — unica fonte, da validare con l'autore) e `src/services/goalService.js` (`evaluateGoal`, `monthlyNeededForSuccess`, `recommendAction`, `glidePathAllocation`), 51 test. Importi in € reali dopo tasse; Monte Carlo con seme fisso (`createSeededRandom`) → risultati ripetibili. `status: 'reached'` = importo già disponibile, ma la probabilità resta quella reale di conservarlo.
 - Spec in `GUIDED_MODE_SPEC.md` (v1, decisioni D1–D5 e piano di costruzione). Da fare: pagine guidate, feature Pro, onboarding che propone la modalità.
 
 ## UI: note da QA mobile (ott 2026)
@@ -77,9 +78,8 @@ Ogni portafoglio ha bucket-Ruolo liberi (nome + target %) in `portfolioConfigSer
 - Branch di sviluppo: `claude/app-review-mobile-optimization-pjxtrk`.
 
 ## Comandi
-- `npm run dev` (porta 3000) · `npm run build` · `npm run lint`
+- `npm run dev` (porta 3000) · `npm run build` · `npm run lint` · `npm test` (vitest)
 
 ## In sospeso
-- `marketAssumptions.js` — rendimento/volatilità/correlazioni per bucket (serve Backtesto)
 - Migrazione servizi esistenti a `storageAdapter` (incrementale)
 - `portfolioId` per transazione (cambiamento modello dati)

@@ -5,11 +5,23 @@
  * con parametri per il contesto italiano (tasse, inflazione, FIRE).
  */
 
-function gaussianRandom() {
+function gaussianRandom(rand = Math.random) {
   let u = 0, v = 0;
-  while (u === 0) u = Math.random();
-  while (v === 0) v = Math.random();
+  while (u === 0) u = rand();
+  while (v === 0) v = rand();
   return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+/** PRNG deterministico (mulberry32): stesso seme → stessa sequenza in [0,1). */
+export function createSeededRandom(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 function getPercentile(sorted, p) {
@@ -29,7 +41,8 @@ function getPercentile(sorted, p) {
  * @property {number} [taxRate=26]        - Aliquota capital gain Italia (%)
  * @property {number} [withdrawalRate=0]  - Safe Withdrawal Rate annuo (%, 0 = nessun prelievo)
  * @property {number} [monthlyWithdrawal=0] - Prelievo mensile fisso (alternativo a SWR)
- * @property {number} [targetAmount=0]    - Obiettivo da raggiungere (per probabilita di successo)
+ * @property {number} [targetAmount=0]    - Valore finale NOMINALE lordo da raggiungere (per probabilita di successo)
+ * @property {function} [rng]             - Generatore in [0,1) (default Math.random); passare createSeededRandom() per risultati ripetibili
  */
 
 /**
@@ -57,12 +70,13 @@ export function runMonteCarlo(params) {
     withdrawalRate = 0,
     monthlyWithdrawal = 0,
     targetAmount = 0,
+    rng = Math.random,
   } = params;
 
   const monthlyReturn = expectedReturn / 12 / 100;
   const monthlyVol = (volatility / Math.sqrt(12)) / 100;
   const monthlyInflation = Math.pow(1 + inflation / 100, 1 / 12) - 1;
-  const totalMonths = years * 12;
+  const totalMonths = Math.round(years * 12);
   const totalContributions = initialValue + monthlyContribution * totalMonths;
 
   const finals = [];
@@ -84,7 +98,7 @@ export function runMonteCarlo(params) {
       value += monthlyContribution;
       costBasis += monthlyContribution;
 
-      const r = monthlyReturn + monthlyVol * gaussianRandom();
+      const r = monthlyReturn + monthlyVol * gaussianRandom(rng);
       value *= (1 + r);
 
       // prelievi

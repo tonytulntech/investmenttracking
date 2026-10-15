@@ -5,8 +5,11 @@ import { clearTERCache, getCachedTERs } from '../services/terCache';
 import { clearPriceCache } from '../services/priceCache';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
+import { useMode } from '../context/ModeContext';
+import { MODES } from '../config/modes';
 
 function Settings() {
+  const { mode, setMode } = useMode();
   const [settings, setSettings] = useState(getSettings());
   const [storageInfo, setStorageInfo] = useState(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -149,6 +152,36 @@ function Settings() {
       <div>
         <h1 className="text-3xl font-bold" style={{ color: 'var(--text-1)' }}>Impostazioni</h1>
         <p style={{ color: 'var(--text-2)', marginTop: '0.25rem' }}>Gestisci le preferenze dell'app</p>
+      </div>
+
+      {/* Modalità */}
+      <div className="card">
+        <h2 className="text-lg font-semibold mb-1">Modalità di utilizzo</h2>
+        <p className="text-sm mb-4" style={{ color: 'var(--text-3)' }}>
+          Cambia quante pagine vedi. I tuoi dati non cambiano.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" role="radiogroup" aria-label="Modalità di utilizzo">
+          {Object.entries(MODES).map(([key, m]) => {
+            const active = mode === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => setMode(key)}
+                className="text-left rounded-lg p-4 transition-colors"
+                style={{
+                  background: active ? 'var(--accent-weak)' : 'var(--surface-2)',
+                  border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                }}
+              >
+                <div className="font-semibold" style={{ color: 'var(--text-1)' }}>{m.label}</div>
+                <div className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>{m.description}</div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* General Settings */}

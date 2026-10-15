@@ -6,6 +6,7 @@ import {
   Sun, Moon, ScanSearch, Layers, Eye, EyeOff, Coins,
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
+import { ModeProvider, useMode } from './context/ModeContext';
 import { migrateTickersPersistent } from './services/localStorageService';
 
 // Eager: lightweight, always-visible pages
@@ -46,6 +47,27 @@ const mobileNav = [
   { name: 'Portfolio',    href: '/portfolio',    icon: Wallet },
   { name: 'Ribilancia',   href: '/rebalancing',  icon: RefreshCcw },
   { name: 'Impostazioni', href: '/settings',     icon: Settings },
+];
+// In modalità Guidata "Ribilancia" non è raggiungibile: al suo posto Transazioni.
+const mobileNavGuided = [
+  mobileNav[0],
+  mobileNav[1],
+  { name: 'Transazioni',  href: '/transactions', icon: FileText },
+  mobileNav[3],
+];
+
+const appRoutes = [
+  { path: '/',                 element: <Dashboard /> },
+  { path: '/portfolio',        element: <Portfolio /> },
+  { path: '/performance',      element: <PortfolioPerformance /> },
+  { path: '/analysis',         element: <PortfolioAnalysis /> },
+  { path: '/patrimonio',       element: <Patrimonio /> },
+  { path: '/transactions',     element: <Transactions /> },
+  { path: '/transactions/new', element: <Transactions /> },
+  { path: '/dividendi',        element: <Dividendi /> },
+  { path: '/rebalancing',      element: <Rebalancing /> },
+  { path: '/portfolios',       element: <PortfolioManager /> },
+  { path: '/settings',         element: <SettingsPage /> },
 ];
 
 // ── Single nav link (uses CSS class nav-link) ────────────────────
@@ -110,9 +132,13 @@ function ThemeToggle({ isDark, onToggle }) {
   );
 }
 
-// ── App root ─────────────────────────────────────────────────────
-function App() {
+// ── App shell (sidebar, routes, bottom nav) ──────────────────────
+function AppShell() {
   const location = useLocation();
+  const { mode, canAccess } = useMode();
+  const visiblePrimary = primaryNav.filter(i => canAccess(i.href));
+  const visibleTools   = toolsNav.filter(i => canAccess(i.href));
+  const bottomNav      = mode === 'guided' ? mobileNavGuided : mobileNav;
 
   // ── Theme state ─────────────────────────────────────────────
   const [isDark, setIsDark] = useState(() => {
@@ -139,7 +165,6 @@ function App() {
   };
 
   return (
-    <PrivacyProvider>
     <div className="app-root">
 
       {/* ── Sidebar (Desktop) ─────────────────────────────── */}
@@ -174,20 +199,22 @@ function App() {
         }}>
           {/* Primary */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            {primaryNav.map(item => (
+            {visiblePrimary.map(item => (
               <NavLink key={item.href} item={item} active={isActive(item.href)} />
             ))}
           </div>
 
           {/* Tools */}
-          <div>
-            <div className="nav-section-label">Strumenti</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              {toolsNav.map(item => (
-                <NavLink key={item.href} item={item} active={isActive(item.href)} />
-              ))}
+          {visibleTools.length > 0 && (
+            <div>
+              <div className="nav-section-label">Strumenti</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {visibleTools.map(item => (
+                  <NavLink key={item.href} item={item} active={isActive(item.href)} />
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </nav>
 
         {/* Bottom actions */}
@@ -226,18 +253,10 @@ function App() {
         <div className="main-page max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28 md:pb-8">
           <Suspense fallback={<div style={{ padding: '3rem', textAlign: 'center', opacity: 0.5 }}>Caricamento…</div>}>
             <Routes>
-              <Route path="/"                 element={<Dashboard />} />
-              <Route path="/portfolio"        element={<Portfolio />} />
-              <Route path="/performance"      element={<PortfolioPerformance />} />
-              <Route path="/analysis"         element={<PortfolioAnalysis />} />
-              <Route path="/patrimonio"       element={<Patrimonio />} />
-              <Route path="/transactions"     element={<Transactions />} />
-              <Route path="/transactions/new" element={<Transactions />} />
-              <Route path="/dividendi"        element={<Dividendi />} />
-              <Route path="/rebalancing"      element={<Rebalancing />} />
-              <Route path="/portfolios"       element={<PortfolioManager />} />
-              <Route path="/settings"         element={<SettingsPage />} />
-              <Route path="*"                 element={<Navigate to="/" />} />
+              {appRoutes.filter(r => canAccess(r.path)).map(r => (
+                <Route key={r.path} path={r.path} element={r.element} />
+              ))}
+              <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </Suspense>
         </div>
@@ -256,7 +275,7 @@ function App() {
           padding: '0.35rem 0.4rem',
           alignItems: 'center',
         }}>
-          {mobileNav.slice(0, 2).map(item => {
+          {bottomNav.slice(0, 2).map(item => {
             const Icon = item.icon;
             const active = isActive(item.href);
             return (
@@ -269,7 +288,7 @@ function App() {
             );
           })}
           <div /> {/* spacer per il FAB */}
-          {mobileNav.slice(2).map(item => {
+          {bottomNav.slice(2).map(item => {
             const Icon = item.icon;
             const active = isActive(item.href);
             return (
@@ -284,6 +303,15 @@ function App() {
         </div>
       </nav>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <PrivacyProvider>
+      <ModeProvider>
+        <AppShell />
+      </ModeProvider>
     </PrivacyProvider>
   );
 }

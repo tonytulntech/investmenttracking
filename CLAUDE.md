@@ -28,6 +28,19 @@ Investment Tracker → **Investitore 1.0**: web app di analisi di portafoglio in
 - ✅ **Storage adapter**: `src/services/storageAdapter.js` — interfaccia async `storage.get/set/remove/keys`. Oggi wrappa localStorage, domani Supabase. I servizi possono migrare incrementalmente.
 - ✅ **Monte Carlo estratto**: `src/services/monteCarloService.js` — `runMonteCarlo()` con parametri IT (tasse 26%, inflazione, SWR) + `findFIREAge()`. Pronto per la pagina Simulazioni.
 
+## Modalità (Guidata / Avanzata / Pro) — fondamenta fatte
+- `src/config/modes.js`: definizione modalità + `isRouteAllowed(mode, path)`. `routes: null` = tutte le pagine.
+- `src/context/ModeContext.jsx`: `useMode()` → `{ mode, setMode, canAccess }`. Chiave localStorage `inv-mode`, default `advanced`.
+- `App.jsx`: `AppShell` filtra sidebar, bottom-nav e `<Routes>` per modalità (rotta vietata → redirect a `/`). In Guidata la bottom-nav usa Transazioni al posto di Ribilancia.
+- Selettore in Impostazioni. Guidata oggi = Dashboard, Portfolio, Transazioni, Impostazioni (**provvisorio**, finché non esistono le pagine guidate). Pro = Avanzata (nessuna feature ancora).
+- Da fare: `GUIDED_MODE_SPEC.md`, pagine guidate, feature Pro, onboarding che propone la modalità.
+
+## UI: note da QA mobile (ott 2026)
+- Griglie inline `repeat(3|4|6, 1fr)` diventano adattive sotto 768px via regola in `index.css` (attributo `style*=`). Per nuove griglie usare `repeat(auto-fit, minmax(…, 1fr))`.
+- Ponte "legacy Tailwind pastello → token" solo in dark in fondo a `index.css`.
+- Modali: z-index ≥ 60 per stare sopra la bottom-nav (z 50).
+- Regola globale mobile `button { min-height: 44px }`: elementi piccoli (toggle) vanno esclusi con `minHeight` inline.
+
 ## Motore dati (services/ ~9k righe, il valore nascosto)
 Risoluzione ISIN→ticker, rilevamento categoria/TER ETF, composizione/holdings ETF, dividend growth, TWRR (`twrrService`), metriche avanzate (Sharpe), import CSV multi-formato (`csvImportService`), cache prezzi, Monte Carlo, storage adapter.
 

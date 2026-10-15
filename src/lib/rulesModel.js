@@ -52,14 +52,14 @@ export function validateRulesInput(input) {
   return { valid: Object.keys(e).length === 0, errors: e };
 }
 
-/** Versione 1 delle regole (stato `active`). Lancia se l'input non è valido. */
-export function createRulesV1({ goalId, input, now = new Date() }) {
+/** Versione `version` delle regole firmata dall'utente. Lancia se l'input non è valido. */
+export function buildRulesVersion({ goalId, input, version, now = new Date(), changeReason = null, marketContext, changes = [], appliedDuringStress = false }) {
   const { valid, errors } = validateRulesInput(input);
   if (!valid) throw new Error(`Regole non valide: ${Object.keys(errors).join(', ')}`);
   return {
-    id: `rules_${goalId}_v1`,
+    id: `rules_${goalId}_v${version}`,
     goalId,
-    version: 1,
+    version,
     rebalance: {
       method: input.rebalance.method,
       thresholdPct: input.rebalance.method === 'calendar' ? null : Number(input.rebalance.thresholdPct),
@@ -69,11 +69,25 @@ export function createRulesV1({ goalId, input, now = new Date() }) {
     reviewFrequency: input.reviewFrequency,
     signedAt: now.toISOString(),
     signedName: input.signedName.trim(),
-    changeReason: null,
-    marketContext: { portfolioDrawdownPct: 0, benchmarkDrawdown60dPct: 0 },
+    changeReason,
+    changes,
+    appliedDuringStress,
+    marketContext: marketContext ?? { portfolioDrawdownPct: 0, benchmarkDrawdown60dPct: 0 },
     status: 'active',
   };
 }
+
+/** Versione 1 delle regole (stato `active`). Lancia se l'input non è valido. */
+export const createRulesV1 = ({ goalId, input, now = new Date() }) => buildRulesVersion({ goalId, input, version: 1, now });
+
+/** Regole attive → input modificabile (la firma va rifatta). */
+export const rulesToInput = (rules) => ({
+  rebalance: { method: rules.rebalance.method, thresholdPct: rules.rebalance.thresholdPct ?? 5, calendarMonth: rules.rebalance.calendarMonth ?? 1 },
+  crashPlan: { choice: rules.crashPlan.choice, personalNote: rules.crashPlan.personalNote },
+  reviewFrequency: rules.reviewFrequency,
+  signedName: '',
+  accepted: false,
+});
 
 /** Testo leggibile delle regole, come un documento. */
 export function describeRules(rules) {

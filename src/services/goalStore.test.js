@@ -81,3 +81,17 @@ describe('completeOnboarding', () => {
     expect(s.draft).toBeNull();
   });
 });
+
+describe('revisioni e review', () => {
+  it('revisioni: lettura difensiva e salvataggio insieme a obiettivi e regole', async () => {
+    const { getRevisions, saveAll, recordReview } = await import('./goalStore');
+    expect(getRevisions()).toEqual([]);
+    localStorage.setItem(GOAL_KEYS.revisions, '{non json');
+    expect(getRevisions()).toEqual([]);
+    saveAll({ goals: [goal()], rules: [], revisions: [{ id: 'r1', goalId: 'g1', status: 'pending' }, { x: 1 }] });
+    expect(getGoals()).toHaveLength(1);
+    expect(getRevisions()).toEqual([{ id: 'r1', goalId: 'g1', status: 'pending' }]);
+    recordReview(NOW);
+    expect(getProgress().lastReviewAt).toBe(NOW.toISOString());
+  });
+});

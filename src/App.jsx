@@ -2,7 +2,7 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import {
   TrendingUp, LayoutDashboard, Wallet, FileText, Settings, Plus,
-  RefreshCcw, BarChart3, PiggyBank, Target,
+  RefreshCcw, BarChart3, PiggyBank, Target, ScrollText,
   Sun, Moon, ScanSearch, Layers, Eye, EyeOff, Coins,
 } from 'lucide-react';
 import { PrivacyProvider, usePrivacy } from './context/PrivacyContext';
@@ -27,6 +27,7 @@ const Rebalancing          = lazy(() => import('./pages/Rebalancing'));
 const Transactions         = lazy(() => import('./pages/Transactions'));
 const SettingsPage         = lazy(() => import('./pages/Settings'));
 const Goals                = lazy(() => import('./pages/Goals'));
+const Rules                = lazy(() => import('./pages/Rules'));
 const GoalWizard           = lazy(() => import('./pages/GoalWizard'));
 
 // ── Navigation structure ─────────────────────────────────────────
@@ -37,6 +38,7 @@ const GoalWizard           = lazy(() => import('./pages/GoalWizard'));
 const primaryNav = [
   { name: 'Dashboard',   href: '/',             icon: LayoutDashboard },
   { name: 'Obiettivi',   href: '/obiettivi',    icon: Target },
+  { name: 'Regole',      href: '/regole',       icon: ScrollText },
   { name: 'Portfolio',   href: '/portfolio',    icon: Wallet },
   { name: 'Performance', href: '/performance',  icon: BarChart3 },
   { name: 'Transazioni', href: '/transactions', icon: FileText },
@@ -66,6 +68,7 @@ const mobileNavGuided = [
 const appRoutes = [
   { path: '/',                 element: <Dashboard /> },
   { path: '/obiettivi',        element: <Goals /> },
+  { path: '/regole',           element: <Rules /> },
   { path: '/guida/inizia',     element: <GoalWizard /> },
   { path: '/portfolio',        element: <Portfolio /> },
   { path: '/performance',      element: <PortfolioPerformance /> },

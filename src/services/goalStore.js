@@ -10,6 +10,7 @@ export const GOAL_KEYS = {
   rules: 'inv_goal_rules_v1',
   progress: 'inv_student_progress_v1',
   draft: 'inv_goal_wizard_draft_v1',
+  revisions: 'inv_goal_revisions_v1',
 };
 
 const EVENT = 'inv-goals-changed';
@@ -45,6 +46,27 @@ export const getRules = () => {
 };
 export const saveRules = (rules) => write(GOAL_KEYS.rules, rules);
 
+const isRevision = (r) => r && typeof r.id === 'string' && typeof r.goalId === 'string' && typeof r.status === 'string';
+export const getRevisions = () => {
+  const v = read(GOAL_KEYS.revisions, []);
+  return Array.isArray(v) ? v.filter(isRevision) : [];
+};
+export const saveRevisions = (revisions) => write(GOAL_KEYS.revisions, revisions);
+
+/** Salva insieme obiettivi, regole e revisioni (una modifica toccano più liste: si scrivono di fila e poi si notifica una volta). */
+export function saveAll({ goals, rules, revisions }) {
+  localStorage.setItem(GOAL_KEYS.goals, JSON.stringify(goals));
+  localStorage.setItem(GOAL_KEYS.rules, JSON.stringify(rules));
+  localStorage.setItem(GOAL_KEYS.revisions, JSON.stringify(revisions));
+  window.dispatchEvent(new Event(EVENT));
+}
+
+/** Registra che lo studente ha fatto la review periodica senza modifiche. */
+export function recordReview(now = new Date()) {
+  const p = getProgress();
+  write(GOAL_KEYS.progress, { ...p, lastReviewAt: now.toISOString() });
+}
+
 export const getProgress = () => {
   const v = read(GOAL_KEYS.progress, null);
   return {
@@ -76,7 +98,7 @@ export function completeOnboarding({ goals, rules, now = new Date() }) {
   window.dispatchEvent(new Event(EVENT));
 }
 
-export const snapshot = () => ({ goals: getGoals(), rules: getRules(), progress: getProgress(), draft: getDraft() });
+export const snapshot = () => ({ goals: getGoals(), rules: getRules(), revisions: getRevisions(), progress: getProgress(), draft: getDraft() });
 
 /** Hook: dati sempre aggiornati (stessa scheda e altre schede). */
 export function useGoalData() {

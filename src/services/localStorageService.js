@@ -331,6 +331,91 @@ export const exportTransactions = () => {
   return getTransactions();
 };
 
+// ============================================
+// FULL JSON BACKUP / RESTORE
+// ============================================
+
+const ALL_STORAGE_KEYS = [
+  'investment_tracker_transactions',
+  'investment_tracker_settings',
+  'investment_tracker_last_sync',
+  'investment_tracker_import_batches',
+  'inv_portfolio_config_v1',
+  'inv_hidden_portfolios_v1',
+  'investment_tracker_pac_templates',
+  'dg_metadata',
+  'price_cache',
+  'ter_cache',
+  'reported_tickers_v1',
+  'etf_remote_db_cache',
+  'etf_ticker_aliases',
+  'inv-theme',
+];
+
+export const exportFullBackup = () => {
+  const backup = { _meta: { version: 1, exportedAt: new Date().toISOString(), app: 'investitore' } };
+  for (const key of ALL_STORAGE_KEYS) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw !== null) backup[key] = JSON.parse(raw);
+    } catch {
+      const raw = localStorage.getItem(key);
+      if (raw !== null) backup[key] = raw;
+    }
+  }
+  // historical price cache (dynamic keys)
+  const histKeys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('hist_prices_')) histKeys.push(k);
+  }
+  if (histKeys.length > 0) {
+    backup._hist_prices = {};
+    for (const k of histKeys) {
+      try { backup._hist_prices[k] = JSON.parse(localStorage.getItem(k)); } catch {}
+    }
+  }
+  // ETF holdings cache (dynamic keys)
+  const holdingsKeys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('etf_holdings_')) holdingsKeys.push(k);
+  }
+  if (holdingsKeys.length > 0) {
+    backup._etf_holdings = {};
+    for (const k of holdingsKeys) {
+      try { backup._etf_holdings[k] = JSON.parse(localStorage.getItem(k)); } catch {}
+    }
+  }
+  return backup;
+};
+
+export const restoreFullBackup = (backup) => {
+  if (!backup || !backup._meta || backup._meta.app !== 'investitore') {
+    throw new Error('File di backup non valido');
+  }
+  let restored = 0;
+  for (const key of ALL_STORAGE_KEYS) {
+    if (key in backup) {
+      localStorage.setItem(key, typeof backup[key] === 'string' ? backup[key] : JSON.stringify(backup[key]));
+      restored++;
+    }
+  }
+  if (backup._hist_prices) {
+    for (const [k, v] of Object.entries(backup._hist_prices)) {
+      localStorage.setItem(k, JSON.stringify(v));
+      restored++;
+    }
+  }
+  if (backup._etf_holdings) {
+    for (const [k, v] of Object.entries(backup._etf_holdings)) {
+      localStorage.setItem(k, JSON.stringify(v));
+      restored++;
+    }
+  }
+  return restored;
+};
+
 /**
  * Clear all transactions (with confirmation)
  * @returns {boolean} Success status

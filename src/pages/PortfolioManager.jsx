@@ -8,6 +8,7 @@ import { calculatePortfolio } from '../services/localStorageService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { getCachedPrices } from '../services/priceCache';
 import { getCompositionProfile } from '../data/etfComposition';
+import BucketManager from '../components/BucketManager';
 import {
   MACRO_CATEGORIES,
   PRESET_TARGETS,
@@ -24,6 +25,7 @@ import {
   calcMacroAllocation,
   calcRebalancing,
   updateGlobalTarget,
+  setPortfolioTargetWeight,
 } from '../services/portfolioConfigService';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -72,7 +74,7 @@ function AllocRow({ cat, current, target, threshold }) {
       </span>
       <span style={{
         width: 42, textAlign: 'right', fontVariantNumeric: 'tabular-nums',
-        color: ok ? 'var(--text-3)' : diff > 0 ? '#ff9f0a' : '#30d158',
+        color: ok ? 'var(--text-3)' : diff > 0 ? '#ff9f0a' : 'var(--pos)',
         fontWeight: ok ? 400 : 600,
       }}>
         {diff > 0 ? '+' : ''}{fmt(diff)}%
@@ -80,7 +82,7 @@ function AllocRow({ cat, current, target, threshold }) {
       <span style={{ width: 16, textAlign: 'center' }}>
         {target > 0 && (ok
           ? <CheckCircle2 size={12} color="#30d158" />
-          : <AlertCircle size={12} color={diff > 0 ? '#ff9f0a' : '#30d158'} />
+          : <AlertCircle size={12} color={diff > 0 ? '#ff9f0a' : 'var(--pos)'} />
         )}
       </span>
     </div>
@@ -103,12 +105,12 @@ function GoalProgressBar({ current, goal, year }) {
       <div style={{ height: 5, background: 'var(--surface-2)', borderRadius: 99, overflow: 'hidden' }}>
         <div style={{
           height: '100%', width: `${pct}%`,
-          background: pct >= 100 ? '#30D158' : 'linear-gradient(90deg, #0A84FF, #30D158)',
+          background: pct >= 100 ? 'var(--pos)' : 'linear-gradient(90deg, #0A84FF, #30D158)',
           borderRadius: 99, transition: 'width 0.4s',
         }} />
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: 'var(--text-3)', marginTop: 4 }}>
-        <span style={{ color: pct >= 100 ? '#30D158' : 'var(--text-3)', fontWeight: pct >= 100 ? 700 : 400 }}>
+        <span style={{ color: pct >= 100 ? 'var(--pos)' : 'var(--text-3)', fontWeight: pct >= 100 ? 700 : 400 }}>
           {pct >= 100 ? '✓ Obiettivo raggiunto!' : `${pct.toFixed(1)}% raggiunto`}
         </span>
         {yearsLeft != null && (
@@ -121,7 +123,7 @@ function GoalProgressBar({ current, goal, year }) {
 
 // ── Portfolio card ────────────────────────────────────────────────────────────
 
-function PortfolioCard({ portfolio, holdings, prices, config, onEdit, onDelete }) {
+function PortfolioCard({ portfolio, holdings, prices, config, patrimonioTotal = 0, onEdit, onDelete, onConfigChange }) {
   const getProfile = useCallback((ticker) => getCompositionProfile(ticker), []);
 
   const portfolioHoldings = useMemo(() => {
@@ -200,19 +202,64 @@ function PortfolioCard({ portfolio, holdings, prices, config, onEdit, onDelete }
         </div>
 
         {/* KPI row */}
-        <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
+        <div style={{ display: 'flex', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: '0.7rem', color: 'var(--text-3)', marginBottom: 2 }}>Valore</div>
-            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)' }}>{fmtEur(totalValue)}</div>
+            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{fmtEur(totalValue)}</div>
           </div>
           <div>
             <div style={{ fontSize: '0.7rem', color: 'var(--text-3)', marginBottom: 2 }}>ETF/Titoli</div>
-            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)' }}>{numTickers}</div>
+            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{numTickers}</div>
           </div>
+          {/* Peso sul patrimonio (reale + target editabile) */}
+          {patrimonioTotal > 0 && (() => {
+            const actualPct = Math.round((totalValue / patrimonioTotal) * 1000) / 10;
+            const targetPct = portfolio.targetWeightPct;
+            const hasT = targetPct != null;
+            const diff = hasT ? Math.round((actualPct - targetPct) * 10) / 10 : 0;
+            const threshold = portfolio.rebalanceThreshold ?? 5;
+            const off = hasT && Math.abs(diff) > threshold;
+            return (
+              <div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-3)', marginBottom: 2 }}>Peso patrimonio</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+                    {actualPct}%
+                  </span>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--text-3)' }}>/ target</span>
+                  <input
+                    type="number" min={0} max={100} step={0.5}
+                    defaultValue={targetPct ?? ''}
+                    placeholder="—"
+                    onBlur={e => {
+                      const v = e.target.value.trim();
+                      const num = v === '' ? null : Number(v);
+                      if (num !== targetPct) { setPortfolioTargetWeight(portfolio.id, num); onConfigChange?.(); }
+                    }}
+                    style={{
+                      width: 48, background: 'var(--surface-2)', border: `1px solid ${hasT ? 'var(--border)' : 'var(--border-strong)'}`,
+                      borderRadius: 6, padding: '1px 5px', color: 'var(--text-1)',
+                      fontSize: '0.78rem', textAlign: 'right', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums',
+                    }}
+                  />
+                  <span style={{ fontSize: '0.68rem', color: 'var(--text-3)' }}>%</span>
+                  {hasT && (
+                    <span style={{
+                      fontSize: '0.72rem', fontWeight: 600, marginLeft: 2,
+                      color: off ? (diff > 0 ? 'var(--warn)' : 'var(--accent)') : 'var(--text-3)',
+                      fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums',
+                    }}>
+                      ({diff > 0 ? '+' : ''}{diff}%)
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
           {hasTarget && (
             <div>
               <div style={{ fontSize: '0.7rem', color: 'var(--text-3)', marginBottom: 2 }}>Soglia alert</div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)' }}>
+              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-1)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
                 ±{portfolio.rebalanceThreshold ?? 5}%
               </div>
             </div>
@@ -296,18 +343,23 @@ function PortfolioCard({ portfolio, holdings, prices, config, onEdit, onDelete }
                     <span style={{ color: 'var(--text-3)', fontVariantNumeric: 'tabular-nums' }}>/ {pct}%</span>
                     <span style={{
                       fontVariantNumeric: 'tabular-nums', fontWeight: ok ? 400 : 600, minWidth: 36, textAlign: 'right',
-                      color: ok ? 'var(--text-3)' : diff > 0 ? '#ff9f0a' : '#30d158',
+                      color: ok ? 'var(--text-3)' : diff > 0 ? '#ff9f0a' : 'var(--pos)',
                     }}>
                       {diff > 0 ? '+' : ''}{diff.toFixed(1)}%
                     </span>
                     {ok
                       ? <CheckCircle2 size={11} color="#30d158" />
-                      : <AlertCircle size={11} color={diff > 0 ? '#ff9f0a' : '#30d158'} />}
+                      : <AlertCircle size={11} color={diff > 0 ? '#ff9f0a' : 'var(--pos)'} />}
                   </div>
                 );
               })}
             </div>
           </div>
+        )}
+
+        {/* Ruoli (bucket custom del portafoglio) */}
+        {numTickers > 0 && (
+          <BucketManager portfolioId={portfolio.id} holdings={portfolioHoldings} onChange={onConfigChange} />
         )}
 
         {/* Goal progress */}
@@ -424,7 +476,7 @@ function GlobalCard({ config, allHoldings, onEdit }) {
                   <div key={a.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', marginBottom: 3 }}>
                     <span style={{ width: 8, height: 8, borderRadius: 2, background: a.color, flexShrink: 0 }} />
                     <span style={{ flex: 1, color: 'var(--text-2)' }}>{a.label}</span>
-                    <span style={{ fontWeight: 600, color: '#30d158' }}>+{fmtEur(a.amount)}</span>
+                    <span style={{ fontWeight: 600, color: 'var(--pos)' }}>+{fmtEur(a.amount)}</span>
                   </div>
                 ))}
               </div>
@@ -475,9 +527,9 @@ function AllocationSliders({ target, onChange }) {
         <div style={{
           flex: 1, height: 4, borderRadius: 99, background: 'var(--surface-2)', overflow: 'hidden',
         }}>
-          <div style={{ height: '100%', width: `${Math.min(total, 100)}%`, background: total === 100 ? '#30d158' : total > 100 ? '#ff453a' : '#ff9f0a', transition: 'width 0.2s' }} />
+          <div style={{ height: '100%', width: `${Math.min(total, 100)}%`, background: total === 100 ? 'var(--pos)' : total > 100 ? '#ff453a' : '#ff9f0a', transition: 'width 0.2s' }} />
         </div>
-        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: total === 100 ? '#30d158' : total > 100 ? '#ff453a' : '#ff9f0a', minWidth: 40, textAlign: 'right' }}>
+        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: total === 100 ? 'var(--pos)' : total > 100 ? '#ff453a' : '#ff9f0a', minWidth: 40, textAlign: 'right' }}>
           {total}%
         </span>
       </div>
@@ -515,7 +567,7 @@ function AllocationSliders({ target, onChange }) {
 
 const EMPTY_TARGET = { equity: 0, bond: 0, commodity: 0, realEstate: 0, crypto: 0, cash: 0 };
 
-const STEP_LABELS = ['Info', 'Titoli', 'Allocazione %'];
+const STEP_LABELS = ['Info', 'Titoli'];
 
 function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
   const [step, setStep] = useState(1);
@@ -589,9 +641,9 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
       rebalanceThreshold: threshold,
       goalAmount: goalAmount !== '' ? parseFloat(goalAmount) : null,
       goalYear: goalYear !== '' ? parseInt(goalYear) : null,
-      tickerTargets: selectedList
-        .map(h => ({ ticker: h.ticker, holdingKey: h.holdingKey ?? h.ticker, pct: parseFloat(tickerPcts[h.ticker]) || 0 }))
-        .filter(t => t.pct > 0),
+      // I target ora vivono sui Ruoli (bucket), non sui ticker: preserviamo eventuali dati
+      // legacy (retro-compat) ma non li impostiamo più dal wizard.
+      tickerTargets: editing?.tickerTargets ?? [],
       // tutti i ticker selezionati, anche senza %, per aggiornare assignments
       selectedHoldings: selectedList.map(h => ({ ticker: h.ticker, holdingKey: h.holdingKey ?? h.ticker })),
     });
@@ -620,7 +672,7 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
               {editing ? 'Modifica portafoglio' : 'Nuovo portafoglio'}
             </h2>
             <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: 'var(--text-3)' }}>
-              Step {step} di 3 — {STEP_LABELS[step - 1]}
+              Step {step} di 2 — {STEP_LABELS[step - 1]}
             </p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}>
@@ -641,8 +693,8 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
                 style={{
                   flex: 1, padding: '10px 0', textAlign: 'center',
                   fontSize: '0.75rem', fontWeight: active ? 700 : 400,
-                  color: active ? '#0A84FF' : done ? 'var(--text-2)' : 'var(--text-3)',
-                  borderBottom: active ? '2px solid #0A84FF' : '2px solid transparent',
+                  color: active ? 'var(--text-1)' : done ? 'var(--text-2)' : 'var(--text-3)',
+                  borderBottom: active ? '2px solid var(--text-1)' : '2px solid transparent',
                   cursor: done ? 'pointer' : 'default',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                   marginBottom: -1,
@@ -651,7 +703,7 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
                 <span style={{
                   width: 18, height: 18, borderRadius: 99, fontSize: '0.65rem', fontWeight: 700,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: active ? '#0A84FF' : done ? '#30D158' : 'var(--surface-2)',
+                  background: active ? 'var(--text-1)' : done ? 'var(--pos)' : 'var(--surface-2)',
                   color: active || done ? '#fff' : 'var(--text-3)',
                   flexShrink: 0,
                 }}>
@@ -795,7 +847,7 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
                     </span>
                     <div style={{ display: 'flex', gap: 10 }}>
                       <button onClick={() => setSelected(new Set(availableHoldings.map(h => h.holdingKey ?? h.ticker)))}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0A84FF', fontSize: '0.75rem', fontWeight: 600 }}>
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '0.75rem', fontWeight: 600 }}>
                         Tutti
                       </button>
                       <button onClick={() => setSelected(new Set())}
@@ -846,92 +898,24 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
                   })}
                 </div>
               )}
-            </div>
-          )}
 
-          {/* ── STEP 3: Allocazione % ────────────────────── */}
-          {step === 3 && (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-2)' }}>
-                  Imposta il peso % target per ogni titolo.
+              {/* Soglia alert ribilanciamento */}
+              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <label style={{ fontSize: '0.78rem', color: 'var(--text-2)' }}>Soglia alert ribilanciamento</label>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>±{threshold}%</span>
+                </div>
+                <input type="range" min={1} max={20} step={1} value={threshold}
+                  onChange={e => setThreshold(parseInt(e.target.value))}
+                  style={{ width: '100%', accentColor: 'var(--accent)' }}
+                />
+                <p style={{ fontSize: '0.68rem', color: 'var(--text-3)', margin: '4px 0 0' }}>
+                  I target per <strong>ruolo</strong> (Income, Growth-Div…) si impostano dopo, direttamente sulla card del portafoglio.
                 </p>
-                <button
-                  onClick={distributeEvenly}
-                  style={{
-                    padding: '5px 12px', borderRadius: 8, border: '1px solid var(--border)',
-                    background: 'none', cursor: 'pointer', color: 'var(--text-2)',
-                    fontSize: '0.75rem', fontWeight: 600, flexShrink: 0,
-                  }}
-                >
-                  Dividi equamente
-                </button>
               </div>
-
-              {selectedList.length === 0 ? (
-                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-3)', fontSize: '0.85rem' }}>
-                  Nessun titolo selezionato — torna allo step 2
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {selectedList.map(h => {
-                    const pct = parseFloat(tickerPcts[h.ticker]) || 0;
-                    return (
-                      <div key={h.ticker} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-1)' }}>{h.ticker}</div>
-                          <div style={{ height: 4, background: 'var(--surface-2)', borderRadius: 99, marginTop: 4, overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${Math.min(100, pct)}%`, background: color, borderRadius: 99, transition: 'width 0.2s' }} />
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                          <input
-                            type="number" min={0} max={100} value={tickerPcts[h.ticker] ?? ''}
-                            placeholder="0"
-                            onChange={e => setTickerPcts(prev => ({ ...prev, [h.ticker]: e.target.value }))}
-                            style={{
-                              width: 60, padding: '7px 8px', borderRadius: 8, textAlign: 'right',
-                              border: '1px solid var(--border)', background: 'var(--surface-2)',
-                              color: 'var(--text-1)', fontSize: '0.875rem',
-                            }}
-                          />
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-3)' }}>%</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {/* Total */}
-                  <div style={{
-                    marginTop: 8, padding: '10px 14px', borderRadius: 10,
-                    background: pctTotal === 100 ? '#30D15811' : pctTotal > 100 ? '#FF453A11' : 'var(--surface-2)',
-                    border: `1px solid ${pctTotal === 100 ? '#30D15844' : pctTotal > 100 ? '#FF453A44' : 'var(--border)'}`,
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  }}>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-2)', fontWeight: 600 }}>Totale</span>
-                    <span style={{
-                      fontSize: '0.9rem', fontWeight: 800,
-                      color: pctTotal === 100 ? '#30D158' : pctTotal > 100 ? '#FF453A' : 'var(--text-1)',
-                    }}>
-                      {pctTotal.toFixed(1)}%
-                    </span>
-                  </div>
-
-                  {/* Soglia */}
-                  <div style={{ marginTop: 8 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <label style={{ fontSize: '0.78rem', color: 'var(--text-2)' }}>Soglia alert ribilanciamento</label>
-                      <span style={{ fontSize: '0.78rem', fontWeight: 700 }}>±{threshold}%</span>
-                    </div>
-                    <input type="range" min={1} max={20} step={1} value={threshold}
-                      onChange={e => setThreshold(parseInt(e.target.value))}
-                      style={{ width: '100%', accentColor: '#0A84FF' }}
-                    />
-                  </div>
-                </div>
-              )}
             </div>
           )}
+
         </div>
 
         {/* Footer */}
@@ -949,14 +933,14 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
             {step > 1 ? '← Indietro' : 'Annulla'}
           </button>
 
-          {step < 3 ? (
+          {step < 2 ? (
             <button
               onClick={() => setStep(s => s + 1)}
               disabled={step === 1 && !canNext1}
               style={{
                 padding: '9px 22px', borderRadius: 10, border: 'none',
-                background: (step === 1 && !canNext1) ? 'var(--surface-2)' : '#0A84FF',
-                color: (step === 1 && !canNext1) ? 'var(--text-3)' : '#fff',
+                background: (step === 1 && !canNext1) ? 'var(--surface-2)' : 'var(--text-1)',
+                color: (step === 1 && !canNext1) ? 'var(--text-3)' : 'var(--bg)',
                 cursor: (step === 1 && !canNext1) ? 'default' : 'pointer',
                 fontSize: '0.875rem', fontWeight: 600,
               }}
@@ -968,7 +952,7 @@ function PortfolioModal({ editing, availableHoldings = [], onSave, onClose }) {
               onClick={handleSave}
               style={{
                 padding: '9px 22px', borderRadius: 10, border: 'none',
-                background: '#30D158', color: '#fff',
+                background: 'var(--pos)', color: 'var(--bg)',
                 cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600,
                 display: 'flex', alignItems: 'center', gap: 6,
               }}
@@ -1033,7 +1017,7 @@ function GlobalModal({ config, onSave, onClose }) {
             <input
               type="range" min={1} max={20} step={1} value={threshold}
               onChange={e => setThreshold(parseInt(e.target.value))}
-              style={{ width: '100%', accentColor: '#0A84FF' }}
+              style={{ width: '100%', accentColor: 'var(--info)' }}
             />
           </div>
         </div>
@@ -1057,7 +1041,7 @@ function GlobalModal({ config, onSave, onClose }) {
             disabled={!canSave}
             style={{
               padding: '8px 20px', borderRadius: 10, border: 'none',
-              background: canSave ? '#0A84FF' : 'var(--surface-2)',
+              background: canSave ? 'var(--info)' : 'var(--surface-2)',
               color: canSave ? '#fff' : 'var(--text-3)',
               cursor: canSave ? 'pointer' : 'default',
               fontSize: '0.875rem', fontWeight: 600,
@@ -1285,7 +1269,7 @@ function SmartAssignModal({ unassigned, portfolios, onSave, onClose }) {
             disabled={!anyAssigned}
             style={{
               padding: '8px 20px', borderRadius: 10, border: 'none',
-              background: anyAssigned ? '#0A84FF' : 'var(--surface-2)',
+              background: anyAssigned ? 'var(--info)' : 'var(--surface-2)',
               color: anyAssigned ? '#fff' : 'var(--text-3)',
               cursor: anyAssigned ? 'pointer' : 'default',
               fontSize: '0.875rem', fontWeight: 600,
@@ -1455,7 +1439,7 @@ export default function PortfolioManager() {
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '8px 16px', borderRadius: 10, border: 'none',
-            background: '#0A84FF', color: '#fff',
+            background: 'var(--info)', color: '#fff',
             fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
           }}
         >
@@ -1485,7 +1469,7 @@ export default function PortfolioManager() {
             onClick={() => setSmartModalOpen(true)}
             style={{
               padding: '7px 14px', borderRadius: 8, border: 'none',
-              background: '#0A84FF', color: '#fff',
+              background: 'var(--info)', color: '#fff',
               fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', flexShrink: 0,
             }}
           >
@@ -1507,7 +1491,7 @@ export default function PortfolioManager() {
               padding: '8px 14px', borderRadius: '10px 10px 0 0', border: 'none',
               background: tab === t.key ? 'var(--card-bg)' : 'none',
               borderBottom: tab === t.key ? '2px solid #0A84FF' : '2px solid transparent',
-              color: tab === t.key ? '#0A84FF' : 'var(--text-3)',
+              color: tab === t.key ? 'var(--info)' : 'var(--text-3)',
               fontWeight: tab === t.key ? 700 : 400,
               fontSize: '0.8375rem', cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: 6,
@@ -1582,8 +1566,10 @@ export default function PortfolioManager() {
                   holdings={rawHoldings}
                   prices={{}}
                   config={config}
+                  patrimonioTotal={rawHoldings.reduce((s, h) => s + (h.marketValue ?? 0), 0)}
                   onEdit={setEditingPortfolio}
                   onDelete={handleDeletePortfolio}
+                  onConfigChange={refreshConfig}
                 />
               ))}
             </div>
@@ -1603,7 +1589,7 @@ export default function PortfolioManager() {
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   padding: '10px 20px', borderRadius: 10, border: 'none',
-                  background: '#0A84FF', color: '#fff',
+                  background: 'var(--info)', color: '#fff',
                   fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
                 }}
               >

@@ -11,18 +11,48 @@ const KEY = 'inv_portfolio_config_v1';
 export const MACRO_CATEGORIES = [
   { key: 'equity',     label: 'Azionario',      color: '#0A84FF', emoji: '📈' },
   { key: 'bond',       label: 'Obbligazionario', color: '#30D158', emoji: '🏦' },
-  { key: 'commodity',  label: 'Materie prime',   color: '#FF9F0A', emoji: '🥇' },
+  { key: 'gold',       label: 'Oro',             color: '#FFD60A', emoji: '🥇' },
+  { key: 'commodity',  label: 'Materie prime',   color: '#FF9F0A', emoji: '🛢️' },
   { key: 'realEstate', label: 'Immobiliare',     color: '#BF5AF2', emoji: '🏠' },
   { key: 'crypto',     label: 'Crypto',          color: '#FF453A', emoji: '₿'  },
   { key: 'cash',       label: 'Liquidità',       color: '#32ADE6', emoji: '💵' },
 ];
 
 export const PRESET_TARGETS = [
-  { name: 'Crescita 100%',    icon: '🚀', target: { equity: 100, bond: 0,  commodity: 0, realEstate: 0, crypto: 0, cash: 0 } },
-  { name: 'Crescita 80/20',   icon: '📈', target: { equity: 80,  bond: 20, commodity: 0, realEstate: 0, crypto: 0, cash: 0 } },
-  { name: 'Bilanciato 60/40', icon: '⚖️', target: { equity: 60,  bond: 40, commodity: 0, realEstate: 0, crypto: 0, cash: 0 } },
-  { name: 'Difensivo',        icon: '🛡', target: { equity: 40,  bond: 50, commodity: 10, realEstate: 0, crypto: 0, cash: 0 } },
-  { name: 'All Weather',      icon: '🌤', target: { equity: 30,  bond: 55, commodity: 10, realEstate: 0, crypto: 0, cash: 5 } },
+  { name: 'Crescita 100%',    icon: '🚀', target: { equity: 100, bond: 0,  gold: 0,  commodity: 0, realEstate: 0, crypto: 0, cash: 0 } },
+  { name: 'Crescita 80/20',   icon: '📈', target: { equity: 80,  bond: 20, gold: 0,  commodity: 0, realEstate: 0, crypto: 0, cash: 0 } },
+  { name: 'Bilanciato 60/40', icon: '⚖️', target: { equity: 60,  bond: 40, gold: 0,  commodity: 0, realEstate: 0, crypto: 0, cash: 0 } },
+  { name: 'Difensivo',        icon: '🛡', target: { equity: 40,  bond: 50, gold: 5,  commodity: 5,  realEstate: 0, crypto: 0, cash: 0 } },
+  { name: 'All Weather',      icon: '🌤', target: { equity: 30,  bond: 55, gold: 7,  commodity: 3,  realEstate: 0, crypto: 0, cash: 5 } },
+];
+
+// Ruoli pre-impostati (bucket) suggeriti, raggruppati per tipo di portafoglio.
+// Servono solo come scorciatoia: si aggiungono con un click e restano modificabili.
+export const BUCKET_ROLE_PRESETS = [
+  {
+    group: 'Dividend / Income',
+    roles: ['High Yield / Income', 'REIT', 'BDC / Alternative Credit', 'Growth Dividend', 'Dividend Kings / Aristocrats', 'ETF Dividend Bridge'],
+  },
+  {
+    group: 'Core geografico',
+    roles: ['Mercati Sviluppati (World)', 'Mercati Emergenti', 'Azionario USA', 'Azionario Europa', 'Azionario Asia/Pacifico', 'Small Cap Value USA', 'Small Cap Value Europa'],
+  },
+  {
+    group: 'Fattoriale (Smart Beta)',
+    roles: ['Momentum', 'Quality', 'Value', 'Size (Small Cap)', 'Low Volatility', 'Multi-Factor'],
+  },
+  {
+    group: 'Settori',
+    roles: ['Tech / Software', 'Semiconduttori', 'Financials', 'Healthcare / Pharma', 'Consumer Staples', 'Consumer Discretionary', 'Real Estate / REIT', 'Industrials', 'Energy', 'Utilities', 'Materials', 'Communication'],
+  },
+  {
+    group: 'Tematici / Speculativi',
+    roles: ['AI Infrastructure', 'Water', 'Rame / Metalli industriali', 'Robotics & Automation', 'Cybersecurity', 'Clean Energy', 'Biotech', 'Uranio / Nucleare', 'Photonics / Connectivity', 'Networking', 'Memoria / Semis', 'EdTech', 'Fintech', 'Space'],
+  },
+  {
+    group: 'Altre asset class',
+    roles: ['Oro', 'Materie prime', 'Obbligazionario', 'Liquidità / Cash', 'Bitcoin (Store of Value)', 'Ethereum (Smart Contract)', 'Altcoin'],
+  },
 ];
 
 export const PORTFOLIO_COLORS = [
@@ -39,10 +69,11 @@ export const PORTFOLIO_EMOJIS = [
 
 const DEFAULT_CONFIG = {
   portfolios: [],
-  assignments: {},    // { [ticker]: portfolioId | null }
-  aliases: {},        // { [ticker]: customDisplayName }
-  globalTarget: null, // null = nessun target globale impostato
-  globalThreshold: 5, // % tolleranza prima di alert
+  assignments: {},        // { [ticker]: portfolioId | null }
+  bucketAssignments: {},  // { [ticker]: bucketId }  — Ruolo del titolo dentro il suo portafoglio
+  aliases: {},            // { [ticker]: customDisplayName }
+  globalTarget: null,     // null = nessun target globale impostato
+  globalThreshold: 5,     // % tolleranza prima di alert
 };
 
 // ── Storage helpers ──────────────────────────────────────────────────────────
@@ -84,6 +115,8 @@ export function createPortfolio({ name, color, emoji, description, targetAllocat
     goalAmount: goalAmount ?? null,
     goalYear: goalYear ?? null,
     tickerTargets: tickerTargets ?? [],
+    buckets: [],                 // Ruoli custom del portafoglio: [{ id, name, target }]
+    targetWeightPct: null,       // Peso target sul patrimonio totale (null = usa peso reale)
     createdAt: new Date().toISOString(),
   };
   config.portfolios.push(portfolio);
@@ -108,9 +141,15 @@ export function updatePortfolio(id, updates) {
  */
 export function deletePortfolio(id) {
   const config = getConfig();
+  const port = config.portfolios.find(p => p.id === id);
+  const bucketIds = new Set((port?.buckets || []).map(b => b.id));
   config.portfolios = config.portfolios.filter(p => p.id !== id);
   Object.keys(config.assignments).forEach(ticker => {
     if (config.assignments[ticker] === id) delete config.assignments[ticker];
+  });
+  // Pulisci le assegnazioni ai bucket del portafoglio eliminato
+  Object.keys(config.bucketAssignments || {}).forEach(ticker => {
+    if (bucketIds.has(config.bucketAssignments[ticker])) delete config.bucketAssignments[ticker];
   });
   saveConfig(config);
 }
@@ -169,6 +208,283 @@ export function assignByMacroCategory(macroCategory, portfolioId, holdings) {
     .filter(h => (h.macroCategory || h.category || '').toLowerCase() === macroCategory.toLowerCase())
     .map(h => h.holdingKey || h.ticker);
   bulkAssign(keys, portfolioId);
+}
+
+// ── Bucket-Ruolo per portafoglio ─────────────────────────────────────────────
+// Ogni portafoglio ha bucket liberi (es. "Income", "Growth-Div", "Kings") con un
+// target %. Ogni titolo del portafoglio va assegnato a un bucket. Il drift per
+// bucket alimenta gli alert precisi in Dashboard e i suggerimenti in Rebalancing.
+
+/**
+ * Crea un bucket-Ruolo in un portafoglio.
+ * @returns {Object} il bucket creato { id, name, target }
+ */
+export function addBucket(portfolioId, name, target = 0) {
+  const config = getConfig();
+  const port = config.portfolios.find(p => p.id === portfolioId);
+  if (!port) throw new Error('Portfolio not found: ' + portfolioId);
+  if (!Array.isArray(port.buckets)) port.buckets = [];
+  const bucket = {
+    id: `bkt_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    name: (name || 'Nuovo ruolo').trim(),
+    target: Number(target) || 0,
+  };
+  port.buckets.push(bucket);
+  saveConfig(config);
+  return bucket;
+}
+
+/** Aggiorna nome/target di un bucket. */
+export function updateBucket(portfolioId, bucketId, updates) {
+  const config = getConfig();
+  const port = config.portfolios.find(p => p.id === portfolioId);
+  const bucket = port?.buckets?.find(b => b.id === bucketId);
+  if (!bucket) throw new Error('Bucket not found: ' + bucketId);
+  if (updates.name != null)   bucket.name = String(updates.name).trim();
+  if (updates.target != null) bucket.target = Number(updates.target) || 0;
+  saveConfig(config);
+  return bucket;
+}
+
+/** Elimina un bucket e libera i titoli che vi erano assegnati. */
+export function deleteBucket(portfolioId, bucketId) {
+  const config = getConfig();
+  const port = config.portfolios.find(p => p.id === portfolioId);
+  if (!port) return;
+  port.buckets = (port.buckets || []).filter(b => b.id !== bucketId);
+  Object.keys(config.bucketAssignments || {}).forEach(ticker => {
+    if (config.bucketAssignments[ticker] === bucketId) delete config.bucketAssignments[ticker];
+  });
+  saveConfig(config);
+}
+
+/** Assegna un titolo a un bucket (null = rimuove l'assegnazione). */
+export function assignTickerToBucket(ticker, bucketId) {
+  const config = getConfig();
+  if (!config.bucketAssignments) config.bucketAssignments = {};
+  if (bucketId == null) delete config.bucketAssignments[ticker];
+  else config.bucketAssignments[ticker] = bucketId;
+  saveConfig(config);
+}
+
+/** Restituisce il bucketId assegnato a un titolo (o null). */
+export function getBucketForTicker(ticker) {
+  return getConfig().bucketAssignments?.[ticker] ?? null;
+}
+
+/**
+ * Assegna un titolo a un ruolo per NOME, creando il bucket se non esiste.
+ * Permette il flusso "assegna direttamente" senza pre-creare i ruoli.
+ * @returns il bucket usato/creato, o null se roleName vuoto (rimuove assegnazione)
+ */
+export function assignTickerToRoleName(portfolioId, ticker, roleName) {
+  const config = getConfig();
+  const port = config.portfolios.find(p => p.id === portfolioId);
+  if (!port) return null;
+  if (!Array.isArray(port.buckets)) port.buckets = [];
+
+  const name = (roleName || '').trim();
+  if (!config.bucketAssignments) config.bucketAssignments = {};
+
+  if (!name) {
+    delete config.bucketAssignments[ticker];
+    saveConfig(config);
+    return null;
+  }
+
+  const norm = (s) => s.trim().toLowerCase();
+  let bucket = port.buckets.find(b => norm(b.name) === norm(name));
+  if (!bucket) {
+    bucket = { id: `bkt_${Date.now()}_${Math.floor(Math.random() * 1000)}`, name, target: 0 };
+    port.buckets.push(bucket);
+  }
+  config.bucketAssignments[ticker] = bucket.id;
+  saveConfig(config);
+  return bucket;
+}
+
+/**
+ * Calcola il drift per bucket di un portafoglio.
+ * @param {Object} portfolio            il portafoglio (con .buckets)
+ * @param {Array}  holdingsWithValues   titoli del portafoglio [{ ticker|holdingKey, marketValue }]
+ * @returns {{ rows, total, unassigned, unassignedPct, targetSum }}
+ *   rows: [{ id, name, target, value, current, diff, diffVal }]
+ *   diff  = current% - target%  (+ sovrappeso, - sottopeso)
+ *   diffVal = € da aggiustare (negativo = da comprare)
+ */
+export function calcBucketDrift(portfolio, holdingsWithValues) {
+  const config = getConfig();
+  const buckets = portfolio?.buckets || [];
+  const total = holdingsWithValues.reduce((s, h) => s + (h.marketValue || 0), 0);
+
+  const valByBucket = {};
+  let unassigned = 0;
+  holdingsWithValues.forEach(h => {
+    const key = h.holdingKey || h.ticker;
+    const bId = config.bucketAssignments?.[key];
+    if (bId && buckets.some(b => b.id === bId)) {
+      valByBucket[bId] = (valByBucket[bId] || 0) + (h.marketValue || 0);
+    } else {
+      unassigned += (h.marketValue || 0);
+    }
+  });
+
+  const rows = buckets.map(b => {
+    const value = valByBucket[b.id] || 0;
+    const current = total ? (value / total) * 100 : 0;
+    const target = b.target || 0;
+    const diff = current - target;
+    return {
+      id: b.id, name: b.name, target,
+      value,
+      current: Math.round(current * 10) / 10,
+      diff: Math.round(diff * 10) / 10,
+      diffVal: (diff / 100) * total,
+    };
+  });
+
+  return {
+    rows,
+    total,
+    unassigned,
+    unassignedPct: total ? Math.round((unassigned / total) * 1000) / 10 : 0,
+    targetSum: buckets.reduce((s, b) => s + (b.target || 0), 0),
+  };
+}
+
+/**
+ * Peso di ogni portafoglio sul patrimonio.
+ * Per ognuno calcola: valore reale in €, peso reale %, peso target % (se impostato)
+ * e il drift target-vs-reale. Serve al roll-up totale per Ruolo.
+ *
+ * @param {Array} allHoldings   tutti i titoli (con marketValue e holdingKey)
+ * @returns {{ rows, grandTotal, targetSum, uncoveredValue, uncoveredPct }}
+ */
+export function getPortfolioWeights(allHoldings) {
+  const config = getConfig();
+  const grandTotal = allHoldings.reduce((s, h) => s + (h.marketValue || 0), 0);
+  const uncoveredValue = allHoldings
+    .filter(h => !config.assignments[h.holdingKey ?? h.ticker])
+    .reduce((s, h) => s + (h.marketValue || 0), 0);
+
+  const rows = config.portfolios.map(port => {
+    const portValue = allHoldings
+      .filter(h => config.assignments[h.holdingKey ?? h.ticker] === port.id)
+      .reduce((s, h) => s + (h.marketValue || 0), 0);
+    const actualPct = grandTotal ? (portValue / grandTotal) * 100 : 0;
+    const targetPct = port.targetWeightPct;
+    const effectivePct = targetPct != null ? targetPct : actualPct;
+    const diff = targetPct != null ? actualPct - targetPct : 0;
+    return {
+      portfolio: port,
+      value: portValue,
+      actualPct: Math.round(actualPct * 10) / 10,
+      targetPct,
+      effectivePct,
+      diff: Math.round(diff * 10) / 10,
+      diffVal: (diff / 100) * grandTotal,
+    };
+  });
+
+  const targetSum = rows
+    .filter(r => r.targetPct != null)
+    .reduce((s, r) => s + r.targetPct, 0);
+
+  return {
+    rows,
+    grandTotal,
+    targetSum: Math.round(targetSum * 10) / 10,
+    uncoveredValue,
+    uncoveredPct: grandTotal ? Math.round((uncoveredValue / grandTotal) * 1000) / 10 : 0,
+  };
+}
+
+/**
+ * Roll-up dei Ruoli sull'intero patrimonio.
+ * Per ogni bucket di ogni portafoglio somma il valore reale, poi calcola il
+ * peso sul totale. Bucket con lo stesso NOME (case-insensitive) vengono
+ * aggregati fra portafogli (es. "REIT" in Alpha + Crescita).
+ *
+ * @returns { rows, grandTotal, unassignedValue, unassignedPct }
+ *   rows: [{ name, value, pct }] ordinato per peso decrescente
+ */
+export function getRolesRollup(allHoldings) {
+  const config = getConfig();
+  const grandTotal = allHoldings.reduce((s, h) => s + (h.marketValue || 0), 0);
+
+  // Mappa portafoglio → bucket per lookup rapido
+  const bucketByPort = {};
+  (config.portfolios || []).forEach(p => {
+    bucketByPort[p.id] = Object.fromEntries((p.buckets || []).map(b => [b.id, b]));
+  });
+
+  const roleMap = new Map(); // nomeNormalizzato → { name, value }
+  let unassignedValue = 0;
+
+  allHoldings.forEach(h => {
+    const key = h.holdingKey ?? h.ticker;
+    const portId = config.assignments[key];
+    const bId = config.bucketAssignments?.[key];
+    const bucket = portId && bId ? bucketByPort[portId]?.[bId] : null;
+    if (!bucket) { unassignedValue += (h.marketValue || 0); return; }
+    const k = bucket.name.trim().toLowerCase();
+    const cur = roleMap.get(k) || { name: bucket.name, value: 0 };
+    cur.value += (h.marketValue || 0);
+    roleMap.set(k, cur);
+  });
+
+  const rows = Array.from(roleMap.values())
+    .map(r => ({ ...r, pct: grandTotal ? Math.round((r.value / grandTotal) * 1000) / 10 : 0 }))
+    .sort((a, b) => b.value - a.value);
+
+  return {
+    rows,
+    grandTotal,
+    unassignedValue,
+    unassignedPct: grandTotal ? Math.round((unassignedValue / grandTotal) * 1000) / 10 : 0,
+  };
+}
+
+/** Imposta il peso target sul patrimonio (null = usa peso reale). */
+export function setPortfolioTargetWeight(portfolioId, pct) {
+  const config = getConfig();
+  const port = config.portfolios.find(p => p.id === portfolioId);
+  if (!port) return;
+  port.targetWeightPct = (pct == null || pct === '') ? null : Number(pct);
+  saveConfig(config);
+}
+
+/**
+ * Aggregatore: per ogni portafoglio calcola i bucket "fuori target" oltre soglia.
+ * Serve al pannello "Da controllare" della Dashboard.
+ *
+ * @param {Array} allHoldings   tutti i titoli (con marketValue e holdingKey)
+ * @returns Array<{ portfolio, offBuckets: [{name,current,target,diff,diffVal}], unassignedPct, total }>
+ *   include solo portafogli con almeno un alert (drift oltre threshold, target > 0)
+ */
+export function getPortfolioAlerts(allHoldings) {
+  const config = getConfig();
+  const results = [];
+  for (const port of config.portfolios) {
+    const portHoldings = allHoldings.filter(h =>
+      config.assignments[h.holdingKey ?? h.ticker] === port.id
+    );
+    if (portHoldings.length === 0) continue;
+    const drift = calcBucketDrift(port, portHoldings);
+    const threshold = port.rebalanceThreshold ?? 5;
+    const offBuckets = drift.rows
+      .filter(r => r.target > 0 && Math.abs(r.diff) > threshold)
+      .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+    if (offBuckets.length > 0 || drift.unassignedPct >= 5) {
+      results.push({
+        portfolio: port,
+        offBuckets,
+        unassignedPct: drift.unassignedPct,
+        total: drift.total,
+      });
+    }
+  }
+  return results;
 }
 
 // ── Alias (rinomina display) ─────────────────────────────────────────────────
@@ -239,8 +555,10 @@ export function calcMacroAllocation(holdingsWithValues, getProfile) {
   const total = holdingsWithValues.reduce((s, h) => s + h.marketValue, 0);
   if (!total) return null;
 
-  const buckets = { equity: 0, bond: 0, commodity: 0, realEstate: 0, crypto: 0, cash: 0 };
+  const buckets = { equity: 0, bond: 0, gold: 0, commodity: 0, realEstate: 0, crypto: 0, cash: 0 };
   let uncovered = 0;
+
+  const isGoldTitle = (h) => /\b(gold|oro|xau)\b/i.test(`${h.name || ''} ${h.ticker || ''}`);
 
   holdingsWithValues.forEach(h => {
     const profile = getProfile(h.ticker);
@@ -253,7 +571,7 @@ export function calcMacroAllocation(holdingsWithValues, getProfile) {
       case 'real-estate':  buckets.realEstate += v; break;
       case 'bond':         buckets.bond       += v; break;
       case 'money-market': buckets.cash       += v; break;
-      case 'commodity':    buckets.commodity  += v; break;
+      case 'commodity':    if (isGoldTitle(h)) buckets.gold += v; else buckets.commodity += v; break;
       case 'crypto':       buckets.crypto     += v; break;
       case 'multi-asset': {
         const ep = (profile.equityPct ?? 50) / 100;

@@ -1,0 +1,270 @@
+import React, { useState } from 'react';
+import { Plus, Trash2, ChevronDown, ChevronUp, Layers, Check, Sparkles } from 'lucide-react';
+import {
+  getPortfolioConfig, addBucket, updateBucket, deleteBucket,
+  assignTickerToBucket, assignTickerToRoleName, calcBucketDrift, BUCKET_ROLE_PRESETS,
+} from '../services/portfolioConfigService';
+import { suggestRoleName } from '../services/roleClassificationService';
+
+const eur0 = (n) => '€' + Math.abs(Math.round(n)).toLocaleString('it-IT');
+const MONO = { fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' };
+
+/**
+ * BucketManager — gestione dei "Ruoli" (bucket liberi) di un singolo portafoglio.
+ * Crea/rinomina/elimina ruoli con target %, assegna i titoli e mostra il drift.
+ *
+ * Props:
+ *  - portfolioId: string
+ *  - holdings:    [{ ticker, holdingKey?, name?, marketValue }]  (titoli del portafoglio)
+ *  - onChange:    callback opzionale dopo ogni modifica
+ */
+export default function BucketManager({ portfolioId, holdings = [], onChange }) {
+  const [, setTick] = useState(0);
+  const [open, setOpen] = useState(false);
+  const [presetOpen, setPresetOpen] = useState(false);
+  const [autoMsg, setAutoMsg] = useState('');
+  const bump = () => { setTick(t => t + 1); onChange?.(); };
+
+  const runAutoAssign = () => {
+    const fresh = getPortfolioConfig();
+    const unassigned = holdings.filter(h => !fresh.bucketAssignments?.[h.holdingKey ?? h.ticker]);
+    let count = 0;
+    unassigned.forEach(h => {
+      const name = suggestRoleName(h);           // crea il ruolo se non esiste
+      if (name) { assignTickerToRoleName(portfolioId, h.holdingKey ?? h.ticker, name); count++; }
+    });
+    setAutoMsg(count ? `✨ ${count} titoli classificati in automatico — controlla e correggi` : 'Nessun titolo riconosciuto: assegnali a mano qui sotto');
+    bump();
+  };
+
+  const cfg = getPortfolioConfig();
+  const port = cfg.portfolios.find(p => p.id === portfolioId);
+  if (!port) return null;
+
+  const buckets = port.buckets || [];
+  const drift = calcBucketDrift(port, holdings);
+  const driftById = Object.fromEntries(drift.rows.map(r => [r.id, r]));
+  const targetOk = Math.abs(drift.targetSum - 100) < 0.5;
+
+  const bucketColor = (diff, threshold = 3) => {
+    if (Math.abs(diff) <= threshold) return 'var(--pos)';
+    return diff > 0 ? '#FF9F0A' : 'var(--accent)'; // sovrappeso ambra / sottopeso da comprare
+  };
+
+  return (
+    <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+      {/* Header toggle */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+          background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+          color: 'var(--text-2)', fontSize: '0.68rem', fontWeight: 600,
+          textTransform: 'uppercase', letterSpacing: '0.05em',
+        }}
+      >
+        <Layers size={13} />
+        Ruoli
+        {buckets.length > 0 && (
+          <span style={{ ...MONO, color: targetOk ? 'var(--text-3)' : '#FF9F0A', fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>
+            (target {Math.round(drift.targetSum)}%{targetOk ? '' : ' ⚠'})
+          </span>
+        )}
+        {drift.unassignedPct >= 1 && (
+          <span style={{ ...MONO, color: 'var(--accent)', textTransform: 'none', letterSpacing: 0 }}>
+            · {drift.unassignedPct}% non assegnato
+          </span>
+        )}
+        <span style={{ marginLeft: 'auto' }}>{open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</span>
+      </button>
+
+      {open && (
+        <div style={{ marginTop: 10 }}>
+          {/* Bucket list */}
+          {buckets.length === 0 && (
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginBottom: 8 }}>
+              Assegna un ruolo ai titoli qui sotto (o premi <strong>Auto-assegna tutto</strong>): i ruoli si creano da soli. Qui potrai poi impostare i target %.
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+            {buckets.map(b => {
+              const d = driftById[b.id] || { current: 0, diff: 0, diffVal: 0 };
+              return (
+                <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <input
+                    defaultValue={b.name}
+                    onBlur={e => { if (e.target.value.trim() && e.target.value !== b.name) { updateBucket(portfolioId, b.id, { name: e.target.value }); bump(); } }}
+                    style={{
+                      flex: 1, minWidth: 0, background: 'var(--surface-2)', border: '1px solid var(--border)',
+                      borderRadius: 7, padding: '4px 8px', color: 'var(--text-1)', fontSize: '0.76rem',
+                    }}
+                  />
+                  {/* target % */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <input
+                      type="number" min="0" max="100" defaultValue={b.target}
+                      onBlur={e => { const v = Number(e.target.value) || 0; if (v !== b.target) { updateBucket(portfolioId, b.id, { target: v }); bump(); } }}
+                      style={{
+                        width: 46, textAlign: 'right', background: 'var(--surface-2)', border: '1px solid var(--border)',
+                        borderRadius: 7, padding: '4px 6px', color: 'var(--text-1)', fontSize: '0.76rem', ...MONO,
+                      }}
+                    />
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>%</span>
+                  </div>
+                  {/* current % + drift */}
+                  <span style={{ ...MONO, fontSize: '0.72rem', color: 'var(--text-2)', minWidth: 40, textAlign: 'right' }}>
+                    {d.current}%
+                  </span>
+                  <span style={{ ...MONO, fontSize: '0.72rem', fontWeight: 600, color: bucketColor(d.diff), minWidth: 46, textAlign: 'right' }}
+                        title={`${d.diff > 0 ? 'Sovrappeso' : 'Sottopeso'}: ${d.diff > 0 ? 'vendi' : 'compra'} ~${eur0(d.diffVal)}`}>
+                    {d.diff > 0 ? '+' : ''}{d.diff}%
+                  </span>
+                  <button onClick={() => { deleteBucket(portfolioId, b.id); bump(); }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--text-3)', flexShrink: 0 }}>
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ display: 'flex', gap: 6, marginBottom: presetOpen ? 8 : 12 }}>
+            <button
+              onClick={() => { addBucket(portfolioId, 'Nuovo ruolo', 0); bump(); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5, background: 'var(--surface-2)',
+                border: '1px dashed var(--border-strong)', borderRadius: 7, padding: '5px 10px',
+                color: 'var(--text-2)', fontSize: '0.73rem', fontWeight: 500, cursor: 'pointer',
+              }}
+            >
+              <Plus size={13} /> Aggiungi ruolo
+            </button>
+            <button
+              onClick={() => setPresetOpen(o => !o)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5, background: presetOpen ? 'var(--accent-weak)' : 'var(--surface-2)',
+                border: `1px solid ${presetOpen ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 7, padding: '5px 10px',
+                color: presetOpen ? 'var(--accent)' : 'var(--text-2)', fontSize: '0.73rem', fontWeight: 500, cursor: 'pointer',
+              }}
+            >
+              <Sparkles size={13} /> Da preset
+            </button>
+          </div>
+
+          {presetOpen && (() => {
+            const existing = new Set(buckets.map(b => b.name.trim().toLowerCase()));
+            const addPreset = (name) => { if (!existing.has(name.trim().toLowerCase())) { addBucket(portfolioId, name, 0); bump(); } };
+            const addGroup = (roles) => { roles.filter(r => !existing.has(r.trim().toLowerCase())).forEach(r => addBucket(portfolioId, r, 0)); bump(); };
+            return (
+              <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 11px', marginBottom: 12 }}>
+                {BUCKET_ROLE_PRESETS.map(({ group, roles }) => (
+                  <div key={group} style={{ marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                      <span style={{ fontSize: '0.62rem', color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{group}</span>
+                      <button onClick={() => addGroup(roles)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '0.64rem', fontWeight: 600, padding: 0 }}>
+                        + tutti
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                      {roles.map(r => {
+                        const added = existing.has(r.trim().toLowerCase());
+                        return (
+                          <button
+                            key={r}
+                            onClick={() => addPreset(r)}
+                            disabled={added}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 4,
+                              background: added ? 'transparent' : 'var(--card-bg)',
+                              border: `1px solid ${added ? 'var(--border)' : 'var(--border-strong)'}`,
+                              borderRadius: 99, padding: '3px 9px',
+                              color: added ? 'var(--text-3)' : 'var(--text-1)',
+                              fontSize: '0.7rem', fontWeight: 500,
+                              cursor: added ? 'default' : 'pointer', opacity: added ? 0.55 : 1,
+                            }}
+                          >
+                            {added ? <Check size={11} /> : <Plus size={11} />} {r}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* Assegnazione diretta: scrivi/scegli il ruolo, creato al volo se non esiste */}
+          {holdings.length > 0 && (() => {
+            const bucketNameById = Object.fromEntries(buckets.map(b => [b.id, b.name]));
+            const roleOptions = Array.from(new Set([
+              ...buckets.map(b => b.name),
+              ...BUCKET_ROLE_PRESETS.flatMap(g => g.roles),
+            ]));
+            return (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: '0.64rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Titoli → ruolo
+                  </span>
+                  <button
+                    onClick={runAutoAssign}
+                    title="Classifica in automatico dai dati locali (settore, REIT/BDC, fattore, geografia) e crea i ruoli — nessuna API"
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto',
+                      background: 'var(--accent-weak)', border: '1px solid var(--accent)', borderRadius: 7,
+                      padding: '3px 9px', color: 'var(--accent)', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer',
+                    }}
+                  >
+                    <Sparkles size={12} /> Auto-assegna tutto
+                  </button>
+                </div>
+                {autoMsg && (
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-2)', marginBottom: 8 }}>{autoMsg}</div>
+                )}
+
+                <datalist id={`roles-${portfolioId}`}>
+                  {roleOptions.map(n => <option key={n} value={n} />)}
+                </datalist>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {holdings.map(h => {
+                    const key = h.holdingKey ?? h.ticker;
+                    const curId = cfg.bucketAssignments?.[key];
+                    const curName = curId ? (bucketNameById[curId] || '') : '';
+                    return (
+                      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ flex: 1, minWidth: 0, fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {h.ticker}
+                          <span style={{ ...MONO, color: 'var(--text-3)', fontWeight: 400, marginLeft: 6 }}>{eur0(h.marketValue || 0)}</span>
+                        </span>
+                        <input
+                          key={`${key}-${curName}`}
+                          list={`roles-${portfolioId}`}
+                          defaultValue={curName}
+                          placeholder="scrivi o scegli un ruolo…"
+                          onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                          onBlur={e => {
+                            const v = e.target.value.trim();
+                            if (v !== curName) { assignTickerToRoleName(portfolioId, key, v); bump(); }
+                          }}
+                          style={{
+                            width: '48%', flexShrink: 0, background: 'var(--surface-2)',
+                            border: `1px solid ${curName ? 'var(--border)' : 'var(--accent)'}`,
+                            borderRadius: 7, padding: '4px 8px',
+                            color: curName ? 'var(--text-1)' : 'var(--text-3)', fontSize: '0.73rem',
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+    </div>
+  );
+}

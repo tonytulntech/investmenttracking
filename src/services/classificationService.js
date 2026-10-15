@@ -19,6 +19,7 @@ import { getCompositionProfile, getSubCategory, MICRO_SUB_CATEGORIES } from '../
 const MACRO_LABELS = {
   equity:     'Azioni',
   bond:       'Obbligazioni',
+  gold:       'Oro',
   commodity:  'Materie Prime',
   realEstate: 'Immobiliare',
   crypto:     'Crypto',
@@ -28,6 +29,7 @@ const MACRO_LABELS = {
 const MACRO_COLORS = {
   equity:     '#0A84FF',
   bond:       '#30D158',
+  gold:       '#FFD60A',
   commodity:  '#FF9F0A',
   realEstate: '#BF5AF2',
   crypto:     '#FF453A',
@@ -40,8 +42,53 @@ const MACRO_COLORS = {
  * @param {Object} holding { ticker, isin, macroCategory, microCategory, isCash }
  * @returns {{ microKey, microLabel, macroKey, macroLabel, color, macroColor, derived }}
  */
+/**
+ * Deduce l'asset class (macroKey) dal nome/ticker del titolo, con keyword.
+ * Usato come fallback quando il ticker non è nel DB di composizione.
+ * @returns 'bond' | 'commodity' | 'realEstate' | 'crypto' | 'equity' | null
+ */
+export function guessAssetClassFromName(name = '', ticker = '') {
+  const s = `${name} ${ticker}`.toLowerCase();
+  if (!s.trim()) return null;
+
+  // Obbligazionari (check per primo — spesso hanno "bond" nel nome)
+  if (/\b(bond|treasur|gilt|bund|btp|govern|corporate|aggregate|high[\s-]?yield|inflat|linker|tips|senior loan|floating rate|munis?)\b/.test(s)) return 'bond';
+  // Oro (classe a sé, safe haven — separato da materie prime speculative)
+  if (/\b(gold|oro|physical gold|xau|xauusd)\b/.test(s)) return 'gold';
+  // Materie prime (metalli industriali, energia, agricoltura — non oro)
+  if (/\b(silver|physical silver|platinum|palladium|copper|argento|rame|commodit|energy|crude|oil|natural gas|agricultur|wheat|corn)\b/.test(s)) return 'commodity';
+  // Immobiliare
+  if (/\b(real estate|reit|immobil|property|home)\b/.test(s)) return 'realEstate';
+  // Crypto
+  if (/\b(bitcoin|ethereum|btc|eth|crypto|coinbase|blockchain)\b/.test(s)) return 'crypto';
+  // Azionario (indicatori positivi)
+  if (/\b(msci|ftse|s&p|s and p|russell|nasdaq|stoxx|nikkei|dax|equity|equities|azionar|world|developed|emerging|small cap|large cap|value|growth|momentum|quality|dividend|dividendo)\b/.test(s)) return 'equity';
+  return null;
+}
+
+/**
+ * Deduce il "veicolo" (come è comprato) — dimensione ortogonale all'asset class.
+ * @returns 'etf' | 'stock' | 'bond' | 'crypto' | 'cash' | 'fund' | 'other'
+ */
+export function guessVehicle(holding = {}) {
+  const m = (holding.macroCategory || '').trim().toLowerCase();
+  if (holding.isCash || m === 'cash') return 'cash';
+  if (['etf', 'etc', 'etn', 'etp'].includes(m)) return 'etf';
+  if (['azioni', 'azione', 'stock', 'stocks', 'equity', 'reit', 'reits', 'bdc'].includes(m)) return 'stock';
+  if (['obbligazioni', 'obbligazionario', 'bond', 'bonds'].includes(m)) return 'bond';
+  if (m === 'crypto') return 'crypto';
+  if (['fondo', 'fund', 'fondi'].includes(m)) return 'fund';
+  return 'other';
+}
+
+export const VEHICLE_LABELS = {
+  etf: 'ETF', stock: 'Titolo singolo', bond: 'Obbligazione diretta',
+  crypto: 'Crypto', cash: 'Liquidità', fund: 'Fondo', other: 'Altro',
+};
+
 export function classifyHolding(holding = {}) {
-  const { ticker, macroCategory, microCategory, isCash } = holding;
+  const { ticker, macroCategory, microCategory, isCash, name } = holding;
+  const vehicle = guessVehicle(holding);
 
   // Cash
   if (isCash || macroCategory === 'Cash') {
@@ -49,6 +96,7 @@ export function classifyHolding(holding = {}) {
       microKey: 'cash', microLabel: 'Liquidità',
       macroKey: 'cash', macroLabel: 'Liquidità',
       color: '#8E8E93', macroColor: MACRO_COLORS.cash, derived: true,
+      vehicle,
     };
   }
 
@@ -58,14 +106,21 @@ export function classifyHolding(holding = {}) {
     const microKey = getSubCategory(ticker);
     const meta = MICRO_SUB_CATEGORIES[microKey];
     if (meta && meta.macro) {
+      // Se la classe è "commodity" ma il titolo è oro, promuovi a 'gold' (classe a sé)
+      let macroKey = meta.macro;
+      if (macroKey === 'commodity') {
+        const g = guessAssetClassFromName(name, ticker);
+        if (g === 'gold') macroKey = 'gold';
+      }
       return {
         microKey,
         microLabel: meta.label,
-        macroKey:   meta.macro,
-        macroLabel: MACRO_LABELS[meta.macro] || 'Altro',
+        macroKey,
+        macroLabel: MACRO_LABELS[macroKey] || 'Altro',
         color:      meta.color,
-        macroColor: MACRO_COLORS[meta.macro] || MACRO_COLORS.unknown,
+        macroColor: MACRO_COLORS[macroKey] || MACRO_COLORS.unknown,
         derived: true,
+        vehicle,
       };
     }
   }
@@ -83,6 +138,7 @@ export function classifyHolding(holding = {}) {
       macroKey: 'equity', macroLabel: MACRO_LABELS.equity,
       color: MICRO_SUB_CATEGORIES.equity_single?.color || '#AC8E68',
       macroColor: MACRO_COLORS.equity, derived: false, // classe nota, ticker da mappare
+      vehicle,
     };
   }
   // Obbligazioni / commodity / crypto / immobiliare salvate ma senza profilo
@@ -93,16 +149,36 @@ export function classifyHolding(holding = {}) {
   };
   if (CAT_MAP[m]) {
     const [mk, ml] = CAT_MAP[m];
-    return { microKey: 'altro', microLabel: ml, macroKey: mk, macroLabel: ml, color: MACRO_COLORS[mk], macroColor: MACRO_COLORS[mk], derived: false };
+    return { microKey: 'altro', microLabel: ml, macroKey: mk, macroLabel: ml, color: MACRO_COLORS[mk], macroColor: MACRO_COLORS[mk], derived: false, vehicle };
   }
 
-  // Contenitori (ETF/ETC/ETN) senza profilo: è un fondo azionario ma non sappiamo il sotto-tipo.
+  // Contenitori (ETF/ETC/ETN) senza profilo: prova a dedurre l'asset class dal nome,
+  // altrimenti default a "equity" (la maggior parte degli ETF).
   const WRAPPERS = ['etf', 'etc', 'etn', 'etp'];
   if (WRAPPERS.includes(m)) {
+    const guessed = guessAssetClassFromName(name, ticker) || 'equity';
+    const label = MACRO_LABELS[guessed] || 'Azionario';
     return {
-      microKey: 'altro', microLabel: 'ETF da mappare',
-      macroKey: 'equity', macroLabel: MACRO_LABELS.equity,
-      color: '#8E8E93', macroColor: MACRO_COLORS.equity, derived: false,
+      microKey: 'altro',
+      microLabel: `${label.substring(0, 3)}. da mappare · ${storedMacro.toUpperCase()}`,
+      macroKey: guessed, macroLabel: label,
+      color: MACRO_COLORS[guessed] || '#8E8E93',
+      macroColor: MACRO_COLORS[guessed] || MACRO_COLORS.equity,
+      derived: false,
+      vehicle,
+    };
+  }
+
+  // Ultimo tentativo: dedurre solo dal nome
+  const guessed = guessAssetClassFromName(name, ticker);
+  if (guessed) {
+    return {
+      microKey: 'altro', microLabel: MACRO_LABELS[guessed] || 'Altro',
+      macroKey: guessed, macroLabel: MACRO_LABELS[guessed] || 'Altro',
+      color: MACRO_COLORS[guessed] || '#636366',
+      macroColor: MACRO_COLORS[guessed] || MACRO_COLORS.unknown,
+      derived: false,
+      vehicle,
     };
   }
 
@@ -111,6 +187,7 @@ export function classifyHolding(holding = {}) {
     microKey: 'altro', microLabel: microCategory || 'Da classificare',
     macroKey: 'unknown', macroLabel: 'Da classificare',
     color: '#636366', macroColor: MACRO_COLORS.unknown, derived: false,
+    vehicle,
   };
 }
 

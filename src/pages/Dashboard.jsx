@@ -4,6 +4,9 @@ import { TrendingUp, TrendingDown, RefreshCw, AlertTriangle, ArrowRight, Chevron
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { getTransactions, calculateRealizedPL, portfolioSnapshot } from '../services/localStorageService';
 import MissingPricesAlert from '../components/MissingPricesAlert';
+import AllocationDonut from '../components/AllocationDonut';
+import ProjectionFanChart from '../components/ProjectionFanChart';
+import DividendStatsCard from '../components/DividendStatsCard';
 import { buildAllocation } from '../services/classificationService';
 import { fetchMultiplePrices } from '../services/priceService';
 import { calculateCashFlow } from '../services/cashFlowService';
@@ -13,9 +16,9 @@ import { getPortfolioConfig, getHiddenPortfolioIds, toggleHiddenPortfolio, clear
 import { format } from 'date-fns';
 
 // ── Palette ─────────────────────────────────────────────────────────────────
-const GREEN  = '#30D158';
-const RED    = '#FF453A';
-const BLUE   = '#0A84FF';
+const GREEN  = 'var(--pos)';
+const RED    = 'var(--neg)';
+const BLUE   = '#7C82FF';   // accento periwinkle (era iOS-blue)
 const ORANGE = '#FF9F0A';
 const PURPLE = '#BF5AF2';
 
@@ -33,15 +36,35 @@ function color(n) { return n >= 0 ? GREEN : RED; }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
 
-function KpiCard({ label, main, sub, mainColor, large }) {
+function KpiCard({ label, main, deltaPct, caption, large }) {
+  const hasDelta = typeof deltaPct === 'number' && isFinite(deltaPct);
+  const up = hasDelta && deltaPct >= 0;
+  const Arrow = up ? TrendingUp : TrendingDown;
+  const dColor = up ? GREEN : RED;
   return (
-    <div style={{
+    <div className="kpi-card" style={{
       background: 'var(--card-bg)', border: '1px solid var(--border)',
-      borderRadius: 16, padding: '1.1rem 1.3rem', display: 'flex', flexDirection: 'column', gap: 4,
+      borderRadius: 14, padding: '1.1rem 1.3rem', display: 'flex', flexDirection: 'column', gap: 6,
+      boxShadow: '0 1px 2px rgba(0,0,0,0.28)',
     }}>
-      <span style={{ fontSize: '0.7rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
-      <span style={{ fontSize: large ? '1.9rem' : '1.45rem', fontWeight: 700, color: mainColor || 'var(--text-1)', lineHeight: 1.1 }}>{main}</span>
-      {sub && <span style={{ fontSize: '0.78rem', color: 'var(--text-2)' }}>{sub}</span>}
+      <span style={{ fontSize: '0.6875rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+      <span className="kpi-value" style={{
+        fontSize: large ? '1.9rem' : '1.5rem', fontWeight: 600, color: 'var(--text-1)', lineHeight: 1.1,
+        fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums',
+      }}>{main}</span>
+      {(hasDelta || caption) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {hasDelta && (
+            <>
+              <Arrow size={13} style={{ color: dColor, flexShrink: 0 }} />
+              <span style={{ color: dColor, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', fontSize: '0.8rem', fontWeight: 600 }}>
+                {pct(deltaPct)}
+              </span>
+            </>
+          )}
+          {caption && <span style={{ fontSize: '0.78rem', color: 'var(--text-3)' }}>{caption}</span>}
+        </div>
+      )}
     </div>
   );
 }
@@ -50,6 +73,7 @@ function PortfolioMiniCard({ portfolio, value, pl, plPct, count, rebalanceNeeded
   return (
     <div
       onClick={onToggle}
+      className="portfolio-mini-card"
       title={isHidden ? 'Clicca per mostrare' : 'Clicca per nascondere dai calcoli'}
       style={{
         background: isHidden ? 'var(--surface-2)' : 'var(--card-bg)',
@@ -68,10 +92,10 @@ function PortfolioMiniCard({ portfolio, value, pl, plPct, count, rebalanceNeeded
           <AlertTriangle size={13} style={{ color: ORANGE, marginLeft: 'auto', flexShrink: 0 }} />
         )}
       </div>
-      <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-1)' }}>
+      <div style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-1)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
         {eur(value)}
       </div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+      <div style={{ display: 'flex', gap: 8, marginTop: 4, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
         <span style={{ fontSize: '0.75rem', color: color(pl), fontWeight: 600 }}>
           {sign(pl)}{eur(pl, 0)}
         </span>
@@ -328,7 +352,7 @@ function Dashboard() {
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.75rem', paddingTop: '0.5rem' }}>
         <div>
-          <h1 style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Dashboard</h1>
+          <h1 className="page-title" style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>Dashboard</h1>
           {lastUpdate && (
             <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>
               Aggiornato {format(lastUpdate, 'HH:mm')}
@@ -338,17 +362,19 @@ function Dashboard() {
         <button
           onClick={() => { setRefreshing(true); fetchLatestPrices(true); }}
           disabled={refreshing}
+          aria-label="Aggiorna prezzi"
+          className="refresh-btn"
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
-            padding: '8px 16px', borderRadius: 10,
-            background: BLUE + '22', color: BLUE,
-            border: `1px solid ${BLUE}44`,
+            padding: '8px 14px', borderRadius: 10,
+            background: 'var(--surface-2)', color: 'var(--text-1)',
+            border: '1px solid var(--border)',
             fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer',
-            opacity: refreshing ? 0.6 : 1,
+            opacity: refreshing ? 0.6 : 1, flexShrink: 0,
           }}
         >
           <RefreshCw size={14} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
-          {refreshing ? 'Aggiornamento...' : 'Aggiorna prezzi'}
+          <span className="refresh-label">{refreshing ? 'Aggiornamento…' : 'Aggiorna prezzi'}</span>
         </button>
       </div>
 
@@ -362,35 +388,41 @@ function Dashboard() {
           {/* ── Alert titoli senza prezzo ── */}
           <MissingPricesAlert unpriced={unpriced} />
 
+          {/* ── Allocazione: per Ruolo (default) o Macro Asset Class (toggle) ── */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <AllocationDonut
+              holdings={portfolio}
+              macroAllocation={allocationData}
+              subAllocation={subAllocationData}
+            />
+          </div>
+
           {/* ── KPI Hero ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div className="kpi-grid">
             <KpiCard
               label="Portafoglio totale"
               main={eur(stats.totalValue)}
-              sub={`${stats.assetsCount} asset`}
+              caption={`${stats.assetsCount} asset`}
               large
             />
             <KpiCard
               label="P&L totale"
-              main={<span style={{ color: color(stats.totalPL) }}>{sign(stats.totalPL)}{eur(stats.totalPL)}</span>}
-              sub={<span style={{ color: color(stats.totalPLPercent) }}>{pct(stats.totalPLPercent)}</span>}
-              mainColor={color(stats.totalPL)}
+              main={`${sign(stats.totalPL)}${eur(stats.totalPL)}`}
+              deltaPct={stats.totalPLPercent}
             />
             <KpiCard
               label="Variazione oggi"
-              main={<span style={{ color: color(stats.dayChange) }}>{sign(stats.dayChange)}{eur(stats.dayChange)}</span>}
-              sub={<span style={{ color: color(stats.dayChangePercent) }}>{pct(stats.dayChangePercent)}</span>}
-              mainColor={color(stats.dayChange)}
+              main={`${sign(stats.dayChange)}${eur(stats.dayChange)}`}
+              deltaPct={stats.dayChangePercent}
+              caption="oggi"
             />
             <KpiCard
               label={performanceMetrics?.cagrReliable ? 'CAGR' : 'Rendimento totale'}
               main={performanceMetrics
-                ? <span style={{ color: color(performanceMetrics.cagrReliable ? performanceMetrics.cagr : performanceMetrics.totalReturnPercent) }}>
-                    {pct(performanceMetrics.cagrReliable ? performanceMetrics.cagr : performanceMetrics.totalReturnPercent)}
-                  </span>
+                ? pct(performanceMetrics.cagrReliable ? performanceMetrics.cagr : performanceMetrics.totalReturnPercent)
                 : '—'
               }
-              sub={performanceMetrics
+              caption={performanceMetrics
                 ? (() => {
                     const y = performanceMetrics.yearsInvesting;
                     if (y == null) return '—';
@@ -411,14 +443,14 @@ function Dashboard() {
               onClick={() => setPlExpanded(v => !v)}
               style={{
                 background: 'var(--card-bg)', border: '1px solid var(--border)',
-                borderRadius: 16, marginBottom: '1.5rem',
+                borderRadius: 14, marginBottom: '1.5rem',
                 cursor: 'pointer', overflow: 'hidden',
                 transition: 'border-color 0.15s',
               }}
             >
               {/* Header sempre visibile */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.3rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+                <div className="pl-summary" style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
                   <div>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 2 }}>
                       P&L Realizzato (totale)
@@ -574,142 +606,55 @@ function Dashboard() {
             </div>
           )}
 
-          {/* ── Chart + Allocation ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+          {/* ── Grafico proiezioni + toggle Macro Asset Class (full width) ── */}
+          <div style={{ marginBottom: '1rem' }}>
+            <ProjectionFanChart
+              history={performanceData}
+              currentTotalValue={stats.totalValue}
+              currentGained={stats.totalPL}
+            />
+          </div>
 
-            {/* Chart */}
-            <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 16, padding: '1.25rem 1.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-1)' }}>Andamento portafoglio</span>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {['1m','3m','6m','ytd','1a','all'].map(p => (
-                    <button
-                      key={p}
-                      onClick={() => setChartPeriod(p)}
-                      style={{
-                        padding: '3px 9px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer',
-                        background: chartPeriod === p ? BLUE : 'transparent',
-                        color: chartPeriod === p ? '#fff' : 'var(--text-3)',
-                        border: chartPeriod === p ? 'none' : '1px solid var(--border)',
-                      }}
-                    >
-                      {p.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <ResponsiveContainer width="100%" height={210}>
-                <AreaChart data={filteredChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="gVal" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor={BLUE}  stopOpacity={0.25} />
-                      <stop offset="95%" stopColor={BLUE}  stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gVer" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor={GREEN} stopOpacity={0.18} />
-                      <stop offset="95%" stopColor={GREEN} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: 'var(--text-3)' }} tickLine={false} axisLine={false} tickFormatter={v => `€${(v/1000).toFixed(0)}k`} />
-                  <Tooltip
-                    contentStyle={{ background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12 }}
-                    formatter={(v, name) => [eur(v), name === 'value' ? 'Valore' : 'Versato']}
-                  />
-                  <Area type="monotone" dataKey="value"   stroke={BLUE}  strokeWidth={2} fill="url(#gVal)" name="value" />
-                  <Area type="monotone" dataKey="versato" stroke={GREEN} strokeWidth={2} fill="url(#gVer)" name="versato" />
-                </AreaChart>
-              </ResponsiveContainer>
-              <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', color: 'var(--text-3)' }}>
-                  <div style={{ width: 10, height: 2, background: BLUE, borderRadius: 1 }} />
-                  Valore portafoglio
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', color: 'var(--text-3)' }}>
-                  <div style={{ width: 10, height: 2, background: GREEN, borderRadius: 1 }} />
-                  Importo versato
-                </div>
-              </div>
-            </div>
-
-            {/* Allocation */}
-            <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 16, padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 0 }}>
-              <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-1)', marginBottom: '1rem', display: 'block' }}>Allocazione</span>
-
-              {/* Macro allocation */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                {allocationData.map((item, i) => (
-                  <div key={item.name}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--text-2)', fontWeight: 500 }}>{item.name}</span>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--text-1)', fontWeight: 600 }}>{item.percentage}%</span>
-                    </div>
-                    <div style={{ height: 5, background: 'var(--surface-2)', borderRadius: 3 }}>
-                      <div style={{ width: item.percentage + '%', height: '100%', background: item.color || ALLOC_COLORS[i % ALLOC_COLORS.length], borderRadius: 3 }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Sub-allocation top 5 */}
-              {subAllocationData.length > 0 && (
-                <>
-                  <div style={{ height: 1, background: 'var(--border)', margin: '1rem 0 0.8rem' }} />
-                  <span style={{ fontSize: '0.68rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem', display: 'block' }}>
-                    Sotto-categorie
-                  </span>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                    {subAllocationData.slice(0, 6).map((item, i) => (
-                      <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', maxWidth: '72%' }}>
-                          <span style={{ width: 8, height: 8, borderRadius: 2, background: item.color || ALLOC_COLORS[i % ALLOC_COLORS.length], flexShrink: 0 }} />
-                          <span style={{ fontSize: '0.73rem', color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
-                        </span>
-                        <span style={{ fontSize: '0.73rem', color: 'var(--text-1)', fontWeight: 600 }}>{item.percentage}%</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+          {/* ── Dividendi (stile stats card) ── */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <DividendStatsCard holdings={portfolio} prices={priceCache} />
           </div>
 
           {/* ── Top Holdings ── */}
-          <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 16, padding: '1.25rem 1.5rem' }}>
+          <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 14, padding: '1.25rem 1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
               <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-1)' }}>Top Holdings</span>
-              <a href="/portfolio" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', color: BLUE, textDecoration: 'none', fontWeight: 500 }}>
+              <a href="/portfolio" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', color: 'var(--text-2)', textDecoration: 'none', fontWeight: 500 }}>
                 Tutti <ArrowRight size={12} />
               </a>
             </div>
 
-            {/* Header */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 100px 70px 60px', gap: 8, padding: '0 0 6px', borderBottom: '1px solid var(--border)', marginBottom: 2 }}>
-              {['Titolo', 'Valore', 'P&L €', 'ROI', '1d%'].map(h => (
-                <span key={h} style={{ fontSize: '0.67rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: h !== 'Titolo' ? 'right' : 'left' }}>{h}</span>
+            {/* Header (nascosto su mobile: le righe diventano card) */}
+            <div className="holdings-header">
+              {['Titolo', 'Valore', 'P&L €', 'ROI', '1d%'].map((h, i) => (
+                <span key={h} style={{ fontSize: '0.67rem', color: 'var(--text-3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: i === 0 ? 'left' : 'right' }}>{h}</span>
               ))}
             </div>
 
             {portfolio.filter(h => !h.isCash).slice(0, 8).map(h => (
-              <div key={h.holdingKey ?? h.ticker} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 100px 70px 60px', gap: 8, padding: '9px 0', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-1)' }}><Blur>{h.ticker}</Blur></div>
+              <div key={h.holdingKey ?? h.ticker} className="holdings-row">
+                <div className="holdings-cell holdings-cell-title">
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-1)' }}><Blur>{h.ticker}</Blur></div>
                   <div style={{ fontSize: '0.68rem', color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
                     <Blur>{h.name}</Blur>
                     {h.broker && <span style={{ marginLeft: 4, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 3, padding: '0 4px', fontSize: '0.62rem' }}>{h.broker}</span>}
                   </div>
                 </div>
-                <div style={{ textAlign: 'right', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)' }}>
+                <div className="holdings-cell" data-label="Valore" style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
                   <Blur>{eur(h.marketValue, 0)}</Blur>
                 </div>
-                <div style={{ textAlign: 'right', fontSize: '0.82rem', fontWeight: 600, color: color(h.unrealizedPL) }}>
+                <div className="holdings-cell" data-label="P&L" style={{ fontSize: '0.82rem', fontWeight: 600, color: color(h.unrealizedPL), fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
                   <Blur>{sign(h.unrealizedPL)}{eur(h.unrealizedPL, 0)}</Blur>
                 </div>
-                <div style={{ textAlign: 'right', fontSize: '0.78rem', fontWeight: 600, color: color(h.roi) }}>
+                <div className="holdings-cell" data-label="ROI" style={{ fontSize: '0.78rem', fontWeight: 600, color: color(h.roi), fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
                   {pct(h.roi, 1)}
                 </div>
-                <div style={{ textAlign: 'right', fontSize: '0.75rem', color: color(h.dayChangePercent) }}>
+                <div className="holdings-cell" data-label="1d" style={{ fontSize: '0.75rem', color: color(h.dayChangePercent), fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
                   {pct(h.dayChangePercent, 2)}
                 </div>
               </div>

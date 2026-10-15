@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Edit2, Trash2, Search, FileText, X, Calendar, DollarSign, Hash, Tag, FileDown, FileUp, Loader, Sparkles, AlertTriangle, CheckCircle2, Info, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction, exportTransactions, bulkImportTransactions, clearAllTransactions, getImportBatches, deleteImportBatch } from '../services/localStorageService';
 import { searchSecurity, fetchMultiplePrices } from '../services/priceService';
@@ -15,6 +16,8 @@ import { parseCSVFile, findDuplicates } from '../services/csvImportService';
 import { reportTickers } from '../services/tickerReportService';
 
 function Transactions() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [transactions, setTransactions] = useState([]);
   const [filteredTransactions, setFilteredTransactions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -214,6 +217,13 @@ function Transactions() {
     setAutoFillSource(null);
     setShowModal(true);
   };
+
+  useEffect(() => {
+    if (location.pathname === '/transactions/new') {
+      handleAdd();
+      navigate('/transactions', { replace: true });
+    }
+  }, [location.pathname]);
 
   const handleEdit = (transaction) => {
     setEditingTransaction(transaction);
@@ -514,12 +524,12 @@ function Transactions() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Transazioni</h1>
-          <p className="text-gray-600 mt-1">Gestisci le tue operazioni</p>
+          <h1 className="page-title font-bold" style={{ color: 'var(--text-1)' }}>Transazioni</h1>
+          <p style={{ color: 'var(--text-2)', marginTop: '0.25rem' }}>Gestisci le tue operazioni</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <label className={`btn-secondary flex items-center gap-2 cursor-pointer ${importLoading ? 'opacity-60 pointer-events-none' : ''}`}>
             {importLoading
               ? <Loader className="w-4 h-4 animate-spin" />
@@ -533,15 +543,17 @@ function Transactions() {
           </button>
           <button
             onClick={() => { loadBatches(); setShowBatches(true); }}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-indigo-600 border border-indigo-200 hover:bg-indigo-50 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+            style={{ color: 'var(--accent)', border: '1px solid var(--accent)', background: 'var(--accent-weak)' }}
           >
             <FileText className="w-4 h-4" />
             <span className="hidden sm:inline">Cronologia import</span>
             {importBatches.length > 0 && (
-              <span className="text-xs bg-indigo-100 text-indigo-700 rounded-full px-1.5 py-0.5 font-semibold">{importBatches.length}</span>
+              <span className="text-xs rounded-full px-1.5 py-0.5 font-semibold" style={{ background: 'var(--accent-weak)', color: 'var(--accent)' }}>{importBatches.length}</span>
             )}
           </button>
-          <button onClick={handleDeleteAll} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 transition-colors">
+          <button onClick={handleDeleteAll} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+            style={{ color: 'var(--neg)', border: '1px solid var(--neg)', background: 'var(--neg-weak)' }}>
             <Trash2 className="w-4 h-4" />
             <span className="hidden sm:inline">Elimina tutto</span>
           </button>
@@ -556,7 +568,7 @@ function Transactions() {
       <div className="card">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-[3] relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: 'var(--text-3)' }} />
             <input
               type="text"
               placeholder="Cerca ticker, nome o ISIN..."
@@ -568,7 +580,7 @@ function Transactions() {
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="select w-32 sm:w-36"
+            className="select w-full sm:w-36"
           >
             <option value="all">Tutti i tipi</option>
             <option value="buy">Acquisto</option>
@@ -577,7 +589,7 @@ function Transactions() {
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="select w-32 sm:w-40"
+            className="select w-full sm:w-40"
           >
             <option value="all">Tutte le categorie</option>
             {getAllMacroCategories().map(category => (
@@ -587,7 +599,7 @@ function Transactions() {
           <select
             value={filterPlatform}
             onChange={(e) => setFilterPlatform(e.target.value)}
-            className="select w-32 sm:w-36"
+            className="select w-full sm:w-36"
           >
             <option value="all">Tutti i broker</option>
             {[...new Set(transactions.map(tx => tx.platform || 'Manuale'))].sort().map(p => (
@@ -608,8 +620,8 @@ function Transactions() {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <EyeOff size={16} color="#FF9F0A" />
-                <span style={{ fontWeight: 600, color: '#FF9F0A', fontSize: '0.88rem' }}>
+                <EyeOff size={16} color="var(--warn)" />
+                <span style={{ fontWeight: 600, color: 'var(--warn)', fontSize: '0.88rem' }}>
                   {excluded.length} transazion{excluded.length === 1 ? 'e esclusa' : 'i escluse'} dalle statistiche
                 </span>
                 <span style={{ fontSize: '0.78rem', color: '#888' }}>
@@ -622,7 +634,7 @@ function Transactions() {
                   style={{
                     fontSize: '0.76rem', padding: '4px 12px', borderRadius: 8,
                     background: 'rgba(255,159,10,0.15)', border: '1px solid rgba(255,159,10,0.4)',
-                    color: '#FF9F0A', fontWeight: 600, cursor: 'pointer'
+                    color: 'var(--warn)', fontWeight: 600, cursor: 'pointer'
                   }}
                 >
                   Ripristina tutte
@@ -649,7 +661,7 @@ function Transactions() {
                       <span style={{
                         fontSize: '0.68rem', fontWeight: 700, padding: '1px 6px', borderRadius: 5,
                         background: tx.type === 'buy' ? 'rgba(48,209,88,0.15)' : 'rgba(255,69,58,0.15)',
-                        color: tx.type === 'buy' ? '#30D158' : '#FF453A'
+                        color: tx.type === 'buy' ? 'var(--pos)' : 'var(--neg)'
                       }}>
                         {tx.type === 'buy' ? 'ACQUISTO' : 'VENDITA'}
                       </span>
@@ -665,7 +677,7 @@ function Transactions() {
                         display: 'flex', alignItems: 'center', gap: 4,
                         fontSize: '0.72rem', padding: '3px 10px', borderRadius: 6,
                         background: 'rgba(48,209,88,0.12)', border: '1px solid rgba(48,209,88,0.3)',
-                        color: '#30D158', cursor: 'pointer', fontWeight: 600
+                        color: 'var(--pos)', cursor: 'pointer', fontWeight: 600
                       }}
                     >
                       <Eye size={12} /> Ripristina
@@ -681,11 +693,11 @@ function Transactions() {
       {/* Transactions List */}
       {filteredTransactions.length === 0 ? (
         <div className="card text-center py-12">
-          <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+          <FileText className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--text-3)' }} />
+          <h3 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-1)' }}>
             Nessuna transazione
           </h3>
-          <p className="text-gray-600 mb-6">
+          <p className="mb-6" style={{ color: 'var(--text-2)' }}>
             Aggiungi la tua prima transazione per iniziare
           </p>
           <button onClick={handleAdd} className="btn-primary inline-flex items-center gap-2">
@@ -694,8 +706,75 @@ function Transactions() {
           </button>
         </div>
       ) : (
-        <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="card overflow-hidden p-0 sm:p-6">
+          {/* ── Mobile card view ── */}
+          <div className="mobile-cards" style={{ padding: '0.65rem' }}>
+            {filteredTransactions.map((tx) => {
+              const total = tx.quantity * tx.price;
+              return (
+                <div key={tx.id} style={{
+                  background: 'var(--surface-2)', border: '1px solid var(--border)',
+                  borderRadius: 12, padding: '0.85rem 1rem',
+                  opacity: tx.excludeFromStats ? 0.45 : 1,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{
+                        fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px', borderRadius: 6,
+                        background: tx.type === 'buy' ? 'var(--pos-weak)' : 'var(--neg-weak)',
+                        color: tx.type === 'buy' ? 'var(--pos)' : 'var(--neg)',
+                      }}>
+                        {tx.type === 'buy' ? 'ACQ' : 'VND'}
+                      </span>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-3)' }}>{formatDate(tx.date)}</span>
+                      {tx.excludeFromStats && (
+                        <span style={{ fontSize: '0.6rem', fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: 'rgba(255,159,10,0.18)', color: 'var(--warn)' }}>ESCLUSA</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button onClick={() => toggleExcludeFromStats(tx)} style={{ padding: 6, borderRadius: 6, border: 'none', cursor: 'pointer', background: tx.excludeFromStats ? 'rgba(255,159,10,0.15)' : 'transparent', color: tx.excludeFromStats ? 'var(--warn)' : 'var(--text-3)' }}>
+                        {tx.excludeFromStats ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                      <button onClick={() => handleEdit(tx)} style={{ padding: 6, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'transparent', color: 'var(--accent)' }}>
+                        <Edit2 size={14} />
+                      </button>
+                      <button onClick={() => handleDelete(tx.id)} style={{ padding: 6, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'transparent', color: 'var(--neg)' }}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-1)' }}>{tx.ticker}</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{tx.name || ''}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', fontWeight: 600, fontSize: '1rem', color: 'var(--text-1)' }}>
+                      €{total.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>
+                      {tx.quantity.toLocaleString('it-IT', { maximumFractionDigits: 4 })} × €{tx.price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.66rem', fontWeight: 600, padding: '1px 7px', borderRadius: 5, background: 'var(--accent-weak)', color: 'var(--accent)', border: '1px solid rgba(124,130,255,0.2)' }}>
+                      {tx.platform || 'Manuale'}
+                    </span>
+                    <span style={{ fontSize: '0.66rem', fontWeight: 600, padding: '1px 7px', borderRadius: 5, background: 'var(--surface-1)', color: 'var(--text-3)', border: '1px solid var(--border)' }}>
+                      {tx.macroCategory || tx.category || '-'}
+                    </span>
+                    {tx.commission > 0 && (
+                      <span style={{ fontSize: '0.66rem', color: 'var(--warn)' }}>
+                        comm. €{tx.commission.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Desktop table view ── */}
+          <div className="desktop-table overflow-x-auto">
             <table className="table">
               <thead>
                 <tr>
@@ -728,12 +807,12 @@ function Transactions() {
                       {tx.excludeFromStats && (
                         <span style={{
                           marginLeft: 5, fontSize: '0.62rem', fontWeight: 700, padding: '1px 5px',
-                          borderRadius: 4, background: 'rgba(255,159,10,0.18)', color: '#FF9F0A',
+                          borderRadius: 4, background: 'rgba(255,159,10,0.18)', color: 'var(--warn)',
                           verticalAlign: 'middle'
                         }}>ESCLUSA</span>
                       )}
                     </td>
-                    <td className="text-gray-600 max-w-xs truncate">{tx.name || '-'}</td>
+                    <td className="max-w-xs truncate" style={{ color: 'var(--text-2)' }}>{tx.name || '-'}</td>
                     <td>
                       <span style={{
                         fontSize: '0.7rem', fontWeight: 600, padding: '2px 7px',
@@ -748,11 +827,11 @@ function Transactions() {
                     </td>
                     <td>
                       {(tx.microCategory || tx.subCategory) ? (
-                        <span className="text-sm text-gray-700 bg-gray-100 px-2 py-1 rounded">
+                        <span className="text-sm px-2 py-1 rounded" style={{ color: 'var(--text-2)', background: 'var(--surface-2)' }}>
                           {tx.microCategory || tx.subCategory}
                         </span>
                       ) : (
-                        <span className="text-xs text-gray-400 italic">Non rilevata</span>
+                        <span className="text-xs italic" style={{ color: 'var(--text-3)' }}>Non rilevata</span>
                       )}
                     </td>
                     <td className="text-right">{tx.quantity.toLocaleString('it-IT', { maximumFractionDigits: 8 })}</td>
@@ -766,7 +845,7 @@ function Transactions() {
                           €{tx.commission.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       ) : (
-                        <span className="text-gray-400">-</span>
+                        <span style={{ color: 'var(--text-3)' }}>-</span>
                       )}
                     </td>
                     <td className="text-right">
@@ -775,7 +854,7 @@ function Transactions() {
                           {tx.ter.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
                         </span>
                       ) : (
-                        <span className="text-gray-400">-</span>
+                        <span style={{ color: 'var(--text-3)' }}>-</span>
                       )}
                     </td>
                     <td className="text-right">
@@ -786,7 +865,7 @@ function Transactions() {
                           style={{
                             padding: 7, borderRadius: 8, border: 'none', cursor: 'pointer',
                             background: tx.excludeFromStats ? 'rgba(255,159,10,0.15)' : 'transparent',
-                            color: tx.excludeFromStats ? '#FF9F0A' : '#aaa',
+                            color: tx.excludeFromStats ? 'var(--warn)' : '#aaa',
                             transition: 'all 0.15s'
                           }}
                         >
@@ -818,15 +897,16 @@ function Transactions() {
 
       {/* Modal Form */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-apple-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-slide-up">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">
+        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-[60] p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+          <div className="rounded-apple-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-slide-up" style={{ background: 'var(--surface-1)' }}>
+            <div className="sticky top-0 px-6 py-4 flex items-center justify-between" style={{ background: 'var(--surface-1)', borderBottom: '1px solid var(--border)' }}>
+              <h2 className="text-xl font-bold" style={{ color: 'var(--text-1)' }}>
                 {editingTransaction ? 'Modifica Transazione' : 'Nuova Transazione'}
               </h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 rounded-lg transition-colors"
+                style={{ color: 'var(--text-2)' }}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -835,7 +915,7 @@ function Transactions() {
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
               {/* Type */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                   Tipo Operazione *
                 </label>
                 <div className="grid grid-cols-2 gap-4">
@@ -845,7 +925,7 @@ function Transactions() {
                     className={`p-4 rounded-lg border-2 font-medium transition-all ${
                       formData.type === 'buy'
                         ? 'border-success-600 bg-success-50 text-success-700'
-                        : 'border-gray-200 hover:border-gray-300'
+                        : 'border-[var(--border)] hover:border-[var(--text-3)]'
                     }`}
                   >
                     Acquisto
@@ -856,7 +936,7 @@ function Transactions() {
                     className={`p-4 rounded-lg border-2 font-medium transition-all ${
                       formData.type === 'sell'
                         ? 'border-danger-600 bg-danger-50 text-danger-700'
-                        : 'border-gray-200 hover:border-gray-300'
+                        : 'border-[var(--border)] hover:border-[var(--text-3)]'
                     }`}
                   >
                     Vendita
@@ -867,7 +947,7 @@ function Transactions() {
               {/* Cash Flow Type (only for Cash) */}
               {formData.macroCategory === 'Cash' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                     Tipo Movimento *
                   </label>
                   <div className="grid grid-cols-2 gap-4">
@@ -877,7 +957,7 @@ function Transactions() {
                       className={`p-4 rounded-lg border-2 font-medium transition-all ${
                         formData.cashFlowType === 'income'
                           ? 'border-success-600 bg-success-50 text-success-700'
-                          : 'border-gray-200 hover:border-gray-300'
+                          : 'border-[var(--border)] hover:border-[var(--text-3)]'
                       }`}
                     >
                       💰 Entrata (Guadagno)
@@ -888,7 +968,7 @@ function Transactions() {
                       className={`p-4 rounded-lg border-2 font-medium transition-all ${
                         formData.cashFlowType === 'expense'
                           ? 'border-danger-600 bg-danger-50 text-danger-700'
-                          : 'border-gray-200 hover:border-gray-300'
+                          : 'border-[var(--border)] hover:border-[var(--text-3)]'
                       }`}
                     >
                       💸 Uscita (Spesa)
@@ -900,7 +980,7 @@ function Transactions() {
               {/* Ticker & Name */}
               <div className={formData.macroCategory === 'Cash' ? '' : 'grid grid-cols-2 gap-4'}>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                     <Tag className="w-4 h-4 inline mr-1" />
                     {formData.macroCategory === 'Cash' ? 'Descrizione *' : 'Ticker *'}
                   </label>
@@ -919,19 +999,19 @@ function Transactions() {
                     </p>
                   )}
                   {!editingTransaction && formData.macroCategory !== 'Cash' && autoFillSource === 'history' && (
-                    <p className="text-xs text-blue-600 mt-1">
+                    <p className="text-xs mt-1" style={{ color: 'var(--info)' }}>
                       📋 Form auto-compilato dall'ultima transazione
                     </p>
                   )}
                   {formData.macroCategory === 'Cash' && (
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>
                       Esempio: "Conto Corrente Intesa", "Contante Portafoglio", "Deposito Vincolato"
                     </p>
                   )}
                 </div>
                 {formData.macroCategory !== 'Cash' && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                       Nome
                     </label>
                     <input
@@ -948,7 +1028,7 @@ function Transactions() {
               {/* ISIN - Only show if NOT Cash */}
               {formData.macroCategory !== 'Cash' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                     ISIN
                   </label>
                   <input
@@ -963,7 +1043,7 @@ function Transactions() {
 
               {/* MACRO Category */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                   MACRO-Asset Class *
                 </label>
                 <select
@@ -980,7 +1060,7 @@ function Transactions() {
 
               {/* MICRO Category */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                   MICRO-Asset Class
                   {formData.macroCategory && Object.keys(availableMicroCategories).length > 0 && ' *'}
                 </label>
@@ -996,7 +1076,7 @@ function Transactions() {
                     <option key={micro} value={micro}>{micro}</option>
                   ))}
                 </select>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>
                   {!formData.macroCategory && 'Seleziona prima una MACRO-Asset Class'}
                   {formData.macroCategory && Object.keys(availableMicroCategories).length === 0 && 'Nessuna sottocategoria disponibile'}
                 </p>
@@ -1004,7 +1084,7 @@ function Transactions() {
 
               {/* Date */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                   <Calendar className="w-4 h-4 inline mr-1" />
                   Data *
                 </label>
@@ -1021,7 +1101,7 @@ function Transactions() {
               {/* Price & Quantity - Different for Cash */}
               {formData.macroCategory === 'Cash' ? (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                     <DollarSign className="w-4 h-4 inline mr-1" />
                     Importo € *
                   </label>
@@ -1035,14 +1115,14 @@ function Transactions() {
                     className="input"
                     required
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>
                     Importo totale in euro del contante
                   </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                       <DollarSign className="w-4 h-4 inline mr-1" />
                       Prezzo *
                     </label>
@@ -1058,7 +1138,7 @@ function Transactions() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                       <Hash className="w-4 h-4 inline mr-1" />
                       Quantità *
                     </label>
@@ -1079,7 +1159,7 @@ function Transactions() {
               {/* Currency & Commission - No commission for Cash */}
               {formData.macroCategory === 'Cash' ? (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                     Valuta
                   </label>
                   <select
@@ -1095,7 +1175,7 @@ function Transactions() {
               ) : (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                       Valuta
                     </label>
                     <select
@@ -1109,7 +1189,7 @@ function Transactions() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                       Commissioni €
                     </label>
                     <input
@@ -1121,7 +1201,7 @@ function Transactions() {
                       placeholder="0.00"
                       className="input"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>
                       Commissioni di broker/exchange
                     </p>
                   </div>
@@ -1131,7 +1211,7 @@ function Transactions() {
               {/* TER Field - Only show if NOT Cash */}
               {formData.macroCategory !== 'Cash' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                     TER (Total Expense Ratio) %
                   </label>
                   <input
@@ -1144,7 +1224,7 @@ function Transactions() {
                     placeholder="0.22"
                     className="input"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>
                     {formData.ter
                       ? `Costo annuale: ~${formData.ter}% del patrimonio investito`
                       : 'Inserisci il TER manualmente. Verrà salvato e sincronizzato per lo stesso ticker'}
@@ -1173,7 +1253,7 @@ function Transactions() {
                         <p className="text-lg font-semibold text-orange-700">
                           +€{parseFloat(formData.commission).toFixed(2)}
                         </p>
-                        <p className="text-xs text-gray-600 mt-1">
+                        <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>
                           Totale: €{((parseFloat(formData.price) * parseFloat(formData.quantity)) + parseFloat(formData.commission)).toFixed(2)}
                         </p>
                       </div>
@@ -1184,7 +1264,7 @@ function Transactions() {
 
               {/* Platform */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                   Broker / Piattaforma
                 </label>
                 <select
@@ -1196,14 +1276,14 @@ function Transactions() {
                     <option key={p} value={p}>{p}</option>
                   ))}
                 </select>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>
                   Broker o piattaforma usata per questa transazione
                 </p>
               </div>
 
               {/* Notes */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-2)' }}>
                   Note
                 </label>
                 <textarea
@@ -1273,14 +1353,14 @@ function Transactions() {
               <select
                 value={importPlatformLabel}
                 onChange={e => setImportPlatformLabel(e.target.value)}
-                style={{ flex: 1, fontSize: '0.78rem', fontWeight: 700, color: '#0A84FF', border: '1.5px solid #0A84FF', borderRadius: 7, padding: '4px 10px', background: 'var(--surface-1)', cursor: 'pointer' }}
+                style={{ flex: 1, fontSize: '0.78rem', fontWeight: 700, color: 'var(--info)', border: '1.5px solid #0A84FF', borderRadius: 7, padding: '4px 10px', background: 'var(--surface-1)', cursor: 'pointer' }}
               >
                 {['Fineco', 'DeGiro', 'Trading 212', 'IBKR', 'Binance', 'Crypto.com', 'Coinbase', 'Manuale', 'Formato generico (export app)', importPlatformLabel]
                   .filter((v, i, a) => v && a.indexOf(v) === i)
                   .map(p => <option key={p} value={p}>{p}</option>)}
               </select>
               {(importPreview.platform === 'generic' || importPreview.platform === 'unknown') && (
-                <span style={{ fontSize: '0.68rem', color: '#FF9F0A', whiteSpace: 'nowrap' }}>⚠️ Seleziona il broker corretto</span>
+                <span style={{ fontSize: '0.68rem', color: 'var(--warn)', whiteSpace: 'nowrap' }}>⚠️ Seleziona il broker corretto</span>
               )}
             </div>
 
@@ -1290,20 +1370,20 @@ function Transactions() {
             }}>
               <div style={{ flex: 1, padding: '12px 20px', borderRight: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <CheckCircle2 size={14} color="#30D158" />
+                  <CheckCircle2 size={14} color="var(--pos)" />
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>Da importare</span>
                 </div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#30D158', lineHeight: 1.1 }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--pos)', lineHeight: 1.1 }}>
                   {dupInfo ? dupInfo.unique.length : importPreview.transactions.length}
                 </div>
                 <div style={{ fontSize: '0.65rem', color: 'var(--text-3)' }}>transazioni nuove</div>
               </div>
               <div style={{ flex: 1, padding: '12px 20px', borderRight: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <AlertTriangle size={14} color={dupInfo?.duplicates.length > 0 ? '#FF9F0A' : 'var(--text-3)'} />
+                  <AlertTriangle size={14} color={dupInfo?.duplicates.length > 0 ? 'var(--warn)' : 'var(--text-3)'} />
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>Duplicate</span>
                 </div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: dupInfo?.duplicates.length > 0 ? '#FF9F0A' : 'var(--text-3)', lineHeight: 1.1 }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: dupInfo?.duplicates.length > 0 ? 'var(--warn)' : 'var(--text-3)', lineHeight: 1.1 }}>
                   {dupInfo?.duplicates.length ?? 0}
                 </div>
                 <div style={{ fontSize: '0.65rem', color: 'var(--text-3)' }}>
@@ -1312,20 +1392,20 @@ function Transactions() {
               </div>
               <div style={{ flex: 1, padding: '12px 20px', borderRight: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <AlertTriangle size={14} color="#FF9F0A" />
+                  <AlertTriangle size={14} color="var(--warn)" />
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>Scartate</span>
                 </div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: importPreview.skipped.length > 0 ? '#FF9F0A' : 'var(--text-3)', lineHeight: 1.1 }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: importPreview.skipped.length > 0 ? 'var(--warn)' : 'var(--text-3)', lineHeight: 1.1 }}>
                   {importPreview.skipped.length}
                 </div>
                 <div style={{ fontSize: '0.65rem', color: 'var(--text-3)' }}>righe non valide</div>
               </div>
               <div style={{ flex: 1, padding: '12px 20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Info size={14} color="#0A84FF" />
+                  <Info size={14} color="var(--info)" />
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-3)' }}>Avvisi</span>
                 </div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: importPreview.warnings.length > 0 ? '#FF453A' : 'var(--text-3)', lineHeight: 1.1 }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: importPreview.warnings.length > 0 ? 'var(--neg)' : 'var(--text-3)', lineHeight: 1.1 }}>
                   {importPreview.warnings.length}
                 </div>
                 <div style={{ fontSize: '0.65rem', color: 'var(--text-3)' }}>messaggi</div>
@@ -1339,7 +1419,7 @@ function Transactions() {
               {importPreview.warnings.length > 0 && (
                 <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(255,69,58,0.06)', border: '1px solid rgba(255,69,58,0.2)' }}>
                   {importPreview.warnings.map((w, i) => (
-                    <div key={i} style={{ fontSize: '0.75rem', color: '#FF453A', display: 'flex', gap: 6 }}>
+                    <div key={i} style={{ fontSize: '0.75rem', color: 'var(--neg)', display: 'flex', gap: 6 }}>
                       <AlertTriangle size={12} style={{ flexShrink: 0, marginTop: 2 }} />
                       {w}
                     </div>
@@ -1351,7 +1431,7 @@ function Transactions() {
               {importPreview.unknownTickers?.length > 0 && (
                 <div style={{ padding: '12px 16px', borderRadius: 12, background: 'rgba(255,159,10,0.08)', border: '1px solid rgba(255,159,10,0.3)' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
-                    <AlertTriangle size={15} color="#FF9F0A" style={{ flexShrink: 0, marginTop: 1 }} />
+                    <AlertTriangle size={15} color="var(--warn)" style={{ flexShrink: 0, marginTop: 1 }} />
                     <div>
                       <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-1)' }}>
                         {importPreview.unknownTickers.length} {importPreview.unknownTickers.length === 1 ? 'titolo non ancora nel database' : 'titoli non ancora nel database'}
@@ -1377,7 +1457,7 @@ function Transactions() {
                     <button
                       onClick={handleReportUnknown}
                       disabled={unknownReported}
-                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: 'none', background: unknownReported ? 'var(--surface-2)' : '#FF9F0A', color: unknownReported ? 'var(--text-3)' : '#1a1a1a', fontSize: '0.75rem', fontWeight: 700, cursor: unknownReported ? 'default' : 'pointer' }}>
+                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: 'none', background: unknownReported ? 'var(--surface-2)' : 'var(--warn)', color: unknownReported ? 'var(--text-3)' : '#1a1a1a', fontSize: '0.75rem', fontWeight: 700, cursor: unknownReported ? 'default' : 'pointer' }}>
                       {unknownReported ? '✓ Segnalati' : '✉ Segnala al team'}
                     </button>
                     <button
@@ -1392,13 +1472,13 @@ function Transactions() {
               {/* Skipped rows summary */}
               {importPreview.skipped.length > 0 && (
                 <details style={{ fontSize: '0.78rem' }}>
-                  <summary style={{ cursor: 'pointer', color: '#FF9F0A', fontWeight: 600, marginBottom: 6 }}>
+                  <summary style={{ cursor: 'pointer', color: 'var(--warn)', fontWeight: 600, marginBottom: 6 }}>
                     ⚠️ {importPreview.skipped.length} righe ignorate — clicca per dettagli
                   </summary>
                   <div style={{ maxHeight: 140, overflowY: 'auto', marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {importPreview.skipped.slice(0, 30).map((s, i) => (
                       <div key={i} style={{ padding: '5px 10px', borderRadius: 7, background: 'rgba(255,159,10,0.06)', border: '1px solid rgba(255,159,10,0.15)', fontSize: '0.7rem', color: 'var(--text-2)' }}>
-                        <span style={{ color: '#FF9F0A', fontWeight: 700 }}>Riga {s.rowIndex + 2}</span> — {s.reason}
+                        <span style={{ color: 'var(--warn)', fontWeight: 700 }}>Riga {s.rowIndex + 2}</span> — {s.reason}
                       </div>
                     ))}
                     {importPreview.skipped.length > 30 && (
@@ -1426,18 +1506,18 @@ function Transactions() {
                       <tbody>
                         {importPreview.transactions.slice(0, 8).map((tx, i) => (
                           <tr key={i} style={{ borderBottom: '1px solid var(--border)', background: i % 2 === 0 ? 'transparent' : 'var(--surface-2)' }}>
-                            <td style={{ padding: '6px 8px', fontWeight: 700, color: tx.type === 'buy' ? '#30D158' : '#FF453A' }}>{tx.ticker}</td>
+                            <td style={{ padding: '6px 8px', fontWeight: 700, color: tx.type === 'buy' ? 'var(--pos)' : 'var(--neg)' }}>{tx.ticker}</td>
                             <td style={{ padding: '6px 8px', color: 'var(--text-2)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tx.name}</td>
                             <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>{tx.date}</td>
                             <td style={{ padding: '6px 8px' }}>
                               <span style={{ padding: '2px 7px', borderRadius: 20, fontSize: '0.62rem', fontWeight: 700,
                                 background: tx.type === 'buy' ? 'rgba(48,209,88,0.12)' : 'rgba(255,69,58,0.12)',
-                                color: tx.type === 'buy' ? '#30D158' : '#FF453A' }}>
+                                color: tx.type === 'buy' ? 'var(--pos)' : 'var(--neg)' }}>
                                 {tx.type === 'buy' ? 'ACQ' : 'VND'}
                               </span>
                             </td>
                             <td style={{ padding: '6px 8px', textAlign: 'right' }}>
-                              {tx.price > 0 ? `€${tx.price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}` : <span style={{ color: '#FF9F0A' }}>—</span>}
+                              {tx.price > 0 ? `€${tx.price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}` : <span style={{ color: 'var(--warn)' }}>—</span>}
                             </td>
                             <td style={{ padding: '6px 8px', textAlign: 'right' }}>{tx.quantity.toLocaleString('it-IT', { maximumFractionDigits: 6 })}</td>
                             <td style={{ padding: '6px 8px', textAlign: 'right', color: 'var(--text-3)' }}>
@@ -1487,7 +1567,7 @@ function Transactions() {
                     disabled={n === 0}
                     style={{
                       padding: '9px 24px', borderRadius: 8, border: 'none',
-                      background: n > 0 ? '#30D158' : 'var(--surface-3)',
+                      background: n > 0 ? 'var(--pos)' : 'var(--surface-3)',
                       cursor: n > 0 ? 'pointer' : 'not-allowed',
                       color: n > 0 ? '#fff' : 'var(--text-3)',
                       fontSize: '0.82rem', fontWeight: 700,
@@ -1509,7 +1589,7 @@ function Transactions() {
           <div style={{ background: 'white', borderRadius: 16, width: '100%', maxWidth: 480, padding: '28px 28px 24px', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
             <div style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: 6 }}>⚠️ Transazioni duplicate trovate</div>
             <p style={{ fontSize: '0.82rem', color: '#666', marginBottom: 20 }}>
-              <strong style={{ color: '#FF9F0A' }}>{dupStrategy.duplicates.length}</strong> transazioni su {dupStrategy.total} esistono già nel portafoglio (stesso ticker, data, tipo e quantità).
+              <strong style={{ color: 'var(--warn)' }}>{dupStrategy.duplicates.length}</strong> transazioni su {dupStrategy.total} esistono già nel portafoglio (stesso ticker, data, tipo e quantità).
               Come vuoi procedere?
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1548,7 +1628,7 @@ function Transactions() {
               <button onClick={() => handleCashPrompt(false)} style={{ flex: 1, padding: '11px', borderRadius: 8, border: '1px solid #e5e7eb', background: 'transparent', cursor: 'pointer', fontSize: '0.82rem', color: '#666', fontWeight: 600 }}>
                 No, lo gestisco io
               </button>
-              <button onClick={() => handleCashPrompt(true)} style={{ flex: 1, padding: '11px', borderRadius: 8, border: 'none', background: '#0A84FF', cursor: 'pointer', fontSize: '0.82rem', color: '#fff', fontWeight: 700 }}>
+              <button onClick={() => handleCashPrompt(true)} style={{ flex: 1, padding: '11px', borderRadius: 8, border: 'none', background: 'var(--info)', cursor: 'pointer', fontSize: '0.82rem', color: '#fff', fontWeight: 700 }}>
                 Sì, crea deposito €{cashPrompt.total.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </button>
             </div>

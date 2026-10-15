@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseJsonStat, summarizeInflation, getItalianInflation, normalizePeriod, parseEcbCsv, annualFromMonthly } from './inflationData';
-import { fetchInflationSeries } from './inflationSources';
+import { fetchInflationSeries, monthsSince } from './inflationSources';
 
 const stat = (periods, values, { asArray = false } = {}) => ({
   version: '2.0', class: 'dataset',
@@ -119,7 +119,7 @@ describe('fetchInflationSeries — fonti e diagnostica', () => {
 
   it('usa la BCE se risponde, senza tentativi falliti', async () => {
     const calls = [];
-    const r = await fetchInflationSeries(async (url) => { calls.push(url); return reply(200, ecbCsv(60)); });
+    const r = await fetchInflationSeries(async (url) => { calls.push(url); return reply(200, ecbCsv(60)); }, Date.UTC(2025, 0, 15));
     expect(r.source).toMatch(/BCE/);
     expect(r.monthly).toHaveLength(60);
     expect(r.annual).toHaveLength(5);
@@ -155,6 +155,53 @@ describe('fetchInflationSeries — fonti e diagnostica', () => {
     let err;
     try { await fetchInflationSeries(async () => { throw new Error('ECONNRESET'); }); } catch (e) { err = e; }
     expect(err.attempts[0].error).toBe('ECONNRESET');
+  });
+});
+
+describe('dato obsoleto: età e integrazione con Eurostat', () => {
+  const reply = (status, body) => ({ ok: status < 400, status, text: async () => body });
+  const csvTo = (lastYear, lastMonth) => {
+    const rows = [];
+    for (let y = 2020; y <= lastYear; y++) for (let m = 1; m <= 12; m++) { if (y === lastYear && m > lastMonth) break; rows.push(`${y}-${String(m).padStart(2, '0')},2`); }
+    return ['TIME_PERIOD,OBS_VALUE', ...rows].join('\n');
+  };
+  const euroUntil = (periods) => JSON.stringify(stat(periods, Object.fromEntries(periods.map((_, i) => [i, 1.5]))));
+  const NOW = Date.UTC(2026, 9, 15); // 15 ottobre 2026
+
+  it('monthsSince', () => {
+    expect(monthsSince('2026-10', NOW)).toBe(0);
+    expect(monthsSince('2026-07', NOW)).toBe(3);
+    expect(monthsSince('2025-12', NOW)).toBe(10);
+  });
+  it('BCE aggiornata: nessuna chiamata a Eurostat, staleMonths piccolo', async () => {
+    const calls = [];
+    const r = await fetchInflationSeries(async (url) => { calls.push(url); return reply(200, csvTo(2026, 9)); }, NOW);
+    expect(calls).toHaveLength(1);
+    expect(r.staleMonths).toBe(1);
+  });
+  it('BCE ferma a dicembre 2025 e Eurostat più recente → serie unite, età corretta', async () => {
+    const periods = ['2025M11', '2025M12', '2026M01', '2026M02', '2026M03'];
+    const r = await fetchInflationSeries(async (url) => (url.includes('ecb') ? reply(200, csvTo(2025, 12)) : reply(200, euroUntil(periods))), NOW);
+    expect(r.monthly[r.monthly.length - 1].period).toBe('2026-03');
+    expect(r.monthly.filter(p => p.period === '2025-12')).toHaveLength(1); // nessun duplicato
+    expect(r.source).toMatch(/BCE.*Eurostat/);
+    expect(r.staleMonths).toBe(7);
+  });
+  it('BCE ferma e Eurostat non disponibile → si tiene la BCE e si segnala l\'età', async () => {
+    const r = await fetchInflationSeries(async (url) => (url.includes('ecb') ? reply(200, csvTo(2025, 12)) : reply(400, 'no')), NOW);
+    expect(r.source).toMatch(/BCE/);
+    expect(r.staleMonths).toBe(10);
+    expect(r.attempts.length).toBe(3);
+  });
+  it('BCE ferma ma Eurostat non ha mesi più recenti → resta la BCE', async () => {
+    const r = await fetchInflationSeries(async (url) => (url.includes('ecb') ? reply(200, csvTo(2025, 12)) : reply(200, euroUntil(['2025M10', '2025M11', '2025M12']))), NOW);
+    expect(r.source).toBe('BCE · IPCA Italia');
+    expect(r.staleMonths).toBe(10);
+  });
+  it('summarizeInflation riporta fonte e età se presenti', () => {
+    const s = summarizeInflation({ annual: [], monthly: [{ period: '2025-12', value: 1.2 }], source: 'BCE', staleMonths: 10 });
+    expect(s.staleMonths).toBe(10);
+    expect(s.source).toBe('BCE');
   });
 });
 

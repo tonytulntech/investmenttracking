@@ -43,17 +43,51 @@ async function fromEurostat(fetchImpl, attempts) {
   throw new Error('Eurostat non disponibile');
 }
 
-/** @returns {Promise<{monthly, annual, source, attempts}>} lancia con `attempts` se tutte le fonti falliscono */
-export async function fetchInflationSeries(fetchImpl) {
+const STALE_AFTER_MONTHS = 4;
+
+/** Mesi interi tra un periodo 'YYYY-MM' e `now`. */
+export function monthsSince(period, now = Date.now()) {
+  const [y, m] = period.split('-').map(Number);
+  const d = new Date(now);
+  return d.getUTCFullYear() * 12 + d.getUTCMonth() + 1 - (y * 12 + m);
+}
+
+/**
+ * @returns {Promise<{monthly, annual, source, attempts, staleMonths:number}>}
+ * `staleMonths` = età dell'ultimo dato mensile. Se la BCE è indietro di oltre 4 mesi si prova
+ * Eurostat e, se ha mesi più recenti, si accodano. Lancia con `attempts` se tutte le fonti falliscono.
+ */
+export async function fetchInflationSeries(fetchImpl, now = Date.now()) {
   const attempts = [];
-  for (const [name, run] of [['bce', () => fromEcb(fetchImpl)], ['eurostat', () => fromEurostat(fetchImpl, attempts)]]) {
+  let result = null;
+
+  try {
+    result = await fromEcb(fetchImpl);
+    if (result.monthly.length === 0) throw new Error('Serie vuota');
+  } catch (err) {
+    result = null;
+    attempts.push(describe('bce', err));
+  }
+
+  if (!result || monthsSince(result.monthly[result.monthly.length - 1].period, now) > STALE_AFTER_MONTHS) {
     try {
-      const out = await run();
-      if (out.monthly.length === 0) throw new Error('Serie vuota');
-      return { ...out, attempts };
+      const euro = await fromEurostat(fetchImpl, attempts);
+      if (euro.monthly.length === 0) throw new Error('Serie vuota');
+      if (!result) {
+        result = euro;
+      } else {
+        const lastEcb = result.monthly[result.monthly.length - 1].period;
+        const newer = euro.monthly.filter(p => p.period > lastEcb);
+        if (newer.length) {
+          const monthly = [...result.monthly, ...newer];
+          result = { monthly, annual: annualFromMonthly(monthly), source: `${result.source} + Eurostat (mesi recenti)` };
+        }
+      }
     } catch (err) {
-      if (name === 'bce') attempts.push(describe('bce', err));
+      if (!result) throw Object.assign(new Error('Nessuna fonte di inflazione disponibile'), { attempts });
     }
   }
-  throw Object.assign(new Error('Nessuna fonte di inflazione disponibile'), { attempts });
+
+  const last = result.monthly[result.monthly.length - 1].period;
+  return { ...result, attempts, staleMonths: monthsSince(last, now) };
 }

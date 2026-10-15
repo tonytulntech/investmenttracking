@@ -91,7 +91,7 @@ const stdev = (xs) => {
  * @param {number} [years=20] ampiezza della finestra storica
  * @returns {{latest:{period:string,value:number}|null, history:{from:string,to:string,years:number,mean:number,vol:number}|null}}
  */
-export function summarizeInflation({ annual = [], monthly = [] } = {}, years = 20) {
+export function summarizeInflation({ annual = [], monthly = [], source, staleMonths } = {}, years = 20) {
   const latest = monthly.length ? monthly[monthly.length - 1] : null;
   const a = annual.slice(-years);
   let history = null;
@@ -99,7 +99,7 @@ export function summarizeInflation({ annual = [], monthly = [] } = {}, years = 2
     const vals = a.map(p => p.value);
     history = { from: a[0].period, to: a[a.length - 1].period, years: a.length, mean: mean(vals), vol: stdev(vals) };
   }
-  return { latest, history };
+  return { latest, history, ...(source ? { source } : {}), ...(staleMonths != null ? { staleMonths } : {}) };
 }
 
 /**

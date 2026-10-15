@@ -240,7 +240,7 @@ export default function RevisionFlow({ goal, rules, data, planned = false, onClo
           </Stack>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <div className="flow-actions above-nav">
           <button type="button" className="btn-secondary" onClick={step === 0 ? onClose : back} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <ArrowLeft size={16} /> {step === 0 ? 'Annulla' : 'Indietro'}
           </button>

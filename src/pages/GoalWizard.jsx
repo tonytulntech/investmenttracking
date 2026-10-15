@@ -461,7 +461,7 @@ export default function GoalWizard({ standalone = false }) {
         <div className="card">{body}</div>
 
         {saveError && <p role="alert" style={{ ...errStyle, marginTop: '1rem' }}>{saveError}</p>}
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', marginTop: '1.25rem' }}>
+        <div className={`flow-actions${standalone ? '' : ' above-nav'}`}>
           <button type="button" className="btn-secondary" onClick={back} disabled={index === 0} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <ArrowLeft size={16} /> Indietro
           </button>

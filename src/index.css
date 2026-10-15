@@ -1172,3 +1172,21 @@
 [data-theme="dark"] .text-yellow-800 { color: var(--warn); }
 [data-theme="dark"] .text-green-600,  [data-theme="dark"] .text-green-700  { color: var(--pos); }
 [data-theme="dark"] .text-red-600,    [data-theme="dark"] .text-red-700    { color: var(--neg); }
+
+/* Barra azioni dei flussi guidati (wizard, revisione): resta sempre visibile e mai sotto la bottom-nav. */
+.flow-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding: 0.75rem 0 calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+@media (max-width: 767px) {
+  .flow-actions.above-nav { bottom: calc(4.1rem + env(safe-area-inset-bottom, 0px)); padding-bottom: 0.75rem; }
+}
+.card .flow-actions { background: var(--card-bg, var(--bg)); }

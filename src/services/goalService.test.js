@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createSeededRandom } from './monteCarloService';
 import { MARKET_ASSUMPTIONS as MA, resolveTaxRate } from '../config/marketAssumptions';
 import {
-  GOAL_STATUS, yearsUntilGoal, glidePathTarget, glidePathAllocation, portfolioStats,
+  GOAL_STATUS, yearsUntilGoal, glideSchedule, portfolioStats,
   statusFromProbability, toRealAfterTax, nominalTargetForSuccess, evaluateGoal,
   monthlyNeededForSuccess, recommendAction,
 } from './goalService';
@@ -35,33 +35,6 @@ describe('yearsUntilGoal', () => {
   });
   it('è negativo se la scadenza è passata', () => {
     expect(yearsUntilGoal(2024, NOW)).toBeLessThan(0);
-  });
-});
-
-describe('glide path', () => {
-  it.each([
-    [20, 85], [15, 85], [14.9, 75], [10, 75], [7, 55], [5, 55], [4, 35], [3, 35], [2, 15], [0, 15], [-1, 15],
-  ])('%s anni → azionario %s%%', (years, equity) => {
-    expect(glidePathTarget(years).target).toBe(equity);
-  });
-  it('l\'azionario non aumenta al ridursi dell\'orizzonte', () => {
-    let prev = Infinity;
-    for (let y = 30; y >= 0; y -= 0.5) {
-      const e = glidePathTarget(y).target;
-      expect(e).toBeLessThanOrEqual(prev);
-      prev = e;
-    }
-  });
-  it('l\'allocazione somma sempre 100 e non ha quote negative', () => {
-    for (let y = 30; y >= 0; y -= 0.5) {
-      const a = glidePathAllocation(y);
-      expect(a.equity + a.bond + a.cash).toBe(100);
-      expect(Math.min(a.equity, a.bond, a.cash)).toBeGreaterThanOrEqual(0);
-    }
-  });
-  it('liquidità solo sotto i 3 anni', () => {
-    expect(glidePathAllocation(5).cash).toBe(0);
-    expect(glidePathAllocation(2).cash).toBeGreaterThan(0);
   });
 });
 
@@ -240,5 +213,50 @@ describe('residenza fiscale', () => {
   it('a tassa zero il target reale dopo tasse coincide con quello lordo deflazionato', () => {
     const nominal = nominalTargetForSuccess(50000, 20000, 10, MA.inflation, 0);
     expect(nominal).toBeCloseTo(50000 * Math.pow(1 + MA.inflation / 100, 10), 6);
+  });
+});
+
+describe('glideSchedule + evaluateGoal (glide path nel tempo)', () => {
+  const goal = { currentValue: 20000, targetAmount: 120000, goalYear: 2046, monthlyContribution: 400, now: NOW };
+
+  it('pesi per bucket secondo la tabella, in funzione dei mesi rimanenti', () => {
+    const at = glideSchedule({ riskProfile: { maxTolerableLoss: 30 } });
+    expect(at(30 * 12).equity).toBe(90);
+    expect(at(12 * 12).equity).toBe(70);
+    expect(at(2 * 12).equity).toBe(10);
+    expect(glideSchedule({ type: 'emergency' })(240).equity).toBe(0);
+  });
+  it('extraYears (rendita) sposta la fascia: orizzonte lungo → azionario alto', () => {
+    expect(glideSchedule({ extraYears: 55 })(5 * 12).equity).toBe(90);
+    expect(glideSchedule({})(5 * 12).equity).toBe(30);
+  });
+  it('oro scelto a mano: somma sempre 100', () => {
+    const a = glideSchedule({ goldPct: 8 })(10 * 12);
+    expect(Object.values(a).reduce((x, y) => x + y, 0)).toBe(100);
+    expect(a.gold).toBe(8);
+  });
+  it('evaluateGoal con glide path restituisce probabilità, percentili e fan chart', () => {
+    const r = evaluateGoal({ ...goal, allocationAt: glideSchedule({ riskProfile: { maxTolerableLoss: 30 } }) });
+    expect(r.successProbability).toBeGreaterThan(0);
+    expect(r.successProbability).toBeLessThan(100);
+    expect(r.percentiles.p5).toBeLessThan(r.percentiles.p95);
+    expect(r.fan.length).toBeGreaterThan(15);
+    expect(r.fan[0].p50).toBe(20000);
+    expect(r.stats.expectedReturn).toBeGreaterThan(0);
+  });
+  it('profilo prudente → fascia di esiti più stretta che con profilo audace', () => {
+    const run = (maxTolerableLoss) => evaluateGoal({ ...goal, allocationAt: glideSchedule({ riskProfile: { maxTolerableLoss } }) });
+    const cautious = run(10), bold = run(40);
+    expect(cautious.percentiles.p95 - cautious.percentiles.p5).toBeLessThan(bold.percentiles.p95 - bold.percentiles.p5);
+  });
+  it('glide path vs tutto azionario: meno rischio di cattivo esito vicino alla scadenza', () => {
+    const glide = evaluateGoal({ ...goal, allocationAt: glideSchedule({}) });
+    const allEq = evaluateGoal({ ...goal, weights: { equity: 100 } });
+    expect(glide.percentiles.p5).toBeGreaterThan(allEq.percentiles.p5);
+  });
+  it('versamento che cresce con l\'inflazione migliora l\'esito', () => {
+    const fixed = evaluateGoal({ ...goal, weights: W_8020 });
+    const indexed = evaluateGoal({ ...goal, weights: W_8020, indexContribution: true });
+    expect(indexed.percentiles.p50).toBeGreaterThan(fixed.percentiles.p50);
   });
 });

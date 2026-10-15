@@ -12,10 +12,21 @@ import { createCloudSync } from '../services/cloudSync';
  *  ready     – app utilizzabile
  */
 const AuthContext = createContext({
-  cloudEnabled: false, googleEnabled: false, phase: 'ready', user: null, syncStatus: 'idle', error: null,
+  cloudEnabled: false, googleEnabled: false, phase: 'ready', user: null, profile: null, syncStatus: 'idle', error: null,
   sendLink: async () => {}, verifyCode: async () => {}, signInWithGoogle: async () => {}, signOut: async () => ({ ok: true }),
   resolveConflict: async () => {}, retry: () => {},
 });
+
+// Profilo assegnato dall'amministratore (modalità, ruolo). null se non disponibile.
+async function loadProfile(userId) {
+  try {
+    const { data, error } = await supabase.from('user_profiles').select('mode,is_admin').eq('user_id', userId).maybeSingle();
+    if (error || !data) return null;
+    return { mode: data.mode, isAdmin: data.is_admin === true };
+  } catch {
+    return null;
+  }
+}
 
 const SIGNUPS_CLOSED = /signups? not allowed|otp_disabled/i;
 // Il pulsante Google compare solo dopo aver attivato il provider in Supabase (VITE_GOOGLE_LOGIN=true).
@@ -24,6 +35,7 @@ const GOOGLE_ENABLED = import.meta.env.VITE_GOOGLE_LOGIN === 'true';
 export function AuthProvider({ children }) {
   const [phase, setPhase] = useState(isCloudEnabled ? 'loading' : 'ready');
   const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [syncStatus, setSyncStatus] = useState('idle');
   const [error, setError] = useState(null);
 
@@ -48,6 +60,9 @@ export function AuthProvider({ children }) {
     try {
       const result = await sync.start();
       if (syncRef.current !== sync) return;
+      const loaded = await loadProfile(sessionUser.id);
+      if (syncRef.current !== sync) return;
+      setProfile(loaded);
       if (result.conflict) {
         conflictRef.current = result;
         setPhase('conflict');
@@ -68,6 +83,7 @@ export function AuthProvider({ children }) {
         syncRef.current = null;
         userIdRef.current = null;
         setUser(null);
+        setProfile(null);
       }
       setPhase('signedOut');
       return;
@@ -143,13 +159,14 @@ export function AuthProvider({ children }) {
     sessionUserRef.current = null;
     await supabase.auth.signOut({ scope: 'local' });
     setUser(null);
+    setProfile(null);
     setPhase('signedOut');
     return { ok: true };
   }, []);
 
   return (
     <AuthContext.Provider value={{
-      cloudEnabled: isCloudEnabled, googleEnabled: GOOGLE_ENABLED, phase, user, syncStatus, error,
+      cloudEnabled: isCloudEnabled, googleEnabled: GOOGLE_ENABLED, phase, user, profile, syncStatus, error,
       sendLink, verifyCode, signInWithGoogle, signOut, resolveConflict, retry,
     }}>
       {children}

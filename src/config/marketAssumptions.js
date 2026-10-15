@@ -42,16 +42,11 @@ export const MARKET_ASSUMPTIONS = {
     'equity|bondShort': 0.1,  'equity|bondMedium': 0.2,  'bondShort|bondMedium': 0.6,
     'bondShort|cash': 0.3,    'bondMedium|cash': 0.1,
     'bondShort|gold': 0.15,   'bondMedium|gold': 0.25,
+    // correlazione con l'inflazione (stime iniziali, da validare con i dati del Backtesto)
+    'inflation|equity': 0.0,    'inflation|bond': -0.2,       'inflation|bondShort': -0.1,
+    'inflation|bondMedium': -0.2, 'inflation|cash': 0.3,      'inflation|gold': 0.2,
+    'inflation|commodity': 0.4, 'inflation|realEstate': 0.2,  'inflation|crypto': 0.0,
   },
-
-  // Quota azionaria target per anni mancanti all'obiettivo (D4 della spec).
-  glidePath: [
-    { minYears: 15, equity: { min: 80, max: 90 } },
-    { minYears: 10, equity: { min: 70, max: 80 } },
-    { minYears: 5,  equity: { min: 50, max: 60 } },
-    { minYears: 3,  equity: { min: 30, max: 40 } },
-    { minYears: 0,  equity: { min: 10, max: 20 } },
-  ],
 
   // Soglie del semaforo sulla probabilità di successo (%) (D5 della spec).
   thresholds: { onTrack: 75, watch: 50 },

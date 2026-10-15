@@ -34,6 +34,52 @@ export function parseJsonStat(json) {
     .sort((a, b) => a.period.localeCompare(b.period));
 }
 
+/** '2025M09' → '2025-09' (i periodi annuali restano 'YYYY'). */
+export function normalizePeriod(p) {
+  const m = /^(\d{4})M(\d{2})$/.exec(p);
+  return m ? `${m[1]}-${m[2]}` : p;
+}
+
+function splitCsvLine(line) {
+  const out = [];
+  let cur = '', quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (quoted) {
+      if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else quoted = false; } else cur += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ',') { out.push(cur); cur = ''; } else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+/** CSV dell'API dati BCE (format=csvdata) → [{period:'YYYY-MM', value}] ordinato. */
+export function parseEcbCsv(text) {
+  const lines = String(text ?? '').split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) throw new Error('CSV vuoto');
+  const header = splitCsvLine(lines[0]);
+  const t = header.indexOf('TIME_PERIOD'), v = header.indexOf('OBS_VALUE');
+  if (t < 0 || v < 0) throw new Error('Colonne attese assenti nel CSV');
+  return lines.slice(1)
+    .map(l => { const c = splitCsvLine(l); return { period: c[t], value: c[v] === '' ? NaN : Number(c[v]) }; })
+    .filter(p => /^\d{4}-\d{2}$/.test(p.period) && Number.isFinite(p.value))
+    .sort((a, b) => a.period.localeCompare(b.period));
+}
+
+/** Media annua del tasso mensile (anni completi, 12 mesi) → [{period:'YYYY', value}]. */
+export function annualFromMonthly(monthly) {
+  const byYear = new Map();
+  for (const { period, value } of monthly) {
+    const y = period.slice(0, 4);
+    (byYear.get(y) ?? byYear.set(y, []).get(y)).push(value);
+  }
+  return [...byYear.entries()]
+    .filter(([, vals]) => vals.length === 12)
+    .map(([period, vals]) => ({ period, value: vals.reduce((a, b) => a + b, 0) / 12 }))
+    .sort((a, b) => a.period.localeCompare(b.period));
+}
+
 const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
 const stdev = (xs) => {
   const m = mean(xs);
@@ -41,23 +87,18 @@ const stdev = (xs) => {
 };
 
 /**
- * @param {{annualRaw:object, monthlyRaw:object}} data
+ * @param {{annual:{period:string,value:number}[], monthly:{period:string,value:number}[]}} data serie normalizzate
  * @param {number} [years=20] ampiezza della finestra storica
  * @returns {{latest:{period:string,value:number}|null, history:{from:string,to:string,years:number,mean:number,vol:number}|null}}
  */
-export function summarizeInflation({ annualRaw, monthlyRaw }, years = 20) {
-  let latest = null, history = null;
-  try {
-    const m = parseJsonStat(monthlyRaw);
-    latest = m.length ? m[m.length - 1] : null;
-  } catch { /* dato mensile non disponibile */ }
-  try {
-    const a = parseJsonStat(annualRaw).slice(-years);
-    if (a.length >= 5) {
-      const vals = a.map(p => p.value);
-      history = { from: a[0].period, to: a[a.length - 1].period, years: a.length, mean: mean(vals), vol: stdev(vals) };
-    }
-  } catch { /* storico non disponibile */ }
+export function summarizeInflation({ annual = [], monthly = [] } = {}, years = 20) {
+  const latest = monthly.length ? monthly[monthly.length - 1] : null;
+  const a = annual.slice(-years);
+  let history = null;
+  if (a.length >= 5) {
+    const vals = a.map(p => p.value);
+    history = { from: a[0].period, to: a[a.length - 1].period, years: a.length, mean: mean(vals), vol: stdev(vals) };
+  }
   return { latest, history };
 }
 

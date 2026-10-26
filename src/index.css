@@ -1190,3 +1190,11 @@
   .flow-actions.above-nav { bottom: calc(4.1rem + env(safe-area-inset-bottom, 0px)); padding-bottom: 0.75rem; }
 }
 .card .flow-actions { background: var(--card-bg, var(--bg)); }
+
+/* Calcolatori: colonna dei parametri (300px) + risultati e coppie 1fr 1fr. Su mobile si impilano e i figli possono restringersi. */
+@media (max-width: 768px) {
+  .calc-root [style*="grid-template-columns: 300px 1fr"],
+  .calc-root [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: minmax(0, 1fr) !important; }
+  .calc-root [style*="grid-template-columns: 300px 1fr"] > *,
+  .calc-root [style*="grid-template-columns: 1fr 1fr"] > * { min-width: 0; }
+}

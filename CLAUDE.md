@@ -48,7 +48,7 @@ Investment Tracker → **Investitore 1.0**: web app di analisi di portafoglio in
 - `src/services/cloudSyncCore.js` (puro, testato): `SYNC_KEYS` (solo dati utente; NO cache, tema, privacy) + `planInitialSync`/`resolveConflict`. `src/services/cloudSync.js`: intercetta `localStorage.setItem/removeItem` sulle SYNC_KEYS e fa upsert con debounce 1,5s verso `public.user_data`. **Nuova chiave utente da sincronizzare → aggiungerla a `SYNC_KEYS`.**
 - DB: `supabase/migrations/001_user_data.sql` (RLS per utente). Nessun accesso consulente ai dati dei clienti (scelta di prodotto).
 - Principio: mai perdere dati in silenzio. Errori di rete → conservare e riprovare; dispositivo condiviso → mai mescolare utenti; conflitto → scelta esplicita.
-- Dominio produzione: `https://app.tpbalancellc.com` (Vercel + CNAME su Hostinger). Pagine pubbliche `/privacy` e `/termini` (`src/pages/Legal.jsx`, dati in `src/config/legal.js`), servite **prima** dell'AuthGate (`PUBLIC_PAGES` in `App.jsx`). Testi = bozza da far rivedere a un legale.
+- Dominio produzione: `https://app.tpbalancellc.com` (Vercel + CNAME su Hostinger). Pagine pubbliche `/privacy`, `/termini` (`src/pages/Legal.jsx`, dati in `src/config/legal.js`) e **`/calcolatori`** (`src/pages/PublicCalculators.jsx` = `Calcolatori.jsx` senza account, nessun dato salvato né chiamata a Supabase), servite **prima** dell'AuthGate (`PUBLIC_PAGES` in `App.jsx`). Testi = bozza da far rivedere a un legale.
 - Login Google opzionale: pulsante solo con `VITE_GOOGLE_LOGIN=true`; utenti creati a mano in Supabase (registrazione libera OFF).
 - Posizionamento: strumento educativo/di monitoraggio, linguaggio neutro (nessun "ribilancia/versa X"): mostrare lo stato rispetto alle regole del cliente, non raccomandazioni.
 

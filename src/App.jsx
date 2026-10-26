@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { useGoalData } from './services/goalStore';
 import AuthGate from './components/AuthGate';
 import { PrivacyPage, TermsPage } from './pages/Legal';
+import PublicCalculators from './pages/PublicCalculators';
 import { migrateTickersPersistent } from './services/localStorageService';
 
 // Eager: lightweight, always-visible pages
@@ -324,7 +325,7 @@ function AppShell() {
 // AuthGate sta fuori dai provider che leggono localStorage all'avvio (privacy, modalità):
 // montano solo dopo che i dati dell'utente sono stati sincronizzati.
 // Pagine pubbliche: leggibili senza accesso (richieste anche da Google per il consenso OAuth).
-const PUBLIC_PAGES = { '/privacy': PrivacyPage, '/termini': TermsPage };
+const PUBLIC_PAGES = { '/privacy': PrivacyPage, '/termini': TermsPage, '/calcolatori': PublicCalculators };
 
 // Primo accesso di un cliente (modalità Guidata assegnata): l'esercizio Obiettivi è l'unica schermata
 // finché non è concluso. L'amministratore e chi usa l'app senza account non sono mai bloccati.

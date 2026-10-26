@@ -2026,7 +2026,7 @@ export default function Calcolatori() {
   const ActiveCalc = CALCULATORS.find(c => c.key === active)?.component ?? null;
 
   return (
-    <div>
+    <div className="calc-root">
       {/* Page header */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
